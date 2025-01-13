@@ -3,6 +3,9 @@ package org.usvm.machine
 import io.ksmt.expr.KBitVecValue
 import io.ksmt.utils.BvUtils.toBigIntegerSigned
 import org.ton.bytecode.TvmCodeBlock
+import org.ton.bytecode.TvmInst
+import org.ton.bytecode.TvmInstLambdaLocation
+import org.ton.bytecode.TvmInstLocation
 import org.ton.bytecode.TvmMethod
 import org.usvm.UBvSort
 import org.usvm.UExpr
@@ -43,4 +46,12 @@ fun truncateSliceCell(slice: TvmTestSliceValue): TvmTestDataCellValue {
 inline fun <reified T> getResourcePath(path: String): Path {
     return T::class.java.getResource(path)?.path?.let { Path(it) }
         ?: error("Resource $path was not found")
+}
+
+fun TvmInst.getRootLocation(): TvmInstLocation {
+    var curLoc = location
+    while (curLoc is TvmInstLambdaLocation) {
+        curLoc = curLoc.parent
+    }
+    return curLoc
 }

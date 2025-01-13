@@ -29,11 +29,7 @@ private class TvmStatementOperations(
     private val code: TvmContractCode
 ): UDebugProfileObserver.StatementOperations<TvmInst, TvmCodeBlock, TvmState> {
     override fun getMethodOfStatement(statement: TvmInst): TvmCodeBlock {
-        var curLoc = statement.location
-        while (curLoc is TvmInstLambdaLocation) {
-            curLoc = curLoc.parent
-        }
-        return curLoc.codeBlock
+        return statement.getRootLocation().codeBlock
     }
 
     override fun getMethodToCallIfCallStatement(statement: TvmInst): TvmMethod? {

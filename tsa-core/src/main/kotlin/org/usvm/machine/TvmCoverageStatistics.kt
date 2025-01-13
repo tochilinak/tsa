@@ -67,6 +67,12 @@ class TvmCoverageStatistics(
             return
         }
 
+        val rootLocation = stmt.getRootLocation()
+        // instructions from main are not counted
+        if (rootLocation !is TvmInstMethodLocation) {
+            return
+        }
+
         coveredStatements.add(stmt)
 
         val location = stmt.location
