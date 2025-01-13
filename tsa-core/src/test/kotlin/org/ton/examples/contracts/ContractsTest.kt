@@ -1,12 +1,12 @@
 package org.ton.examples.contracts
 
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import org.ton.bytecode.MethodId
 import org.ton.examples.checkAtLeastOneStateForAllMethods
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.runHardTestsRegex
 import org.ton.runHardTestsVar
 import org.usvm.machine.BocAnalyzer
-import org.usvm.machine.MethodId
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.getResourcePath
 import kotlin.io.path.Path

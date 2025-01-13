@@ -6,10 +6,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
 import org.ton.TvmInputInfo
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.MethodId
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmMethod
+import org.ton.bytecode.disassembleBoc
 import org.ton.cell.Cell
-import org.ton.disasm.TvmDisassembler
 import org.usvm.machine.FuncAnalyzer.Companion.FIFT_EXECUTABLE
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmState
@@ -49,12 +50,12 @@ sealed interface TvmAnalyzer {
         tvmOptions: TvmOptions = TvmOptions(quietMode = true, timeout = 10.minutes),
     ): TvmContractSymbolicTestResult
 
-    fun convertToTvmContractCode(sourcesPath: Path): TvmContractCode
+    fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode
 }
 
 data object TactAnalyzer : TvmAnalyzer {
     @OptIn(ExperimentalPathApi::class)
-    override fun convertToTvmContractCode(sourcesPath: Path): TvmContractCode {
+    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
         val outputDir = createTempDirectory(CONFIG_OUTPUT_PREFIX)
         val sourcesInOutputDir = sourcesPath.copyTo(outputDir.resolve(sourcesPath.fileName))
         val configFile = createTactConfig(sourcesInOutputDir, outputDir)
@@ -138,7 +139,7 @@ class FuncAnalyzer(
     private val funcExecutablePath: Path = Paths.get(FUNC_EXECUTABLE)
     private val fiftExecutablePath: Path = Paths.get(FIFT_EXECUTABLE)
 
-    override fun convertToTvmContractCode(sourcesPath: Path): TvmContractCode {
+    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
         val tmpBocFile = createTempFile(suffix = ".boc")
         try {
             compileFuncSourceToBoc(sourcesPath, tmpBocFile)
@@ -205,7 +206,7 @@ class FiftAnalyzer(
 ) : TvmAnalyzer {
     private val fiftExecutablePath: Path = Paths.get(FIFT_EXECUTABLE)
 
-    override fun convertToTvmContractCode(sourcesPath: Path): TvmContractCode {
+    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
         val tmpBocFile = createTempFile(suffix = ".boc")
         try {
             compileFiftToBoc(sourcesPath, tmpBocFile)
@@ -233,7 +234,7 @@ class FiftAnalyzer(
     fun compileFiftCodeBlocksContract(
         fiftWorkDir: Path,
         codeBlocks: List<String>,
-    ): TvmContractCode {
+    ): TsaContractCode {
         val tmpBocFile = createTempFile(suffix = ".boc")
         try {
             compileFiftCodeBlocks(fiftWorkDir, codeBlocks, tmpBocFile)
@@ -387,21 +388,19 @@ data object BocAnalyzer : TvmAnalyzer {
         return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractDataHex, inputInfo, tvmOptions)
     }
 
-    override fun convertToTvmContractCode(sourcesPath: Path): TvmContractCode {
+    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
         return loadContractFromBoc(sourcesPath)
     }
 
-    fun loadContractFromBoc(bocFilePath: Path): TvmContractCode {
-        val boc = bocFilePath.toFile().readBytes()
-        val bytecodeJson = TvmDisassembler.disassemble(boc)
-
-        return TvmContractCode.fromJson(bytecodeJson.toString())
+    fun loadContractFromBoc(bocFilePath: Path): TsaContractCode {
+        val tvmContractCode = disassembleBoc(bocFilePath)
+        return TsaContractCode.construct(tvmContractCode)
     }
 }
 
 private fun runAnalysisInCatchingBlock(
     contractIdForCoverageStats: ContractId,
-    contractForCoverageStats: TvmContractCode,
+    contractForCoverageStats: TsaContractCode,
     method: TvmMethod,
     logInfoAboutAnalysis: Boolean = true,
     analysisRun: (TvmCoverageStatistics) -> List<TvmState>,
@@ -435,7 +434,7 @@ private fun runAnalysisInCatchingBlock(
     }
 
 fun analyzeInterContract(
-    contracts: List<TvmContractCode>,
+    contracts: List<TsaContractCode>,
     startContractId: ContractId,
     methodId: MethodId,
     inputInfo: TvmInputInfo = TvmInputInfo(),
@@ -474,7 +473,7 @@ fun analyzeInterContract(
 }
 
 fun analyzeAllMethods(
-    contract: TvmContractCode,
+    contract: TsaContractCode,
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhitelist: Set<MethodId>? = null,
     contractDataHex: String? = null,
@@ -520,8 +519,6 @@ data class FiftInterpreterResult(
 
 const val DEFAULT_CONTRACT_DATA_HEX = "b5ee9c7241010101000a00001000000185d258f59ccfc59500"
 private const val COMPILER_TIMEOUT = 5.toLong() // seconds
-
-typealias MethodId = BigInteger
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun Int.toMethodId(): MethodId = toBigInteger()

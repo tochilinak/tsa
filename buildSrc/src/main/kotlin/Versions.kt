@@ -11,9 +11,11 @@ object Versions {
     const val junitParams = "5.9.3"
     const val logback = "1.4.8"
     const val usvm = "aee926e88f31af801192239d8997d213f9145424"
+    const val tvmDisasm = "26c235621bbce57c502e8ab741b0c2b24aa9a8df"
 }
 
 object Packages {
     const val usvm = "com.github.UnitTestBot.usvm"
     const val ksmtBv2Int = "com.github.bupaheh.ksmt"
+    const val tvmDisasm = "com.github.espritoxyz.ton-disassembler"
 }

@@ -1,6 +1,6 @@
 package org.usvm
 
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.usvm.checkers.TvmChecker
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.FuncAnalyzer
@@ -15,7 +15,7 @@ import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
 
-fun getContractFromBytes(bytes: ByteArray): TvmContractCode{
+fun getContractFromBytes(bytes: ByteArray): TsaContractCode{
     val tmpBocFile = createTempFile(suffix = ".boc")
     try {
         tmpBocFile.writeBytes(bytes)
@@ -25,7 +25,7 @@ fun getContractFromBytes(bytes: ByteArray): TvmContractCode{
     }
 }
 
-fun getFuncContract(path: Path, funcStdlibPath: Path, fiftStdlibPath: Path, isTSAChecker: Boolean = false): TvmContractCode {
+fun getFuncContract(path: Path, funcStdlibPath: Path, fiftStdlibPath: Path, isTSAChecker: Boolean = false): TsaContractCode {
     val tmpBocFile = createTempFile(suffix = ".boc")
     try {
         FuncAnalyzer(funcStdlibPath, fiftStdlibPath)
@@ -40,7 +40,7 @@ fun getFuncContract(path: Path, funcStdlibPath: Path, fiftStdlibPath: Path, isTS
     }
 }
 
-fun setTSACheckerFunctions(contractCode: TvmContractCode) {
+fun setTSACheckerFunctions(contractCode: TsaContractCode) {
     contractCode.isContractWithTSACheckerFunctions = true
 }
 
@@ -72,4 +72,5 @@ class FirstFailureTerminator : StopStrategy, UMachineObserver<TvmState> {
 }
 
 internal fun Path?.resolveResourcePath(resourceName: String): Path =
+    // For this path presenting, drop the first `/` char in the resource name to make it a relative path
     this?.resolve(resourceName.substring(startIndex = 1)) ?: getResourcePath<TvmChecker>(resourceName)

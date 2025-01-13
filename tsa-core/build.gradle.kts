@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":tvm-disasm"))
+    implementation(group = Packages.tvmDisasm, name = "tvm-opcodes", version = Versions.tvmDisasm)
 
     implementation("org.ton:ton-kotlin-crypto:0.3.1")
     implementation("org.ton:ton-kotlin-tvm:0.3.1")

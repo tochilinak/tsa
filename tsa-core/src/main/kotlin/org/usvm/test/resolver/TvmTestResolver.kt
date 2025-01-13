@@ -1,9 +1,9 @@
 package org.usvm.test.resolver
 
 import org.ton.TlbResolvedBuiltinLabel
+import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmMethod
-import org.usvm.machine.MethodId
 import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.tryCatchIf

@@ -12,10 +12,10 @@ import io.github.detekt.sarif4k.ThreadFlow
 import io.github.detekt.sarif4k.ThreadFlowLocation
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.encodeToJsonElement
+import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmContractCode
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmMethod
-import org.usvm.machine.MethodId
 import org.usvm.machine.state.TvmMethodResult.TvmFailure
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
 import org.usvm.test.resolver.TvmExecutionWithStructuralError

@@ -10,7 +10,6 @@ dependencies {
     implementation(project(":tsa-core"))
     implementation(project(":tsa-sarif"))
     implementation(project(":tsa-test-gen"))
-    implementation(project(":tvm-disasm"))
 
     implementation("com.github.ajalt.clikt:clikt:${Versions.clikt}")
 

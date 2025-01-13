@@ -6,7 +6,6 @@ import io.ksmt.utils.uncheckedCast
 import io.ksmt.expr.KInterpretedValue
 import io.ksmt.sort.KBvSort
 import org.ton.bytecode.TvmCell
-import org.ton.bytecode.TvmSubSliceSerializedLoader
 import org.usvm.machine.types.TvmCellType
 import org.usvm.machine.types.TvmSliceType
 import org.usvm.UBoolExpr
@@ -863,6 +862,12 @@ fun TvmStepScopeManager.allocCellFromData(
     cell
 }
 
+fun TvmState.allocSliceFromCell(data: TvmCell): UHeapRef {
+    val sliceCell = allocateCell(data)
+
+    return allocSliceFromCell(sliceCell)
+}
+
 fun TvmState.allocSliceFromData(data: UExpr<UBvSort>): UHeapRef = with(ctx) {
     val sliceCell = allocCellFromData(data)
 
@@ -928,12 +933,6 @@ fun TvmState.getSliceRemainingBitsCount(slice: UHeapRef): UExpr<TvmSizeSort> = w
     val dataPos = memory.readField(slice, sliceDataPosField, sizeSort)
 
     mkBvSubExpr(dataLength, dataPos)
-}
-
-context(TvmContext)
-fun TvmSubSliceSerializedLoader.bitsToBv(): KBitVecValue<UBvSort> {
-    // todo: check bits order
-    return mkBv(bits.joinToString(""), bits.size.toUInt())
 }
 
 private fun <Field, Sort : USort> UWritableMemory<*>.copyField(from: UHeapRef, to: UHeapRef, field: Field, sort: Sort) {

@@ -2,6 +2,7 @@ package org.usvm.machine
 
 import io.ksmt.expr.KBitVecValue
 import io.ksmt.utils.BvUtils.toBigIntegerSigned
+import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmCodeBlock
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmInstLambdaLocation

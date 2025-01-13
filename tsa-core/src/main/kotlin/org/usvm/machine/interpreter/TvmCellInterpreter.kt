@@ -1,7 +1,7 @@
 package org.usvm.machine.interpreter
 
 import org.ton.Endian
-import org.ton.bytecode.TvmAliasInst
+import org.ton.bytecode.TvmCell
 import org.ton.bytecode.TvmCellBuildBbitsInst
 import org.ton.bytecode.TvmCellBuildEndcInst
 import org.ton.bytecode.TvmCellBuildInst
@@ -86,7 +86,6 @@ import org.ton.bytecode.TvmCellParseSrefsInst
 import org.ton.bytecode.TvmCellParseSskiplastInst
 import org.ton.bytecode.TvmCellParseXctosInst
 import org.ton.bytecode.TvmInst
-import org.ton.bytecode.TvmSubSliceSerializedLoader
 import org.usvm.UConcreteHeapRef
 import org.usvm.UExpr
 import org.usvm.UHeapRef
@@ -107,11 +106,9 @@ import org.usvm.machine.state.addInt
 import org.usvm.machine.state.addOnStack
 import org.usvm.machine.state.allocEmptyCell
 import org.usvm.machine.state.allocSliceFromCell
-import org.usvm.machine.state.allocSliceFromData
 import org.usvm.machine.state.assertDataLengthConstraint
 import org.usvm.machine.state.assertRefsLengthConstraint
 import org.usvm.machine.state.assertType
-import org.usvm.machine.state.bitsToBv
 import org.usvm.machine.state.builderCopy
 import org.usvm.machine.state.builderStoreDataBits
 import org.usvm.machine.state.builderStoreInt
@@ -252,7 +249,6 @@ class TvmCellInterpreter(
                 visitBeginsXInst(scope, stmt, quiet = true)
             }
             is TvmCellParseCdepthInst -> visitCellDepthInst(scope, stmt)
-            is TvmAliasInst -> visitCellParseInst(scope, stmt.resolveAlias() as TvmCellParseInst)
             else -> TODO("Unknown stmt: $stmt")
         }
     }
@@ -789,16 +785,15 @@ class TvmCellInterpreter(
     private fun visitBeginsInst(
         scope: TvmStepScopeManager,
         stmt: TvmCellParseInst,
-        s: TvmSubSliceSerializedLoader,
+        s: TvmCell,
         quiet: Boolean
-    ) = with(ctx) {
+    ) {
         doBeginsInst(scope, stmt, quiet) {
             check(s.refs.isEmpty()) {
                 "Unexpected refs in $stmt"
             }
 
-            val prefixData = s.bitsToBv()
-            scope.calcOnState { allocSliceFromData(prefixData) }
+            scope.calcOnState { allocSliceFromCell(s) }
         }
     }
 

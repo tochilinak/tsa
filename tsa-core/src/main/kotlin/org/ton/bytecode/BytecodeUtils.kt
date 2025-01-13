@@ -15,9 +15,6 @@ const val INCOMING_VALUE_PARAMETER_IDX: Int = 11
 const val STORAGE_FEES_PARAMETER_IDX: Int = 12
 const val PREV_BLOCK_PARAMETER_IDX: Int = 13
 
-fun TvmInst.resolvedAlias(): TvmInst =
-    if (this is TvmAliasInst) resolveAlias() else this
-
 fun List<TvmInst>.flattenStatements(): List<TvmInst> {
     val statements = mutableListOf<TvmInst>()
     val stack = mutableListOf(TvmInstList(this))

@@ -7,10 +7,11 @@ plugins {
 }
 
 dependencies {
+    implementation(group = Packages.tvmDisasm, name = "tvm-opcodes", version = Versions.tvmDisasm)
+
     implementation(project(":tsa-core"))
     implementation(project(":tsa-sarif"))
     implementation(project(":tsa-test-gen"))
-    implementation(project(":tvm-disasm"))
 
     implementation("org.ton:ton-kotlin-crypto:0.3.1")
     implementation("org.ton:ton-kotlin-tvm:0.3.1")
@@ -57,10 +58,4 @@ tasks.withType<ShadowJar> {
         into("resources")
         exclude("META_INF/**", mainClassName)
     }
-}
-
-val pathToSpec = File(rootProject.projectDir, "tvm-spec/cp0.json")
-
-tasks.processResources {
-    from(pathToSpec)
 }

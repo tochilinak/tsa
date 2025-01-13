@@ -1,7 +1,6 @@
 package org.ton.bytecode
 
 import org.usvm.UExpr
-import org.usvm.machine.MethodId
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.state.C0Register
 import org.usvm.machine.state.C1Register
@@ -79,7 +78,7 @@ data class TvmMethodReturnContinuation(
 }
 
 /**
- * A continuation used to count loop iterations using [TvmArtificialLoopEntranceInst]
+ * A continuation used to count loop iterations using [TsaArtificialLoopEntranceInst]
  */
 data class TvmLoopEntranceContinuation(
     val loopBody: TvmContinuation,
@@ -90,8 +89,8 @@ data class TvmLoopEntranceContinuation(
 
     val codeBlock = TvmLambda(
         mutableListOf(
-            TvmArtificialLoopEntranceInst(id, TvmInstLambdaLocation(0).also { it.parent = parentLocation }),
-            TvmArtificialJmpToContInst(loopBody, TvmInstLambdaLocation(1).also { it.parent = parentLocation }),
+            TsaArtificialLoopEntranceInst(id, TvmInstLambdaLocation(0).also { it.parent = parentLocation }),
+            TsaArtificialJmpToContInst(loopBody, TvmInstLambdaLocation(1).also { it.parent = parentLocation }),
         )
     )
 

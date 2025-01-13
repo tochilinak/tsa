@@ -1,7 +1,7 @@
 package org.usvm.report
 
 import kotlinx.serialization.Serializable
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.ton.extractJettonContractInfo
 import org.usvm.checkers.BlacklistAddressChecker
 import org.usvm.getContractFromBytes
@@ -35,7 +35,7 @@ fun runAnalysisAndCreateReport(address: String): JettonWalletPropertiesReport {
 }
 
 @OptIn(ExperimentalPathApi::class)
-fun runAnalysisAndCreateReport(contract: TvmContractCode): Set<String> {
+fun runAnalysisAndCreateReport(contract: TsaContractCode): Set<String> {
     val targetResourcesDir = makeTmpDirForResourcesForJarEnvironmentOrNull()
 
     try {

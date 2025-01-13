@@ -7,7 +7,7 @@ import org.ton.bytecode.TvmContDictCalldictLongInst
 import org.ton.bytecode.TvmContOperand1Inst
 import org.ton.bytecode.TvmContOperand2Inst
 import org.ton.bytecode.TvmContOperandInst
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmInstLambdaLocation
 import org.ton.bytecode.TvmInstLocation
@@ -16,7 +16,7 @@ import org.ton.bytecode.TvmMethod
 import org.usvm.machine.state.TvmState
 import org.usvm.statistics.UDebugProfileObserver
 
-fun getTvmDebugProfileObserver(code: TvmContractCode) =
+fun getTvmDebugProfileObserver(code: TsaContractCode) =
     UDebugProfileObserver(
         TvmStatementOperations(code),
         profilerOptions = UDebugProfileObserver.Options(
@@ -26,7 +26,7 @@ fun getTvmDebugProfileObserver(code: TvmContractCode) =
     )
 
 private class TvmStatementOperations(
-    private val code: TvmContractCode
+    private val code: TsaContractCode
 ): UDebugProfileObserver.StatementOperations<TvmInst, TvmCodeBlock, TvmState> {
     override fun getMethodOfStatement(statement: TvmInst): TvmCodeBlock {
         return statement.getRootLocation().codeBlock
@@ -75,6 +75,7 @@ private class TvmStatementOperations(
         return when (method) {
             is TvmMethod -> "Method ${method.id}"
             is TvmLambda -> "TvmLambda"
+            else -> error("Unexpected TvmCodeBlock: $method")
         }
     }
 

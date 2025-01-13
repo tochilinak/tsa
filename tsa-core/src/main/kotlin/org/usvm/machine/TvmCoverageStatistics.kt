@@ -1,7 +1,8 @@
 package org.usvm.machine
 
+import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmArtificialInst
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmInstMethodLocation
 import org.ton.bytecode.TvmMethod
@@ -16,7 +17,7 @@ import org.ton.bytecode.flattenStatements
 // Note that one instance should be used only one per method.
 class TvmCoverageStatistics(
     private val observedContractId: ContractId,
-    private val contractCode: TvmContractCode
+    private val contractCode: TsaContractCode
 ) : UMachineObserver<TvmState> {
     private val coveredStatements: MutableSet<TvmInst> = newSetFromMap(IdentityHashMap())
     private val visitedMethods: MutableSet<MethodId> = hashSetOf()

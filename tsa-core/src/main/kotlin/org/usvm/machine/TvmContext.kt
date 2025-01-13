@@ -11,6 +11,7 @@ import io.ksmt.utils.BvUtils.toBigIntegerSigned
 import io.ksmt.utils.asExpr
 import io.ksmt.utils.powerOfTwo
 import io.ksmt.utils.toBigInteger
+import org.ton.bytecode.MethodId
 import java.math.BigInteger
 import org.ton.bytecode.TvmField
 import org.ton.bytecode.TvmFieldImpl

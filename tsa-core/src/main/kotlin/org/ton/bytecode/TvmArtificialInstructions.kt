@@ -1,30 +1,17 @@
 package org.ton.bytecode
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.modules.SerializersModuleBuilder
-import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
 
-@Serializable
-sealed interface TvmArtificialInst : TvmInst {
-    override val gasConsumption: TvmGas
-        get() = TvmFixedGas(value = 0)
-
-    fun checkLocationInitialized() {
-        val lambdaLoc = location as? TvmInstLambdaLocation
-        // this will fail if parent is not initialized
-        lambdaLoc?.parent
-    }
-}
+sealed interface TsaArtificialInst : TvmArtificialInst
 
 /**
  * Instruction that marks the beginning of a loop iteration
  */
 @Serializable
-data class TvmArtificialLoopEntranceInst(
+data class TsaArtificialLoopEntranceInst(
     val id: UInt,
     override val location: TvmInstLocation,
-) : TvmArtificialInst, TvmContLoopsInst {
+) : TsaArtificialInst {
     override val mnemonic: String get() = "artificial_loop_entrance"
 
     init {
@@ -33,9 +20,9 @@ data class TvmArtificialLoopEntranceInst(
 }
 
 @Serializable
-data class TvmArtificialImplicitRetInst(
+data class TsaArtificialImplicitRetInst(
     override val location: TvmInstLocation,
-) : TvmArtificialInst, TvmContBasicInst {
+) : TsaArtificialInst {
     override val mnemonic: String get() = "implicit RET"
     override val gasConsumption get() = TvmFixedGas(value = 5)
 
@@ -44,15 +31,15 @@ data class TvmArtificialImplicitRetInst(
     }
 }
 
-sealed interface TvmArtificialContInst : TvmArtificialInst, TvmContBasicInst {
+sealed interface TsaArtificialContInst : TsaArtificialInst {
     val cont: TvmContinuation
 }
 
 @Serializable
-data class TvmArtificialJmpToContInst(
+data class TsaArtificialJmpToContInst(
     override val cont: TvmContinuation,
     override val location: TvmInstLocation,
-) : TvmArtificialContInst {
+) : TsaArtificialContInst {
     override val mnemonic: String get() = "artificial_jmp_to_$cont"
 
     init {
@@ -60,10 +47,10 @@ data class TvmArtificialJmpToContInst(
     }
 }
 
-class TvmArtificialExecuteContInst(
+class TsaArtificialExecuteContInst(
     override val cont: TvmContinuation,
     override val location: TvmInstLocation
-) : TvmArtificialContInst {
+) : TsaArtificialContInst {
     override val mnemonic: String get() = "artificial_execute_$cont"
 
     init {

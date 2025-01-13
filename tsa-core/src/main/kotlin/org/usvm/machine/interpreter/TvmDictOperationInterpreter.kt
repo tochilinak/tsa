@@ -956,7 +956,7 @@ class TvmDictOperationInterpreter(
             }
 
             DictKeyType.SLICE -> {
-                val resultSlice = allocSliceFromData(key)
+                val resultSlice = this@storeKey.allocSliceFromData(key)
                 addOnStack(resultSlice, TvmSliceType)
             }
         }

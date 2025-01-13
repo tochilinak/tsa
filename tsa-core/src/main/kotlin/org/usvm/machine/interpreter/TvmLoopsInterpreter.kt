@@ -1,7 +1,6 @@
 package org.usvm.machine.interpreter
 
 import org.ton.bytecode.TvmAgainContinuation
-import org.ton.bytecode.TvmArtificialLoopEntranceInst
 import org.ton.bytecode.TvmContLoopsAgainInst
 import org.ton.bytecode.TvmContLoopsAgainbrkInst
 import org.ton.bytecode.TvmContLoopsAgainendInst
@@ -35,8 +34,6 @@ import org.usvm.machine.state.defineC0
 import org.usvm.machine.state.defineC1
 import org.usvm.machine.state.extractCurrentContinuation
 import org.usvm.machine.state.jump
-import org.usvm.machine.state.newStmt
-import org.usvm.machine.state.nextStmt
 import org.usvm.machine.state.signedIntegerFitsBits
 import org.usvm.machine.state.takeLastContinuation
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
@@ -64,10 +61,6 @@ class TvmLoopsInterpreter(private val ctx: TvmContext) {
             is TvmContLoopsAgainendInst -> visitAgainEndInst(scope, stmt, hasBreak = false)
             is TvmContLoopsAgainbrkInst -> visitAgainInst(scope, stmt, hasBreak = true)
             is TvmContLoopsAgainendbrkInst -> visitAgainEndInst(scope, stmt, hasBreak = true)
-            is TvmArtificialLoopEntranceInst -> {
-                scope.consumeDefaultGas(stmt)
-                scope.doWithState { newStmt(stmt.nextStmt()) }
-            }
         }
     }
 

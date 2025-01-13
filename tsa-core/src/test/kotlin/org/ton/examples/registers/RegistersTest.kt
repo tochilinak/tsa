@@ -1,12 +1,12 @@
 package org.ton.examples.registers
 
+import org.ton.bytecode.MethodId
 import java.math.BigInteger
 import org.ton.examples.compareSymbolicAndConcreteResults
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.compileFuncToFift
 import org.ton.examples.runFiftMethod
 import org.ton.examples.testFiftOptions
-import org.usvm.machine.MethodId
 import kotlin.io.path.Path
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists

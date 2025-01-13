@@ -2,6 +2,7 @@ package org.usvm.checkers
 
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmContractCode
 import org.ton.tlb.readFromJson
 import org.usvm.FIFT_STDLIB_PATH
@@ -30,7 +31,7 @@ data class BlacklistAddressChecker(private val resourcesDir: Path?) : TvmChecker
     )
 
     override fun findConflictingExecutions(
-        contractUnderTest: TvmContractCode,
+        contractUnderTest: TsaContractCode,
         stopWhenFoundOneConflictingExecution: Boolean
     ): List<TvmSymbolicTest> {
         val checkerContract = getFuncContract(checkerResourcePath, funcStdlibPath, fiftStdlibPath, isTSAChecker = true)

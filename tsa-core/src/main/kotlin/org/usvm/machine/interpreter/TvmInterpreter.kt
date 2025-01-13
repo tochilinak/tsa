@@ -9,7 +9,9 @@ import kotlinx.collections.immutable.toPersistentMap
 import mu.KLogging
 import org.ton.TvmContractHandlers
 import org.ton.TvmInputInfo
-import org.ton.bytecode.TvmAliasInst
+import org.ton.bytecode.MethodId
+import org.ton.bytecode.TsaArtificialExecuteContInst
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmAppActionsInst
 import org.ton.bytecode.TvmAppAddrInst
 import org.ton.bytecode.TvmAppConfigInst
@@ -48,9 +50,7 @@ import org.ton.bytecode.TvmArithmLogicalUbitsizeInst
 import org.ton.bytecode.TvmArithmLogicalUfitsInst
 import org.ton.bytecode.TvmArithmLogicalUfitsxInst
 import org.ton.bytecode.TvmArithmLogicalXorInst
-import org.ton.bytecode.TvmArtificialExecuteContInst
-import org.ton.bytecode.TvmArtificialImplicitRetInst
-import org.ton.bytecode.TvmArtificialJmpToContInst
+import org.ton.bytecode.TvmArtificialInst
 import org.ton.bytecode.TvmCellBuildInst
 import org.ton.bytecode.TvmCellParseInst
 import org.ton.bytecode.TvmCellValue
@@ -129,7 +129,6 @@ import org.ton.bytecode.TvmContRegistersSamealtsaveInst
 import org.ton.bytecode.TvmContRegistersSaveInst
 import org.ton.bytecode.TvmContRegistersSetcontctrInst
 import org.ton.bytecode.TvmContinuation
-import org.ton.bytecode.TvmContractCode
 import org.ton.bytecode.TvmDebugInst
 import org.ton.bytecode.TvmDictInst
 import org.ton.bytecode.TvmDictSpecialDictigetjmpzInst
@@ -202,7 +201,6 @@ import org.usvm.api.writeField
 import org.usvm.collections.immutable.internal.MutabilityOwnership
 import org.usvm.constraints.UPathConstraints
 import org.usvm.forkblacklists.UForkBlackList
-import org.usvm.machine.MethodId
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
 import org.usvm.machine.TvmContext.Companion.MAX_DATA_LENGTH
@@ -237,9 +235,7 @@ import org.usvm.machine.state.addInt
 import org.usvm.machine.state.addOnStack
 import org.usvm.machine.state.addTuple
 import org.usvm.machine.state.allocSliceFromCell
-import org.usvm.machine.state.allocSliceFromData
 import org.usvm.machine.state.allocateCell
-import org.usvm.machine.state.bitsToBv
 import org.usvm.machine.state.bvMaxValueSignedExtended
 import org.usvm.machine.state.bvMaxValueUnsignedExtended
 import org.usvm.machine.state.bvMinValueSignedExtended
@@ -273,7 +269,6 @@ import org.usvm.machine.state.getSliceRemainingBitsCount
 import org.usvm.machine.state.getSliceRemainingRefsCount
 import org.usvm.machine.state.initContractInfo
 import org.usvm.machine.state.initializeContractExecutionMemory
-import org.usvm.machine.state.jump
 import org.usvm.machine.state.killCurrentState
 import org.usvm.machine.state.lastStmt
 import org.usvm.machine.state.newStmt
@@ -309,7 +304,7 @@ import org.usvm.targets.UTargetsSet
 // TODO there are a lot of `scope.calcOnState` and `scope.doWithState` invocations that are not inline - optimize it
 class TvmInterpreter(
     private val ctx: TvmContext,
-    private val contractsCode: List<TvmContractCode>,
+    private val contractsCode: List<TsaContractCode>,
     val typeSystem: TvmTypeSystem,
     private val inputInfo: TvmInputInfo,
     var forkBlackList: UForkBlackList<TvmState, TvmInst> = UForkBlackList.createDefault(),
@@ -334,6 +329,7 @@ class TvmInterpreter(
     private val globalsInterpreter = TvmGlobalsInterpreter(ctx)
     private val transactionInterpreter = TvmTransactionInterpreter(ctx, communicationScheme)
     private val tsaCheckerFunctionsInterpreter = TsaCheckerFunctionsInterpreter(contractsCode)
+    private val artificialInstInterpreter = TvmArtificialInstInterpreter()
 
     fun getInitialState(
         startContractId: ContractId,
@@ -696,6 +692,7 @@ class TvmInterpreter(
 
     private fun visit(scope: TvmStepScopeManager, stmt: TvmInst) {
         when (stmt) {
+            is TvmArtificialInst -> artificialInstInterpreter.visit(scope, stmt)
             is TvmStackBasicInst -> visitBasicStackInst(scope, stmt)
             is TvmStackComplexInst -> visitComplexStackInst(scope, stmt)
             is TvmConstIntInst -> visitConstantIntInst(scope, stmt)
@@ -742,7 +739,6 @@ class TvmInterpreter(
             is TvmStackBasicXchgIjInst -> doXchg(scope, stmt.i, stmt.j)
             is TvmStackBasicXchg1iInst -> doXchg(scope, stmt.i, 1)
             is TvmStackBasicXchg0iLongInst -> doXchg(scope, stmt.i, 0)
-            is TvmAliasInst -> visit(scope, stmt.resolveAlias())
         }
 
         scope.doWithState {
@@ -976,9 +972,7 @@ class TvmInterpreter(
                 check(stmt.s.refs.isEmpty()) { "Unexpected refs in $stmt" }
 
                 scope.doWithStateCtx {
-                    val sliceData = stmt.s.bitsToBv()
-
-                    val slice = scope.calcOnState { allocSliceFromData(sliceData) }
+                    val slice = scope.calcOnState { allocSliceFromCell(stmt.s) }
 
                     scope.addOnStack(slice, TvmSliceType)
                     newStmt(stmt.nextStmt())
@@ -1012,9 +1006,7 @@ class TvmInterpreter(
                 }
 
                 scope.doWithStateCtx {
-                    val sliceData = stmt.slice.bitsToBv()
-
-                    val slice = scope.calcOnState { allocSliceFromData(sliceData) }
+                    val slice = scope.calcOnState { allocSliceFromCell(stmt.slice) }
 
                     scope.addOnStack(slice, TvmSliceType)
                     newStmt(stmt.nextStmt())
@@ -1470,7 +1462,6 @@ class TvmInterpreter(
         scope.consumeDefaultGas(stmt)
 
         when (stmt) {
-            is TvmAliasInst -> visit(scope, stmt.resolveAlias())
             is TvmCompareIntEqintInst -> scope.doWithState {
                 val x = takeLastIntOrThrowTypeError() ?: return@doWithState
                 val y = stmt.y.toBv257()
@@ -1940,7 +1931,7 @@ class TvmInterpreter(
 
                 scope.switchToContinuation(stmt, continuationValue, returnToTheNextStmt = true)
             }
-            is TvmContBasicRetInst, is TvmArtificialImplicitRetInst -> {
+            is TvmContBasicRetInst -> {
                 scope.consumeDefaultGas(stmt)
 
                 scope.returnFromContinuation()
@@ -1956,16 +1947,6 @@ class TvmInterpreter(
                 val continuationValue = TvmOrdContinuation(TvmLambda(stmt.c.list.toMutableList()))
 
                 scope.switchToContinuation(stmt, continuationValue, returnToTheNextStmt = true)
-            }
-            is TvmArtificialJmpToContInst -> {
-                scope.consumeDefaultGas(stmt)
-
-                scope.jump(stmt.cont)
-            }
-            is TvmArtificialExecuteContInst -> {
-                scope.consumeDefaultGas(stmt)
-
-                scope.switchToContinuation(stmt, stmt.cont, returnToTheNextStmt = true)
             }
             is TvmContBasicCallxargsVarInst -> {
                 scope.consumeDefaultGas(stmt)
@@ -2128,14 +2109,14 @@ class TvmInterpreter(
 //                        registers = continuation.registers
 //                        stack = continuation.stack
 
-                    newStmt(TvmArtificialExecuteContInst(firstContinuation, stmt.location))
+                    newStmt(TsaArtificialExecuteContInst(firstContinuation, stmt.location))
                 },
                 blockOnFalseState = {
                     // TODO really?
 //                        registers = continuation.registers
 //                        stack = continuation.stack
 
-                    newStmt(TvmArtificialExecuteContInst(secondContinuation, stmt.location))
+                    newStmt(TsaArtificialExecuteContInst(secondContinuation, stmt.location))
                 }
             )
         }

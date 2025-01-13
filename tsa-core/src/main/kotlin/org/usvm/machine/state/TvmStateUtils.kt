@@ -1,14 +1,12 @@
 package org.usvm.machine.state
 
 import io.ksmt.utils.powerOfTwo
-import org.ton.bytecode.TvmArtificialJmpToContInst
+import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TvmCellValue
-import org.ton.bytecode.TvmCodeBlock
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmExceptionContinuation
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmLambda
-import org.ton.bytecode.TvmMethod
 import org.ton.bytecode.TvmOrdContinuation
 import org.usvm.NULL_ADDRESS
 import org.usvm.UBoolExpr
@@ -72,7 +70,7 @@ fun TvmContext.setFailure(
     if (state.c2IsDefault()) {
         state.methodResult = TvmMethodResult.TvmFailure(failure, level)
     } else {
-        state.newStmt(TvmArtificialJmpToContInst(c2, state.lastStmt.location))
+        state.newStmt(TsaArtificialJmpToContInst(c2, state.lastStmt.location))
     }
 }
 
@@ -261,7 +259,7 @@ fun TvmStepScopeManager.killCurrentState() = doWithCtx {
 }
 
 fun initializeContractExecutionMemory(
-    contractsCode: List<TvmContractCode>,
+    contractsCode: List<TsaContractCode>,
     state: TvmState,
     contractId: ContractId,
     allowInputStackValues: Boolean,

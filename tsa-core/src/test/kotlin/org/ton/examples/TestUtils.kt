@@ -2,14 +2,14 @@ package org.ton.examples
 
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.MethodId
+import org.ton.bytecode.TsaContractCode
 import org.ton.examples.types.InputParameterInfoTests
 import org.ton.tlb.readFromJson
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.FiftAnalyzer
 import org.usvm.machine.FiftInterpreterResult
 import org.usvm.machine.FuncAnalyzer
-import org.usvm.machine.MethodId
 import org.usvm.machine.TactAnalyzer
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.intValue
@@ -107,7 +107,7 @@ fun compileAndAnalyzeFift(
 fun compileFiftCodeBlocksContract(
     fiftWorkDir: Path,
     codeBlocks: List<String>,
-): TvmContractCode = FiftAnalyzer(
+): TsaContractCode = FiftAnalyzer(
     fiftStdlibPath = FIFT_STDLIB_RESOURCE,
 ).compileFiftCodeBlocksContract(fiftWorkDir, codeBlocks)
 
@@ -143,7 +143,7 @@ fun analyzeFuncIntercontract(
     )
 }
 
-fun getFuncContract(path: Path, funcStdlibPath: Path, fiftStdlibPath: Path): TvmContractCode {
+fun getFuncContract(path: Path, funcStdlibPath: Path, fiftStdlibPath: Path): TsaContractCode {
     val tmpBocFile = kotlin.io.path.createTempFile(suffix = ".boc")
     try {
         FuncAnalyzer(funcStdlibPath, fiftStdlibPath)

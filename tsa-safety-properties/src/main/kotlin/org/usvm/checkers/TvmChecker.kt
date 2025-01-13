@@ -1,11 +1,11 @@
 package org.usvm.checkers
 
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.usvm.test.resolver.TvmSymbolicTest
 
 interface TvmChecker {
     fun findConflictingExecutions(
-        contractUnderTest: TvmContractCode,
+        contractUnderTest: TsaContractCode,
         stopWhenFoundOneConflictingExecution: Boolean = false,
     ): List<TvmSymbolicTest>
 }

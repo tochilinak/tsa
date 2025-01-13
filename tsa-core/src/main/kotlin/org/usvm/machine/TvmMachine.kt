@@ -3,7 +3,7 @@ package org.usvm.machine
 import mu.KLogging
 import org.ton.TvmInputInfo
 import org.ton.bytecode.TvmCodeBlock
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmInst
 import org.ton.cell.Cell
 import org.usvm.PathSelectionStrategy
@@ -38,7 +38,7 @@ class TvmMachine(
     private val ctx = TvmContext(tvmOptions, components)
 
     fun analyze(
-        contractCode: TvmContractCode,
+        contractCode: TsaContractCode,
         contractData: Cell,
         coverageStatistics: TvmCoverageStatistics,
         methodId: BigInteger,
@@ -47,7 +47,7 @@ class TvmMachine(
         analyze(listOf(contractCode), startContractId = 0, contractData, coverageStatistics, methodId, inputInfo)
 
     fun analyze(
-        contractsCode: List<TvmContractCode>,
+        contractsCode: List<TsaContractCode>,
         startContractId: ContractId,
         contractData: Cell,
         coverageStatistics: TvmCoverageStatistics,  // TODO: adapt for several contracts

@@ -1,7 +1,7 @@
 package org.usvm.machine.state
 
 import org.ton.bytecode.TvmAgainContinuation
-import org.ton.bytecode.TvmArtificialJmpToContInst
+import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TvmCellValue
 import org.ton.bytecode.TvmContinuation
 import org.ton.bytecode.TvmExceptionContinuation
@@ -249,7 +249,7 @@ private fun TvmStepScopeManager.doUntilJump(cont: TvmUntilContinuation) {
         continueLoopCondition,
         falseStateIsExceptional = false,
         blockOnFalseState = {
-            newStmt(TvmArtificialJmpToContInst(cont.after, lastStmt.location))
+            newStmt(TsaArtificialJmpToContInst(cont.after, lastStmt.location))
         }
     ) ?: return
 
@@ -271,7 +271,7 @@ private fun TvmStepScopeManager.doRepeatJump(cont: TvmRepeatContinuation) {
         isPositive,
         falseStateIsExceptional = false,
         blockOnFalseState = {
-            newStmt(TvmArtificialJmpToContInst(cont.after, lastStmt.location))
+            newStmt(TsaArtificialJmpToContInst(cont.after, lastStmt.location))
         }
     ) ?: return
 
@@ -300,7 +300,7 @@ private fun TvmStepScopeManager.doWhileJump(cont: TvmWhileContinuation) {
         continueLoopCondition,
         falseStateIsExceptional = false,
         blockOnFalseState = {
-            newStmt(TvmArtificialJmpToContInst(cont.after, lastStmt.location))
+            newStmt(TsaArtificialJmpToContInst(cont.after, lastStmt.location))
         }
     ) ?: return
 

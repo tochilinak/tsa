@@ -1,6 +1,6 @@
 package org.usvm.machine.interpreter
 
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmInst
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.TvmContractExecutionMemory
@@ -16,7 +16,7 @@ import org.usvm.machine.toMethodId
 import org.usvm.utils.intValueOrNull
 
 class TsaCheckerFunctionsInterpreter(
-    private val contractsCode: List<TvmContractCode>,
+    private val contractsCode: List<TsaContractCode>,
 ) {
     /**
      * return null if operation was executed.

@@ -1,9 +1,9 @@
 package org.usvm.checkers
 
 import org.ton.TvmInputInfo
-import org.ton.bytecode.TvmContractCode
+import org.ton.bytecode.MethodId
+import org.ton.bytecode.TsaContractCode
 import org.usvm.FirstFailureTerminator
-import org.usvm.machine.MethodId
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.analyzeInterContract
 import org.usvm.stopstrategies.StopStrategy
@@ -11,7 +11,7 @@ import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSymbolicTest
 
 fun runAnalysisAndExtractFailingExecutions(
-    contracts: List<TvmContractCode>,
+    contracts: List<TsaContractCode>,
     stopWhenFoundOneConflictingExecution: Boolean,
     inputInfo: TvmInputInfo?,
 ): List<TvmSymbolicTest> {
