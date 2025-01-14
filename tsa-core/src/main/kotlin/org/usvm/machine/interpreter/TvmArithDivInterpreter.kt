@@ -101,6 +101,7 @@ import org.usvm.machine.TvmContext.TvmInt257Ext256Sort
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.addInt
+import org.usvm.machine.state.checkOutOfRange
 import org.usvm.machine.state.checkOverflow
 import org.usvm.machine.state.consumeDefaultGas
 import org.usvm.machine.state.newStmt
@@ -835,15 +836,6 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
         )
     }
 
-    private fun checkInRange(expr: UExpr<TvmInt257Sort>, scope: TvmStepScopeManager, min: Int, max: Int) = with(ctx) {
-        val cond = mkBvSignedLessOrEqualExpr(min.toBv257(), expr) and mkBvSignedLessOrEqualExpr(expr, max.toBv257())
-        scope.fork(
-            cond,
-            falseStateIsExceptional = true,
-            blockOnFalseState = throwIntegerOutOfRangeError
-        )
-    }
-
     private fun takeOperandsAndCheckForZero(scope: TvmStepScopeManager): Pair<UExpr<TvmInt257Sort>, UExpr<TvmInt257Sort>>? {
         val secondOperand = scope.takeLastIntOrThrowTypeError() ?: return null
         val firstOperand = scope.takeLastIntOrThrowTypeError() ?: return null
@@ -897,7 +889,7 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
     ): Unit? = with(ctx) {
         val t = scope.takeLastIntOrThrowTypeError() ?: return null
 
-        checkInRange(t, scope, min = 0, max = 256)
+        checkOutOfRange(t, scope, min = 0, max = 256)
             ?: return null
 
         val x = scope.takeLastIntOrThrowTypeError() ?: return null
@@ -938,7 +930,7 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
         makeModX: (UExpr<TvmInt257Ext1Sort>, UExpr<TvmInt257Ext1Sort>) -> UExpr<TvmInt257Ext1Sort>
     ): Unit? = with(ctx) {
         val t = scope.takeLastIntOrThrowTypeError() ?: return@with null
-        checkInRange(t, scope, min = 0, max = 256)
+        checkOutOfRange(t, scope, min = 0, max = 256)
             ?: return null
         val x = scope.takeLastIntOrThrowTypeError() ?: return@with null
         doModpow2X(scope, x, t, makeModX)
@@ -975,7 +967,7 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
         makeDivOrMod: (UExpr<TvmInt257Ext256Sort>, UExpr<TvmInt257Ext256Sort>) -> List<UExpr<TvmInt257Ext256Sort>>?
     ) = with(ctx) {
         val t = scope.takeLastIntOrThrowTypeError() ?: return@with null
-        checkInRange(t, scope, min = 0, max = 256)
+        checkOutOfRange(t, scope, min = 0, max = 256)
             ?: return null
         val y = scope.takeLastIntOrThrowTypeError() ?: return@with null
         val x = scope.takeLastIntOrThrowTypeError() ?: return@with null
@@ -1015,7 +1007,7 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
         makeDivModX: (UExpr<TvmInt257Ext1Sort>, UExpr<TvmInt257Ext1Sort>) -> Pair<DivResult<TvmInt257Ext1Sort>, UExpr<TvmInt257Ext1Sort>>
     ): Unit? {
         val t = scope.takeLastIntOrThrowTypeError() ?: return null
-        checkInRange(t, scope, min = 0, max = 256)
+        checkOutOfRange(t, scope, min = 0, max = 256)
             ?: return null
         val w = scope.takeLastIntOrThrowTypeError() ?: return null
         val x = scope.takeLastIntOrThrowTypeError() ?: return null
@@ -1063,7 +1055,7 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
         makeDivModX: (UExpr<TvmInt257Ext256Sort>, UExpr<TvmInt257Ext256Sort>) -> Pair<DivResult<TvmInt257Ext256Sort>, UExpr<TvmInt257Ext256Sort>>
     ): Unit? {
         val t = scope.takeLastIntOrThrowTypeError() ?: return null
-        checkInRange(t, scope, min = 0, max = 256)
+        checkOutOfRange(t, scope, min = 0, max = 256)
             ?: return null
         val z = scope.takeLastIntOrThrowTypeError() ?: return null
         val w = scope.takeLastIntOrThrowTypeError() ?: return null
@@ -1141,7 +1133,7 @@ class TvmArithDivInterpreter(private val ctx: TvmContext) {
         makeDivX: (UExpr<TvmInt257Ext256Sort>, UExpr<TvmInt257Ext256Sort>) -> List<UExpr<TvmInt257Ext256Sort>>?
     ) = with(ctx) {
         val z = scope.takeLastIntOrThrowTypeError() ?: return null
-        checkInRange(z, scope, min = 0, max = 256)
+        checkOutOfRange(z, scope, min = 0, max = 256)
             ?: return null
         val y = scope.takeLastIntOrThrowTypeError() ?: return null
         val x = scope.takeLastIntOrThrowTypeError() ?: return null

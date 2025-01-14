@@ -3,15 +3,12 @@ package org.usvm.machine.interpreter
 import io.ksmt.expr.KInterpretedValue
 import io.ksmt.utils.BvUtils.bvMaxValueSigned
 import io.ksmt.utils.BvUtils.bvMinValueSigned
-import java.math.BigInteger
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentMap
 import mu.KLogging
 import org.ton.TvmContractHandlers
 import org.ton.TvmInputInfo
-import org.ton.bytecode.MethodId
-import org.ton.bytecode.TsaArtificialExecuteContInst
-import org.ton.bytecode.TsaContractCode
+import org.ton.bytecode.BALANCE_PARAMETER_IDX
 import org.ton.bytecode.TvmAppActionsInst
 import org.ton.bytecode.TvmAppAddrInst
 import org.ton.bytecode.TvmAppConfigInst
@@ -95,6 +92,7 @@ import org.ton.bytecode.TvmConstIntPushnegpow2Inst
 import org.ton.bytecode.TvmConstIntPushpow2Inst
 import org.ton.bytecode.TvmConstIntPushpow2decInst
 import org.ton.bytecode.TvmContBasicCallrefInst
+import org.ton.bytecode.TvmContBasicCallxargsInst
 import org.ton.bytecode.TvmContBasicCallxargsVarInst
 import org.ton.bytecode.TvmContBasicExecuteInst
 import org.ton.bytecode.TvmContBasicInst
@@ -117,6 +115,7 @@ import org.ton.bytecode.TvmContConditionalInst
 import org.ton.bytecode.TvmContDictCalldictInst
 import org.ton.bytecode.TvmContDictCalldictLongInst
 import org.ton.bytecode.TvmContDictInst
+import org.ton.bytecode.TvmContDictPreparedictInst
 import org.ton.bytecode.TvmContLoopsInst
 import org.ton.bytecode.TvmContRegistersComposInst
 import org.ton.bytecode.TvmContRegistersComposaltInst
@@ -128,6 +127,7 @@ import org.ton.bytecode.TvmContRegistersSamealtInst
 import org.ton.bytecode.TvmContRegistersSamealtsaveInst
 import org.ton.bytecode.TvmContRegistersSaveInst
 import org.ton.bytecode.TvmContRegistersSetcontctrInst
+import org.ton.bytecode.TvmContStackInst
 import org.ton.bytecode.TvmContinuation
 import org.ton.bytecode.TvmDebugInst
 import org.ton.bytecode.TvmDictInst
@@ -140,6 +140,7 @@ import org.ton.bytecode.TvmInstList
 import org.ton.bytecode.TvmInstMethodLocation
 import org.ton.bytecode.TvmLambda
 import org.ton.bytecode.TvmMainMethodLocation
+import org.ton.bytecode.TvmMethod
 import org.ton.bytecode.TvmOrdContinuation
 import org.ton.bytecode.TvmStackBasicInst
 import org.ton.bytecode.TvmStackBasicNopInst
@@ -228,6 +229,8 @@ import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmInitialStateData
 import org.usvm.machine.state.TvmMethodResult
 import org.usvm.machine.state.TvmRefEmptyValue
+import org.usvm.machine.state.TvmRegisters
+import org.usvm.machine.state.TvmStack
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.addContinuation
@@ -240,6 +243,8 @@ import org.usvm.machine.state.bvMaxValueSignedExtended
 import org.usvm.machine.state.bvMaxValueUnsignedExtended
 import org.usvm.machine.state.bvMinValueSignedExtended
 import org.usvm.machine.state.calcOnStateCtx
+import org.usvm.machine.state.callContinuation
+import org.usvm.machine.state.callContinuationComplex
 import org.usvm.machine.state.callMethod
 import org.usvm.machine.state.checkOutOfRange
 import org.usvm.machine.state.checkOverflow
@@ -269,6 +274,7 @@ import org.usvm.machine.state.getSliceRemainingBitsCount
 import org.usvm.machine.state.getSliceRemainingRefsCount
 import org.usvm.machine.state.initContractInfo
 import org.usvm.machine.state.initializeContractExecutionMemory
+import org.usvm.machine.state.jumpToContinuation
 import org.usvm.machine.state.killCurrentState
 import org.usvm.machine.state.lastStmt
 import org.usvm.machine.state.newStmt
@@ -277,7 +283,6 @@ import org.usvm.machine.state.returnAltFromContinuation
 import org.usvm.machine.state.returnFromContinuation
 import org.usvm.machine.state.signedIntegerFitsBits
 import org.usvm.machine.state.slicesAreEqual
-import org.usvm.machine.state.switchToContinuation
 import org.usvm.machine.state.takeLastCell
 import org.usvm.machine.state.takeLastContinuation
 import org.usvm.machine.state.takeLastIntOrNull
@@ -300,6 +305,10 @@ import org.usvm.mkSizeGeExpr
 import org.usvm.sizeSort
 import org.usvm.solver.USatResult
 import org.usvm.targets.UTargetsSet
+import java.math.BigInteger
+import org.ton.bytecode.MethodId
+import org.ton.bytecode.TsaArtificialExecuteContInst
+import org.ton.bytecode.TsaContractCode
 
 // TODO there are a lot of `scope.calcOnState` and `scope.doWithState` invocations that are not inline - optimize it
 class TvmInterpreter(
@@ -327,6 +336,7 @@ class TvmInterpreter(
     private val cryptoInterpreter = TvmCryptoInterpreter(ctx)
     private val gasInterpreter = TvmGasInterpreter(ctx)
     private val globalsInterpreter = TvmGlobalsInterpreter(ctx)
+    private val contStackInterpreter = TvmContinuationStackInterpreter(ctx)
     private val transactionInterpreter = TvmTransactionInterpreter(ctx, communicationScheme)
     private val tsaCheckerFunctionsInterpreter = TsaCheckerFunctionsInterpreter(contractsCode)
     private val artificialInstInterpreter = TvmArtificialInstInterpreter()
@@ -396,7 +406,12 @@ class TvmInterpreter(
                 ?: error("First element of c7 for contract $it not found")
             TvmInitialStateData(c4.value.value, c7)
         }
-        val executionMemory = initializeContractExecutionMemory(contractsCode, state, startContractId, allowInputStackValues = true)
+        val executionMemory = initializeContractExecutionMemory(
+            contractsCode,
+            state,
+            startContractId,
+            allowInputStackValues = ctx.tvmOptions.enableInputValues
+        )
         state.stack = executionMemory.stack
         state.registersOfCurrentContract = executionMemory.registers
 
@@ -676,6 +691,15 @@ class TvmInterpreter(
                 balance eq configBalance,
             )
 
+            // if the original stack does not allow input values,
+            // new stack initialization is unnecessary
+            if (stack.allowInputValues) {
+                // to disable input values
+                val newStack = TvmStack(ctx, allowInputValues = false)
+                newStack.copyInputValues(stack)
+                stack = newStack
+            }
+
             stack.addInt(balance)
             stack.addInt(msgValue)
             addOnStack(fullMsg, TvmCellType)
@@ -722,6 +746,7 @@ class TvmInterpreter(
             is TvmAppCryptoInst -> cryptoInterpreter.visitCryptoStmt(scope, stmt)
             is TvmAppGasInst -> gasInterpreter.visitGasInst(scope, stmt)
             is TvmAppGlobalInst -> globalsInterpreter.visitGlobalInst(scope, stmt)
+            is TvmContStackInst -> contStackInterpreter.visitContStackInst(scope, stmt)
             else -> TODO("$stmt")
         }
     }
@@ -1790,6 +1815,17 @@ class TvmInterpreter(
                     ?: return@doWithStateCtx throwTypeCheckError(this)
                 cont.defineC2(contToStore)
             }
+            3 -> {
+                val contToStore = stack.takeLastContinuation()
+                    ?: return@doWithStateCtx throwTypeCheckError(this)
+                val oldC3 = registersOfCurrentContract.c3.value
+
+                require(oldC3 == contToStore) {
+                    "General case is not supported: $stmt"
+                }
+
+                cont.defineC3(contToStore)
+            }
             4 -> {
                 val cell = takeLastCell()
                     ?: return@doWithStateCtx throwTypeCheckError(this)
@@ -1929,7 +1965,7 @@ class TvmInterpreter(
                 val continuationValue = scope.calcOnState { stack.takeLastContinuation() }
                     ?: return scope.doWithState(ctx.throwTypeCheckError)
 
-                scope.switchToContinuation(stmt, continuationValue, returnToTheNextStmt = true)
+                scope.callContinuation(stmt, continuationValue)
             }
             is TvmContBasicRetInst -> {
                 scope.consumeDefaultGas(stmt)
@@ -1946,21 +1982,36 @@ class TvmInterpreter(
 
                 val continuationValue = TvmOrdContinuation(TvmLambda(stmt.c.list.toMutableList()))
 
-                scope.switchToContinuation(stmt, continuationValue, returnToTheNextStmt = true)
+                scope.callContinuation(stmt, continuationValue)
             }
             is TvmContBasicCallxargsVarInst -> {
                 scope.consumeDefaultGas(stmt)
-
-                // TODO correct implementation
-                // if instructions for manual continuation registers handling are not used (POPCTR, SETCONTCTR, ...),
-                // then this instruction is equivalent to `EXECUTE`
-
-                val continuationValue = scope.calcOnState { stack.takeLastContinuation() }
-                    ?: return scope.doWithState(ctx.throwTypeCheckError)
-                scope.switchToContinuation(stmt, continuationValue, returnToTheNextStmt = true)
+                doCallxArgs(scope, stmt, passArgs = stmt.p, returnArgs = null)
+            }
+            is TvmContBasicCallxargsInst -> {
+                scope.consumeDefaultGas(stmt)
+                doCallxArgs(scope, stmt, passArgs = stmt.p, returnArgs = stmt.r)
             }
             else -> TODO("$stmt")
         }
+    }
+
+    private fun doCallxArgs(
+        scope: TvmStepScopeManager,
+        stmt: TvmContBasicInst,
+        passArgs: Int?,
+        returnArgs: Int?,
+    ) {
+        val continuationValue = scope.calcOnState { stack.takeLastContinuation() }
+            ?: return scope.doWithState(ctx.throwTypeCheckError)
+
+        check(passArgs == null || passArgs in 0..15) {
+            "Unexpected number of arguments: $stmt"
+        }
+        check(returnArgs == null || returnArgs in 0..15) {
+            "Unexpected number of return values: $stmt"
+        }
+        scope.callContinuationComplex(stmt, continuationValue, passArgs?.toUInt(), returnArgs?.toUInt())
     }
 
     private fun visitTvmConditionalControlFlowInst(
@@ -2089,7 +2140,11 @@ class TvmInterpreter(
             }
         ) ?: return@with
 
-        switchToContinuation(stmt, continuation, returnToTheNextStmt = !isJmp)
+        if (isJmp) {
+            jumpToContinuation(continuation)
+        } else {
+            callContinuation(stmt, continuation)
+        }
     }
 
     private fun TvmStepScopeManager.doIfElse(
@@ -2158,14 +2213,21 @@ class TvmInterpreter(
             is TvmContDictCalldictLongInst -> {
                 performCall(scope, stmt, stmt.n)
             }
+            is TvmContDictPreparedictInst -> {
+                val method = extractMethod(scope, stmt.n)
+                    ?: return
+                val continuation = TvmOrdContinuation(method)
+
+                scope.doWithState {
+                    stack.addContinuation(continuation)
+                    newStmt(stmt.nextStmt())
+                }
+            }
             else -> TODO("Unknown stmt: $stmt")
         }
     }
 
-    private fun performCall(scope: TvmStepScopeManager, stmt: TvmContDictInst, methodIdInt: Int) {
-        tsaCheckerFunctionsInterpreter.doTSACheckerOperation(scope, stmt, methodIdInt)
-            ?: return
-
+    private fun extractMethod(scope: TvmStepScopeManager, methodIdInt: Int): TvmMethod? {
         val methodId = methodIdInt.toMethodId()
         val contractCode = scope.calcOnState {
             contractsCode.getOrNull(currentContract)
@@ -2178,8 +2240,19 @@ class TvmInterpreter(
         if (methodRecursionDepth >= ctx.tvmOptions.maxRecursionDepth) {
             logger.debug { "Maximum recursion depth of method $methodId is reached, dropping the state" }
             scope.killCurrentState()
-                ?: return
+                ?: return null
         }
+
+        return nextMethod
+    }
+
+    private fun performCall(scope: TvmStepScopeManager, stmt: TvmContDictInst, methodIdInt: Int) {
+        // TODO checker functions can be called using PREPAREDICT + CALLXARGS
+        tsaCheckerFunctionsInterpreter.doTSACheckerOperation(scope, stmt, methodIdInt)
+            ?: return
+
+        val nextMethod = extractMethod(scope, methodIdInt)
+            ?: return
 
         scope.callMethod(stmt, nextMethod)
     }
@@ -2205,7 +2278,7 @@ class TvmInterpreter(
                 val method = contractCode.methods[methodId]!!
 
                 // The remainder of the previous current continuation cc is discarded.
-                scope.switchToContinuation(stmt, TvmOrdContinuation(method), returnToTheNextStmt = false)
+                scope.jumpToContinuation(TvmOrdContinuation(method))
             }
 
             is TvmDictSpecialDictpushconstInst -> {

@@ -44,7 +44,11 @@ private val FIFT_STDLIB_RESOURCE: Path = object {}.javaClass.getResource(FIFT_ST
     ?: error("Cannot find fift stdlib in $FIFT_STDLIB_PATH")
 
 // Options for tests with fift concrete execution
-val testFiftOptions = TvmOptions(turnOnTLBParsingChecks = false, enableInternalArgsConstraints = false)
+val testFiftOptions = TvmOptions(
+    turnOnTLBParsingChecks = false,
+    enableInternalArgsConstraints = false,
+    enableInputValues = false,
+)
 
 fun extractResource(resourcePath: String) =
     object {}.javaClass.getResource(resourcePath)?.path?.let { Path(it) }

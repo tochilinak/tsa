@@ -63,9 +63,12 @@ fun TvmStepScopeManager.callMethod(
     val nextContinuation = TvmOrdContinuation(methodToCall)
 
     doWithState {
-        val currentContinuation = extractCurrentContinuation(stmt, saveC0 = true)
-        val wrappedCC = TvmMethodReturnContinuation(methodToCall.id, currentContinuation)
-        registersOfCurrentContract.c0 = C0Register(wrappedCC)
+        val retCont = TvmOrdContinuation(
+            stmt = stmt.nextStmt(),
+            savelist = TvmRegisterSavelist(registersOfCurrentContract.c0),
+        )
+        val wrappedRet = TvmMethodReturnContinuation(methodToCall.id, retCont)
+        registersOfCurrentContract.c0 = C0Register(wrappedRet)
 
         callStack.push(methodToCall, returnSite = stmt)
     }
@@ -73,24 +76,134 @@ fun TvmStepScopeManager.callMethod(
     jump(nextContinuation)
 }
 
-/**
- * Executes (or jumps to, depending on the value of [returnToTheNextStmt]) the [continuation].
- */
-fun TvmStepScopeManager.switchToContinuation(
-    stmt: TvmInst,
-    continuation: TvmContinuation,
-    returnToTheNextStmt: Boolean
-) {
-    // TODO stack, n', n''
+fun TvmStepScopeManager.jumpToContinuation(cont: TvmContinuation) {
+    if (cont.stack != null || cont.nargs != null) {
+        jumpToContinuationComplex(cont, passArgs = null)
+    } else {
+        jump(cont)
+    }
+}
 
-    if (returnToTheNextStmt) {
-        doWithState {
-            val currentContinuation = extractCurrentContinuation(stmt, saveC0 = true)
-            val registers = registersOfCurrentContract
-            registers.c0 = C0Register(currentContinuation)
+fun TvmStepScopeManager.jumpToContinuationComplex(
+    cont: TvmContinuation,
+    passArgs: UInt? = null
+) = doWithStateCtx {
+    // TODO stack depth checks ?
+
+    var copy = cont.nargs
+    if (passArgs != null && copy == null) {
+        copy = passArgs
+    }
+
+    // copy == null : pass whole stack, else pass top `copy` elements, drop the remainder.
+    val contStack = cont.stack
+    if (contStack != null) {
+        if (copy == null) {
+            // To ensure correctness stack must have concrete depth
+            copy = stack.depth()
+        }
+
+        val newStack = contStack.clone()
+        newStack.takeValuesFromOtherStack(stack, copy.toInt())
+        stack = newStack
+    } else {
+        // if copy == null, the whole stack is passed
+        if (copy != null) {
+            val newStack = TvmStack(ctx, allowInputValues = false)
+            newStack.takeValuesFromOtherStack(stack, copy.toInt())
+            stack = newStack
         }
     }
 
+    jump(cont)
+}
+
+fun TvmStepScopeManager.callContinuation(
+    stmt: TvmInst,
+    continuation: TvmContinuation,
+) = doWithState {
+    if (continuation.savelist.c0 != null) {
+        // call reduces to a jump
+        return@doWithState jumpToContinuation(continuation)
+    }
+
+    if (continuation.stack != null || continuation.nargs != null) {
+        return@doWithState callContinuationComplex(stmt, continuation, null, null)
+    }
+
+    val retCont = TvmOrdContinuation(
+        stmt = stmt.nextStmt(),
+        savelist = TvmRegisterSavelist(registersOfCurrentContract.c0),
+    )
+    registersOfCurrentContract.c0 = C0Register(retCont)
+    jump(continuation)
+}
+
+fun TvmStepScopeManager.callContinuationComplex(
+    stmt: TvmInst,
+    continuation: TvmContinuation,
+    passArgs: UInt? = null,
+    returnArgs: UInt? = null,
+) = doWithStateCtx {
+    if (continuation.savelist.c0 != null) {
+        // call reduces to a jump
+        return@doWithStateCtx jumpToContinuationComplex(continuation, passArgs)
+    }
+
+    val contNargs = continuation.nargs
+    if (contNargs != null && passArgs != null && contNargs > passArgs) {
+        // stack underflow while calling a closure continuation: not enough arguments passed
+        return@doWithStateCtx throwStackUnderflowError(this)
+    }
+
+    var copy = continuation.nargs
+    var skip = 0u
+
+    if (passArgs != null) {
+        if (copy != null) {
+            skip = passArgs - copy
+        } else {
+            copy = passArgs
+        }
+    }
+
+    // copy == null : pass whole stack, else pass top `copy` elements, drop next `skip` elements.
+    val contStack = continuation.stack
+    val (newStack, remainder) = if (contStack != null) {
+        if (copy == null) {
+            // To ensure correctness stack must have concrete depth
+            copy = stack.depth()
+        }
+
+        val newStack = contStack.clone()
+        newStack.takeValuesFromOtherStack(stack, copy.toInt())
+
+        if (skip > 0u) {
+            stack.dropLastEntries(skip)
+        }
+
+        newStack to stack
+    } else if (copy != null) {
+        val newStack = TvmStack(ctx, allowInputValues = false)
+        newStack.takeValuesFromOtherStack(stack, copy.toInt())
+        if (skip > 0u) {
+            stack.dropLastEntries(skip)
+        }
+
+        newStack to stack
+    } else {
+        stack to null
+    }
+
+    stack = newStack
+
+    val retCont = TvmOrdContinuation(
+        stmt = stmt.nextStmt(),
+        savelist = TvmRegisterSavelist(registersOfCurrentContract.c0),
+        stack = remainder,
+        nargs = returnArgs,
+    )
+    registersOfCurrentContract.c0 = C0Register(retCont)
     jump(continuation)
 }
 
@@ -119,7 +232,7 @@ fun TvmContinuation.defineC0(cont: TvmContinuation): TvmContinuation {
         return this
     }
 
-    return updateSavelist(savelist.copy(c0 = C0Register(cont)))
+    return update(newSavelist = savelist.copy(c0 = C0Register(cont)))
 }
 
 fun TvmContinuation.defineC1(cont: TvmContinuation): TvmContinuation {
@@ -127,7 +240,7 @@ fun TvmContinuation.defineC1(cont: TvmContinuation): TvmContinuation {
         return this
     }
 
-    return updateSavelist(savelist.copy(c1 = C1Register(cont)))
+    return update(newSavelist = savelist.copy(c1 = C1Register(cont)))
 }
 
 fun TvmContinuation.defineC2(cont: TvmContinuation): TvmContinuation {
@@ -135,7 +248,7 @@ fun TvmContinuation.defineC2(cont: TvmContinuation): TvmContinuation {
         return this
     }
 
-    return updateSavelist(savelist.copy(c2 = C2Register(cont)))
+    return update(newSavelist = savelist.copy(c2 = C2Register(cont)))
 }
 
 fun TvmContinuation.defineC3(cont: TvmContinuation): TvmContinuation {
@@ -143,7 +256,7 @@ fun TvmContinuation.defineC3(cont: TvmContinuation): TvmContinuation {
         return this
     }
 
-    return updateSavelist(savelist.copy(c3 = C3Register(cont)))
+    return update(newSavelist = savelist.copy(c3 = C3Register(cont)))
 }
 
 fun TvmContinuation.defineC4(cell: UHeapRef): TvmContinuation {
@@ -151,7 +264,7 @@ fun TvmContinuation.defineC4(cell: UHeapRef): TvmContinuation {
         return this
     }
 
-    return updateSavelist(savelist.copy(c4 = C4Register(TvmCellValue(cell))))
+    return update(newSavelist = savelist.copy(c4 = C4Register(TvmCellValue(cell))))
 }
 
 fun TvmContinuation.defineC5(cell: UHeapRef): TvmContinuation {
@@ -159,7 +272,7 @@ fun TvmContinuation.defineC5(cell: UHeapRef): TvmContinuation {
         return this
     }
 
-    return updateSavelist(savelist.copy(c5 = C5Register(TvmCellValue(cell))))
+    return update(newSavelist = savelist.copy(c5 = C5Register(TvmCellValue(cell))))
 }
 
 fun TvmContinuation.defineC7(tuple: TvmStackTupleValue): TvmContinuation {
@@ -171,10 +284,10 @@ fun TvmContinuation.defineC7(tuple: TvmStackTupleValue): TvmContinuation {
         TODO("Support non-concrete tuples")
     }
 
-    return updateSavelist(savelist.copy(c7 = C7Register(tuple)))
+    return update(newSavelist = savelist.copy(c7 = C7Register(tuple)))
 }
 
-fun TvmStepScopeManager.jump(cont: TvmContinuation) {
+private fun TvmStepScopeManager.jump(cont: TvmContinuation) {
     when (cont) {
         is TvmOrdContinuation -> doOrdJump(cont)
         is TvmQuitContinuation -> doQuitJump(cont)
@@ -254,7 +367,7 @@ private fun TvmStepScopeManager.doUntilJump(cont: TvmUntilContinuation) {
     ) ?: return
 
     doWithState {
-        registersOfCurrentContract.c0 = C0Register(cont.updateSavelist())
+        registersOfCurrentContract.c0 = C0Register(cont.update(newSavelist = TvmRegisterSavelist.EMPTY))
     }
 
     jump(cont.body)
@@ -276,7 +389,7 @@ private fun TvmStepScopeManager.doRepeatJump(cont: TvmRepeatContinuation) {
     ) ?: return
 
     doWithStateCtx {
-        val newCont = cont.copy(count = mkBvSubExpr(cont.count, oneValue), savelist = TvmRegisterSavelist())
+        val newCont = cont.copy(count = mkBvSubExpr(cont.count, oneValue), savelist = TvmRegisterSavelist.EMPTY)
         registersOfCurrentContract.c0 = C0Register(newCont)
     }
 
@@ -286,7 +399,7 @@ private fun TvmStepScopeManager.doRepeatJump(cont: TvmRepeatContinuation) {
 private fun TvmStepScopeManager.doWhileJump(cont: TvmWhileContinuation) {
     doWithState { adjustRegisters(cont) }
 
-    val newCont = cont.copy(isCondition = !cont.isCondition, savelist = TvmRegisterSavelist())
+    val newCont = cont.copy(isCondition = !cont.isCondition, savelist = TvmRegisterSavelist.EMPTY)
     doWithState { registersOfCurrentContract.c0 = C0Register(newCont) }
 
     if (!cont.isCondition) {
@@ -310,7 +423,7 @@ private fun TvmStepScopeManager.doWhileJump(cont: TvmWhileContinuation) {
 private fun TvmStepScopeManager.doAgainJump(cont: TvmAgainContinuation) {
     doWithState {
         adjustRegisters(cont)
-        registersOfCurrentContract.c0 = C0Register(cont.updateSavelist())
+        registersOfCurrentContract.c0 = C0Register(cont.update(newSavelist = TvmRegisterSavelist.EMPTY))
     }
 
     jump(cont.body)

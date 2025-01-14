@@ -30,6 +30,8 @@ import org.usvm.machine.state.TvmDictError
 import org.usvm.machine.state.TvmFailureType
 import org.usvm.machine.state.TvmIntegerOutOfRangeError
 import org.usvm.machine.state.TvmIntegerOverflowError
+import org.usvm.machine.state.TvmStackOverflowError
+import org.usvm.machine.state.TvmStackUnderflowError
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.TvmTypeCheckError
 import org.usvm.machine.state.bvMaxValueSignedExtended
@@ -107,6 +109,8 @@ class TvmContext(
     val quit1Cont = TvmQuitContinuation(1u)
 
     val throwTypeCheckError: (TvmState) -> Unit = setFailure(TvmTypeCheckError)
+    val throwStackUnderflowError: (TvmState) -> Unit = setFailure(TvmStackUnderflowError)
+    val throwStackOverflowError: (TvmState) -> Unit = setFailure(TvmStackOverflowError)
     val throwIntegerOverflowError: (TvmState) -> Unit = setFailure(TvmIntegerOverflowError)
     val throwIntegerOutOfRangeError: (TvmState) -> Unit = setFailure(TvmIntegerOutOfRangeError)
     val throwCellOverflowError: (TvmState) -> Unit = setFailure(TvmCellOverflowError)

@@ -28,7 +28,7 @@ class TvmStack(
     private var stack: PersistentList<TvmStackEntry> = persistentListOf(), // [n n-1 n-2 ... 2 1 0]
     private var inputElements: PersistentList<TvmInputStackEntry> = persistentListOf(),
     private var inputEntryIdToStackValue: PersistentMap<Int, TvmStackValue> = persistentMapOf(),
-    private val allowInputValues: Boolean = true,
+    val allowInputValues: Boolean = true,
 ) {
     private inline val size: Int get() = stack.size
 
@@ -45,6 +45,7 @@ class TvmStack(
         entries.reversed().forEach { entry ->
             addStackEntry(entry)
         }
+        // TODO should `inputElements` be copied here ?
         copyInputValues(otherStack)
     }
 
@@ -66,6 +67,12 @@ class TvmStack(
         val lastStackEntry = stack.last()
         stack = stack.removeAt(size - 1)
         return lastStackEntry
+    }
+
+    fun dropLastEntries(num: UInt = 1u) {
+        repeat(num.toInt()) {
+            takeLastEntry()
+        }
     }
 
     fun peekStackEntry(i: Int): TvmStackEntry {
@@ -176,6 +183,14 @@ class TvmStack(
         val tmp = stack[first]
         stack = stack.set(first, stack[second])
         stack = stack.set(second, tmp)
+    }
+
+    fun depth(): UInt {
+        check(!allowInputValues) {
+            "Stack depth is undefined if input values are allowed"
+        }
+
+        return size.toUInt()
     }
 
     fun clear() {

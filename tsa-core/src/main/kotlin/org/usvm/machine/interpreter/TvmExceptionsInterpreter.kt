@@ -26,7 +26,7 @@ import org.usvm.machine.state.consumeGas
 import org.usvm.machine.state.defineC0
 import org.usvm.machine.state.defineC2
 import org.usvm.machine.state.extractCurrentContinuation
-import org.usvm.machine.state.jump
+import org.usvm.machine.state.jumpToContinuation
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
 import org.usvm.machine.state.setFailure
@@ -115,7 +115,7 @@ class TvmExceptionsInterpreter(private val ctx: TvmContext) {
                 val body = scope.calcOnState { stack.takeLastContinuation() }
                     ?: return scope.doWithState(ctx.throwTypeCheckError)
 
-                scope.jump(body)
+                scope.jumpToContinuation(body)
             }
             else -> TODO("Unknown stmt: $stmt")
         }

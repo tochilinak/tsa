@@ -10,6 +10,7 @@ data class TvmOptions(
     val enableVarAddress: Boolean = false,
     val enableExternalAddress: Boolean = false,
     val enableInternalArgsConstraints: Boolean = true,
+    val enableInputValues: Boolean = true,
     val turnOnTLBParsingChecks: Boolean = true,
     val excludeInputsThatDoNotMatchGivenScheme: Boolean = true,
     val tlbOptions: TlbOptions = TlbOptions(),

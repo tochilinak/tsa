@@ -98,6 +98,22 @@ enum class TvmFailureType {
     UnknownError
 }
 
+@Serializable
+object TvmStackUnderflowError : TvmErrorExit {
+    override val exitCode: UInt = 2u
+    override val ruleName: String = "stack-underflow"
+
+    override fun toString(): String = "TVM stack underflow, exit code: $exitCode"
+}
+
+@Serializable
+object TvmStackOverflowError : TvmErrorExit {
+    override val exitCode: UInt = 3u
+    override val ruleName: String = "stack-overflow"
+
+    override fun toString(): String = "TVM stack overflow, exit code: $exitCode"
+}
+
 // TODO standard exit code should be placed in codepage 0?
 // TODO add integer underflow?
 @Serializable

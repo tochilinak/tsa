@@ -33,7 +33,7 @@ import org.usvm.machine.state.consumeDefaultGas
 import org.usvm.machine.state.defineC0
 import org.usvm.machine.state.defineC1
 import org.usvm.machine.state.extractCurrentContinuation
-import org.usvm.machine.state.jump
+import org.usvm.machine.state.jumpToContinuation
 import org.usvm.machine.state.signedIntegerFitsBits
 import org.usvm.machine.state.takeLastContinuation
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
@@ -127,7 +127,7 @@ class TvmLoopsInterpreter(private val ctx: TvmContext) {
         val after = scope.calcOnState { registerBreakpoint(extractAfter(), hasBreak) }
         val repeatCont = TvmRepeatContinuation(wrappedBody, after, count)
 
-        scope.jump(repeatCont)
+        scope.jumpToContinuation(repeatCont)
     }
 
     private fun visitUntilInst(
@@ -172,7 +172,7 @@ class TvmLoopsInterpreter(private val ctx: TvmContext) {
             registers.c0 = C0Register(untilCont)
         }
 
-        scope.jump(wrappedBody)
+        scope.jumpToContinuation(wrappedBody)
     }
 
     private fun visitWhileInst(
@@ -219,7 +219,7 @@ class TvmLoopsInterpreter(private val ctx: TvmContext) {
             registers.c0 = C0Register(whileCond)
         }
 
-        scope.jump(wrappedCond)
+        scope.jumpToContinuation(wrappedCond)
     }
 
     private fun visitAgainInst(
@@ -240,7 +240,7 @@ class TvmLoopsInterpreter(private val ctx: TvmContext) {
 
         val cont = TvmAgainContinuation(wrappedBody)
 
-        scope.jump(cont)
+        scope.jumpToContinuation(cont)
     }
 
     private fun visitAgainEndInst(
@@ -262,6 +262,6 @@ class TvmLoopsInterpreter(private val ctx: TvmContext) {
 
         val cont = TvmAgainContinuation(wrappedBody)
 
-        scope.jump(cont)
+        scope.jumpToContinuation(cont)
     }
 }

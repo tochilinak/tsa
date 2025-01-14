@@ -7,12 +7,12 @@ import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TsaArtificialLoopEntranceInst
 import org.ton.bytecode.TvmArtificialInst
 import org.usvm.machine.TvmStepScopeManager
+import org.usvm.machine.state.callContinuation
 import org.usvm.machine.state.consumeDefaultGas
-import org.usvm.machine.state.jump
+import org.usvm.machine.state.jumpToContinuation
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
 import org.usvm.machine.state.returnFromContinuation
-import org.usvm.machine.state.switchToContinuation
 
 class TvmArtificialInstInterpreter {
     fun visit(scope: TvmStepScopeManager, stmt: TvmArtificialInst) {
@@ -32,12 +32,12 @@ class TvmArtificialInstInterpreter {
             is TsaArtificialJmpToContInst -> {
                 scope.consumeDefaultGas(stmt)
 
-                scope.jump(stmt.cont)
+                scope.jumpToContinuation(stmt.cont)
             }
             is TsaArtificialExecuteContInst -> {
                 scope.consumeDefaultGas(stmt)
 
-                scope.switchToContinuation(stmt, stmt.cont, returnToTheNextStmt = true)
+                scope.callContinuation(stmt, stmt.cont)
             }
         }
     }
