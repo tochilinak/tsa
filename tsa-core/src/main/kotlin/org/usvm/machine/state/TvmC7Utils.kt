@@ -179,6 +179,7 @@ fun TvmState.initContractInfo(
         "Model list must be empty at this point but is not."
     }
     pathConstraints += mkBvSignedLessOrEqualExpr(unitTimeMinValue, unixTime.intValue)
+    pathConstraints += mkBvSignedGreaterExpr(maxTimestampValue, unixTime.intValue)
     pathConstraints += mkBvSignedGreaterOrEqualExpr(grams, zeroValue)
     pathConstraints += mkBvSignedGreaterOrEqualExpr(blockLogicTime.intValue, zeroValue)
     pathConstraints += mkBvSignedGreaterOrEqualExpr(transactionLogicTime.intValue, zeroValue)

@@ -72,21 +72,9 @@ class TvmConfigInterpreter(private val ctx: TvmContext) {
                     stack.addInt(messagesSent)
                 }
                 TIME_PARAMETER_IDX -> { // NOW
-                    val now = makeSymbolicPrimitive(int257sort)
-                    val previousValue = scope.getIntContractInfoParam(i)
+                    val now = scope.getIntContractInfoParam(i)
                         ?: return@doWithStateCtx
 
-                    scope.assert(
-                        mkBvSignedGreaterExpr(now, previousValue),
-                        unsatBlock = { error("Cannot make NOW > $previousValue") }
-                    ) ?: return@doWithStateCtx
-
-                    scope.assert(
-                        mkBvSignedGreaterExpr(maxTimestampValue, now),
-                        unsatBlock = { error("Cannot make NOW less than 2^64") }
-                    ) ?: return@doWithStateCtx
-
-                    setContractInfoParam(i, TvmStackIntValue(now).toStackEntry())
                     stack.addInt(now)
                 }
                 BLOCK_TIME_PARAMETER_IDX -> { // BLOCK_LTIME
