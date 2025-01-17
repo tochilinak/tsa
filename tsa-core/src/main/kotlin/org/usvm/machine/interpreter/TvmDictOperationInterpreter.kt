@@ -1022,17 +1022,19 @@ class TvmDictOperationInterpreter(
             }.let { mkOr(it) }
         }
 
-        val resultKeySetIsEmpty = scope.calcOnStateCtx {
-            // todo: empty input dict
-            mkOr(resultSetContainsAnyStoredKey, mkBool(resultSetEntries.isInput))
-        }
-
-        val resultDictIsEmpty = scope.calcOnStateCtx { resultKeySetIsEmpty }
+        val resultSetContainsNoStoredKey = ctx.mkNot(resultSetContainsAnyStoredKey)
 
         scope.fork(
-            resultDictIsEmpty,
+            resultSetContainsNoStoredKey,
             falseStateIsExceptional = false,
-            blockOnTrueState = { originalDictContainsKeyEmptyResult() },
+            blockOnTrueState = {
+                if (!resultSetEntries.isInput) {
+                    originalDictContainsKeyEmptyResult()
+                } else {
+                    // todo: empty input dict
+                    originalDictContainsKeyNonEmptyResult(resultDict)
+                }
+            },
             blockOnFalseState = { originalDictContainsKeyNonEmptyResult(resultDict) },
         )
     }

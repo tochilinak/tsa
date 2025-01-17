@@ -1,19 +1,33 @@
 package org.ton.examples.dict
 
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
-import kotlin.io.path.Path
+import org.usvm.machine.TvmOptions
+import org.usvm.machine.getResourcePath
+import org.usvm.test.resolver.TvmSuccessfulExecution
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-class DictExample {
-    private val sourcesPath: String = "/dict/dict_examples.fc"
+class DictExampleTest {
+    private val dictExamplePath: String = "/dict/dict_examples.fc"
+    private val addAndRemovePath: String = "/dict/add_and_remove.fc"
 
     @Test
     fun testDictExamples() {
-        val resourcePath = this::class.java.getResource(sourcesPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $sourcesPath")
+        val resourcePath = getResourcePath<DictExampleTest>(dictExamplePath)
 
         val symbolicResult = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertTrue(symbolicResult.isNotEmpty())
+    }
+
+    @Test
+    fun testAddAndRemove() {
+        val resourcePath = getResourcePath<DictExampleTest>(addAndRemovePath)
+
+        val symbolicResult = funcCompileAndAnalyzeAllMethods(
+            resourcePath,
+            tvmOptions = TvmOptions(enableInternalArgsConstraints = false),
+        )
+        val tests = symbolicResult.testSuites.single()
+        assertTrue { tests.all { it.result !is TvmSuccessfulExecution } }
     }
 }
