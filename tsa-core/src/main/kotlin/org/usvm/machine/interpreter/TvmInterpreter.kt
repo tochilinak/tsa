@@ -392,12 +392,12 @@ class TvmInterpreter(
             intercontractPath = persistentListOf(startContractId),
         )
 
-        state.contractIdToC4Register = (0..<contractsCode.size).associateWith {
+        state.contractIdToC4Register = contractsCode.indices.associateWith {
             C4Register(TvmCellValue(state.generateSymbolicCell()))
         }.toPersistentMap()
-        state.contractIdToFirstElementOfC7 = (0..<contractsCode.size).associateWith {
-            state.initContractInfo()
-        }.toPersistentMap()
+        state.contractIdToFirstElementOfC7 = contractsCode.mapIndexed { index, code ->
+            index to state.initContractInfo(code)
+        }.toMap().toPersistentMap()
         state.contractIdToInitialData = contractsCode.indices.associateWith {
             val c4 = state.contractIdToC4Register[it]
                 ?: error("c4 for contract $it not found")

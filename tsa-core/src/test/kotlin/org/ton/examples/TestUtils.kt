@@ -11,6 +11,7 @@ import org.usvm.machine.FiftAnalyzer
 import org.usvm.machine.FiftInterpreterResult
 import org.usvm.machine.FuncAnalyzer
 import org.usvm.machine.TactAnalyzer
+import org.usvm.machine.TactSourcesDescription
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.intValue
 import org.usvm.machine.state.TvmStack
@@ -54,19 +55,21 @@ fun extractResource(resourcePath: String) =
         ?: error("Cannot find resource bytecode $resourcePath")
 
 fun tactCompileAndAnalyzeAllMethods(
-    tactSourcesPath: Path,
+    tactSources: TactSourcesDescription,
     contractDataHex: String? = null,
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
+    takeEmptyTests: Boolean = false,
 ): TvmContractSymbolicTestResult = TactAnalyzer.analyzeAllMethods(
-    tactSourcesPath,
+    tactSources,
     contractDataHex,
     methodsBlackList,
     methodWhiteList,
     inputInfo,
     tvmOptions,
+    takeEmptyTests,
 )
 
 fun funcCompileAndAnalyzeAllMethods(

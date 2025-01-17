@@ -40,7 +40,8 @@ data object TvmTestResolver {
     }
 
     fun resolve(
-        methodStates: Map<TvmMethod, Pair<List<TvmState>, TvmMethodCoverage>>
+        methodStates: Map<TvmMethod, Pair<List<TvmState>, TvmMethodCoverage>>,
+        takeEmptyTests: Boolean = false,
     ): TvmContractSymbolicTestResult = TvmContractSymbolicTestResult(
         methodStates.mapNotNull {
             val method = it.key
@@ -61,7 +62,7 @@ data object TvmTestResolver {
                 method.id,
                 coverage,
                 tests,
-            ).takeIf { tests.isNotEmpty() }
+            ).takeIf { takeEmptyTests || tests.isNotEmpty() }
         }
     )
 }

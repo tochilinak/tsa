@@ -4,6 +4,7 @@ import org.ton.bytecode.ACTIONS_PARAMETER_IDX
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.ton.bytecode.BALANCE_PARAMETER_IDX
 import org.ton.bytecode.BLOCK_TIME_PARAMETER_IDX
+import org.ton.bytecode.CODE_PARAMETER_IDX
 import org.ton.bytecode.CONFIG_PARAMETER_IDX
 import org.ton.bytecode.MSGS_SENT_PARAMETER_IDX
 import org.ton.bytecode.SEED_PARAMETER_IDX
@@ -132,6 +133,12 @@ class TvmConfigInterpreter(private val ctx: TvmContext) {
                 CONFIG_PARAMETER_IDX -> { // GLOBAL_CONFIG
                     val cell = scope.getCellContractInfoParam(i)
                         ?: return@doWithStateCtx
+
+                    addOnStack(cell, TvmCellType)
+                }
+                CODE_PARAMETER_IDX -> { // MYCODE
+                    val cell = getContractInfoParam(i).cellValue
+                        ?: return@doWithStateCtx ctx.throwTypeCheckError(this)
 
                     addOnStack(cell, TvmCellType)
                 }

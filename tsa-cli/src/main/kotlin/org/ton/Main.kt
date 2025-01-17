@@ -15,8 +15,6 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
-import java.math.BigInteger
-import java.nio.file.Path
 import org.ton.sarif.toSarifReport
 import org.ton.test.gen.generateTests
 import org.ton.tlb.readFromJson
@@ -25,10 +23,13 @@ import org.usvm.machine.FiftAnalyzer
 import org.usvm.machine.FuncAnalyzer
 import org.usvm.machine.IntercontractOptions
 import org.usvm.machine.TactAnalyzer
+import org.usvm.machine.TactSourcesDescription
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.analyzeInterContract
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.toMethodId
+import java.math.BigInteger
+import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 
@@ -116,15 +117,24 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
 }
 
 class TactAnalysis : CliktCommand(name = "tact", help = "Options for analyzing Tact sources of smart contracts") {
-    private val tactSourcesPath by option("-i", "--input")
+    private val tactConfigPath by option("-c", "--config")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
         .required()
-        .help("The path to the Tact source of the smart contract")
+        .help("The path to the Tact config (tact.config.json)")
+
+    private val tactProjectName by option("-p", "--project")
+        .required()
+        .help("Name of the Tact project to analyze")
+
+    private val tactContractName by option("-i", "--input")
+        .required()
+        .help("Name of the Tact smart contract to analyze")
 
     private val contractProperties by ContractProperties()
 
     override fun run() {
-        TactAnalyzer.analyzeAllMethods(tactSourcesPath, contractProperties.contractData).let {
+        val sources = TactSourcesDescription(tactConfigPath, tactProjectName, tactContractName)
+        TactAnalyzer.analyzeAllMethods(sources, contractProperties.contractData).let {
             echo(it.toSarifReport(methodsMapping = emptyMap()))
         }
     }
@@ -168,7 +178,7 @@ class FiftAnalysis : CliktCommand(name = "fift", help = "Options for analyzing s
     override fun run() {
         FiftAnalyzer(
             fiftStdlibPath = fiftOptions.fiftStdlibPath
-        ).analyzeAllMethods(fiftSourcesPath, contractProperties.contractData,).let {
+        ).analyzeAllMethods(fiftSourcesPath, contractProperties.contractData).let {
             echo(it.toSarifReport(methodsMapping = emptyMap()))
         }
     }
@@ -221,22 +231,53 @@ class InterContractAnalysis : CliktCommand(
         Boc,
     }
 
+    private sealed interface ContractSources
+    private data class SinglePath(val type: ContractType, val path: Path) : ContractSources
+    private data class TactPath(val tactPath: TactSourcesDescription) : ContractSources
+
     private val pathOptionDescriptor = option().path(mustExist = true, canBeFile = true, canBeDir = false)
     private val typeOptionDescriptor = option().enum<ContractType>(ignoreCase = true)
 
-    private val contractPaths by option("-c", "--contract")
+    private val contractSources: List<ContractSources> by option("-c", "--contract")
         .help(
             """
-                Contracts to analyze. Must be a pair <contract-type> <path>.
+                Contracts to analyze. Must be given in format <contract-type> <options>.
+                
                 <contract-type> can be Tact, Func, Fift or Boc.
+                
+                For Func, Fift and Boc <options> is path to contract sources.
+                
+                For Tact, <options> is three values separated by space:
+                <path to tact.config.json> <project name> <contract name>
+                
                 This option should be used for each analyzed contract separately.
-                Example: -c func jetton-wallet.fc
+                
+                Examples:
+                
+                -c func jetton-wallet.fc
+                
+                -c tact path/to/tact.config.json Jetton JettonWallet
+            
             """.trimIndent()
         )
-        .transformValues(nvalues = 2) { (typeRaw, pathRaw) ->
+        .transformValues(nvalues = 2..4) { args ->
+            val typeRaw = args[0]
             val type = typeOptionDescriptor.transformValue(this, typeRaw)
+            val pathRaw = args[1]
             val path = pathOptionDescriptor.transformValue(this, pathRaw)
-            type to path
+            if (type == ContractType.Tact) {
+                require(args.size == 4) {
+                    "Tact expects 3 parameters: path to tact.config.json, project name, contract name."
+                }
+                val taskName = args[2]
+                val contractName = args[3]
+                TactPath(TactSourcesDescription(path, taskName, contractName))
+            } else {
+                require(args.size == 2) {
+                    "Func, Fift and Boc expect only 1 parameter: path to contract source."
+                }
+                SinglePath(type, path)
+            }
         }
         .multiple()
         .validate { args ->
@@ -261,15 +302,21 @@ class InterContractAnalysis : CliktCommand(
         .help("Id of the starting method in the root contract.")
 
     override fun run() {
-        println(contractPaths)
-        val contracts = contractPaths.map { (type, path) ->
-            val analyzer = when (type) {
-                ContractType.Boc -> BocAnalyzer
-                ContractType.Func -> funcAnalyzer
-                ContractType.Fift -> fiftAnalyzer
-                ContractType.Tact -> TactAnalyzer
+        val contracts = contractSources.map { data ->
+            when (data) {
+                is SinglePath -> {
+                    val analyzer = when (data.type) {
+                        ContractType.Boc -> BocAnalyzer
+                        ContractType.Func -> funcAnalyzer
+                        ContractType.Fift -> fiftAnalyzer
+                        ContractType.Tact -> error("Unexpected contract type ${data.type} with a single path ${data.path}")
+                    }
+                    analyzer.convertToTvmContractCode(data.path)
+                }
+                is TactPath -> {
+                    TactAnalyzer.convertToTvmContractCode(data.tactPath)
+                }
             }
-            analyzer.convertToTvmContractCode(path)
         }
 
         val communicationScheme = extractScheme()

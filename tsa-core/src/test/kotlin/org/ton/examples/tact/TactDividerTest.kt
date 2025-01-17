@@ -1,25 +1,24 @@
 package org.ton.examples.tact
 
+import org.ton.bytecode.MethodId
 import org.ton.examples.tactCompileAndAnalyzeAllMethods
+import org.usvm.machine.TactSourcesDescription
+import org.usvm.machine.getResourcePath
 import org.usvm.machine.state.TvmIntegerOverflowError
-import org.usvm.machine.toMethodId
 import org.usvm.test.resolver.TvmMethodFailure
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class TactDividerTest {
-    private val sourcesPath: String = "/tact/divider.tact"
+    private val tactConfigPath: String = "/tact/tact.config.json"
 
     @Test
     fun testDivider() {
-        val resourcePath = this::class.java.getResource(sourcesPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $sourcesPath")
+        val resourcePath = getResourcePath<TactDividerTest>(tactConfigPath)
 
-        // TODO analyze only divide method 95202
         val symbolicResult = tactCompileAndAnalyzeAllMethods(
-            resourcePath,
-            methodsBlackList = listOf(Int.MAX_VALUE, 0, 113617, 115390, 121275).map { it.toMethodId() }.toSet()
+            TactSourcesDescription(resourcePath, "Divider", "Divider"),
+            methodWhiteList = setOf(MethodId.valueOf(95202L)),
         )
 
         val allTests = symbolicResult.map { it.tests }.flatten()

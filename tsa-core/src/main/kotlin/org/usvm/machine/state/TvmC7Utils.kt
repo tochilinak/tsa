@@ -3,11 +3,11 @@ package org.usvm.machine.state
 import io.ksmt.expr.KExpr
 import io.ksmt.sort.KBvSort
 import io.ksmt.utils.uncheckedCast
-import java.math.BigInteger
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.ton.bytecode.BALANCE_PARAMETER_IDX
+import org.ton.bytecode.TsaContractCode
 import org.usvm.UBoolExpr
 import org.usvm.UExpr
 import org.usvm.UHeapRef
@@ -26,6 +26,7 @@ import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmStack.TvmStackValue
 import org.usvm.machine.types.TvmDataCellType
 import org.usvm.machine.types.TvmDictCellType
+import java.math.BigInteger
 
 
 fun TvmState.getContractInfoParam(idx: Int): TvmStackValue {
@@ -131,7 +132,9 @@ fun TvmState.initC7(contractInfo: TvmStackTupleValue): TvmStackTupleValueConcret
         persistentListOf(contractInfo.toStackEntry())
     )
 
-fun TvmState.initContractInfo(): TvmStackTupleValueConcreteNew = with(ctx) {
+fun TvmState.initContractInfo(
+    contractCode: TsaContractCode,
+): TvmStackTupleValueConcreteNew = with(ctx) {
     val tag = TvmStackIntValue(mkBvHex("076ef1ea", sizeBits = INT_BITS).uncheckedCast())
     val actions = TvmStackIntValue(zeroValue)
     val msgsSent = TvmStackIntValue(zeroValue)
@@ -164,8 +167,7 @@ fun TvmState.initContractInfo(): TvmStackTupleValueConcreteNew = with(ctx) {
         )
     )
     val config = TvmStackCellValue(initConfigRoot())
-    // TODO support `code` param
-    val code = TvmStackNullValue
+    val code = TvmStackCellValue(allocateCell(contractCode.codeCell))
     // TODO support `incomingValue` param
     val incomingValue = TvmStackNullValue
     val storagePhaseFees = TvmStackIntValue(makeSymbolicPrimitive(int257sort))

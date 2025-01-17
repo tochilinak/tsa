@@ -1,15 +1,12 @@
 package org.usvm.machine
 
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
 import org.ton.TvmInputInfo
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmMethod
-import org.ton.bytecode.disassembleBoc
 import org.ton.cell.Cell
 import org.usvm.machine.FuncAnalyzer.Companion.FIFT_EXECUTABLE
 import org.usvm.machine.state.ContractId
@@ -21,98 +18,82 @@ import org.usvm.test.resolver.TvmMethodCoverage
 import org.usvm.test.resolver.TvmTestResolver
 import org.usvm.utils.executeCommandWithTimeout
 import org.usvm.utils.toText
+import java.io.File
 import java.math.BigInteger
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.absolutePathString
-import kotlin.io.path.copyTo
-import kotlin.io.path.createTempDirectory
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
-import kotlin.io.path.deleteRecursively
 import kotlin.io.path.exists
-import kotlin.io.path.outputStream
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
-import kotlin.io.path.walk
 import kotlin.io.path.writeText
 import kotlin.time.Duration.Companion.minutes
 
-sealed interface TvmAnalyzer {
+sealed interface TvmAnalyzer<SourcesDescription> {
     fun analyzeAllMethods(
-        sourcesPath: Path,
+        sources: SourcesDescription,
         contractDataHex: String? = null,
         methodsBlackList: Set<MethodId> = hashSetOf(),
         methodsWhiteList: Set<MethodId>? = null,
         inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap(),
         tvmOptions: TvmOptions = TvmOptions(quietMode = true, timeout = 10.minutes),
-    ): TvmContractSymbolicTestResult
-
-    fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode
-}
-
-data object TactAnalyzer : TvmAnalyzer {
-    @OptIn(ExperimentalPathApi::class)
-    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
-        val outputDir = createTempDirectory(CONFIG_OUTPUT_PREFIX)
-        val sourcesInOutputDir = sourcesPath.copyTo(outputDir.resolve(sourcesPath.fileName))
-        val configFile = createTactConfig(sourcesInOutputDir, outputDir)
-
-        try {
-            compileTact(configFile)
-            val bocFile = outputDir.walk().singleOrNull { it.toFile().extension == "boc" }
-                ?: error("Cannot find .boc file after compiling the Tact source $sourcesPath")
-
-            return BocAnalyzer.loadContractFromBoc(bocFile)
-
-        } finally {
-            outputDir.deleteRecursively()
-            configFile.deleteIfExists()
-        }
-    }
-
-    override fun analyzeAllMethods(
-        sourcesPath: Path,
-        contractDataHex: String?,
-        methodsBlackList: Set<MethodId>,
-        methodsWhiteList: Set<MethodId>?,
-        inputInfo: Map<BigInteger, TvmInputInfo>,
-        tvmOptions: TvmOptions,
+        takeEmptyTests: Boolean = false,
     ): TvmContractSymbolicTestResult {
-        val contract = convertToTvmContractCode(sourcesPath)
+        val contract = convertToTvmContractCode(sources)
         return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractDataHex, inputInfo, tvmOptions)
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
-    private fun createTactConfig(sourcesPath: Path, outputDir: Path): Path {
-        val config = TactConfig(
-            listOf(
-                TactProject(
-                    name = CONFIG_NAME_OPTION,
-                    path = sourcesPath.absolutePathString(),
-                    output = outputDir.absolutePathString(),
-                )
-            )
-        )
+    fun convertToTvmContractCode(sources: SourcesDescription): TsaContractCode
+}
 
-        val configFile = createTempFile("tact_config")
-        configFile.outputStream().use { Json.encodeToStream(config, it) }
+data class TactSourcesDescription(
+    val configPath: Path,
+    val projectName: String,
+    val contractName: String,
+)
 
-        return configFile
+data object TactAnalyzer : TvmAnalyzer<TactSourcesDescription> {
+    override fun convertToTvmContractCode(sources: TactSourcesDescription): TsaContractCode {
+        val config = readTactConfig(sources.configPath)
+        val project = config.projects.firstOrNull {
+            it.name == sources.projectName
+        } ?: error("Project with name ${sources.projectName} not found.")
+        val outputDir = File(sources.configPath.parent.toAbsolutePath().toString(), project.output)
+
+        compileTact(sources.configPath)
+
+        val bocFileName = "${sources.projectName}_${sources.contractName}.code.boc"
+        val bocFile = outputDir.walk().singleOrNull { it.name == bocFileName }
+            ?: error("Cannot find file $bocFileName after compiling the Tact source")
+
+        return TsaContractCode.construct(bocFile.toPath())
+    }
+
+    private fun readTactConfig(configPath: Path): TactConfig {
+        val fileContent = configPath.toFile().readText()
+        val configJson = Json {
+            ignoreUnknownKeys = true
+        }
+        return configJson.decodeFromString(fileContent)
     }
 
     private fun compileTact(configFile: Path) {
         val tactCommand = "$TACT_EXECUTABLE --config ${configFile.absolutePathString()}"
         val executionCommand = tactCommand.toExecutionCommand()
-        val (exitValue, completedInTime, _, errors) = executeCommandWithTimeout(executionCommand, COMPILER_TIMEOUT)
+        val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
+            executionCommand,
+            COMPILER_TIMEOUT,
+            processWorkingDirectory = configFile.parent.toFile(),
+        )
 
         check(completedInTime) {
             "Tact compilation process has not finished in $COMPILER_TIMEOUT seconds"
         }
 
-        check(exitValue == 0) {
-            "Tact compilation failed with an error, exit code $exitValue, errors: \n${errors.toText()}"
+        check(exitValue == 0 && errors.isEmpty()) {
+            "Tact compilation failed with an error, exit code $exitValue, errors: \n${errors.toText()}\n, output:\n${output.toText()}"
         }
     }
 
@@ -126,38 +107,24 @@ data object TactAnalyzer : TvmAnalyzer {
         val output: String,
     )
 
-    private const val CONFIG_NAME_OPTION: String = "sample"
-    private const val CONFIG_OUTPUT_PREFIX: String = "output"
     private const val TACT_EXECUTABLE: String = "tact"
 }
 
 class FuncAnalyzer(
     private val funcStdlibPath: Path,
     private val fiftStdlibPath: Path,
-) : TvmAnalyzer {
+) : TvmAnalyzer<Path> {
     private val funcExecutablePath: Path = Paths.get(FUNC_EXECUTABLE)
     private val fiftExecutablePath: Path = Paths.get(FIFT_EXECUTABLE)
 
-    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
+    override fun convertToTvmContractCode(sources: Path): TsaContractCode {
         val tmpBocFile = createTempFile(suffix = ".boc")
         try {
-            compileFuncSourceToBoc(sourcesPath, tmpBocFile)
+            compileFuncSourceToBoc(sources, tmpBocFile)
             return BocAnalyzer.loadContractFromBoc(tmpBocFile)
         } finally {
             tmpBocFile.deleteIfExists()
         }
-    }
-
-    override fun analyzeAllMethods(
-        sourcesPath: Path,
-        contractDataHex: String?,
-        methodsBlackList: Set<MethodId>,
-        methodsWhiteList: Set<MethodId>?,
-        inputInfo: Map<BigInteger, TvmInputInfo>,
-        tvmOptions: TvmOptions,
-    ): TvmContractSymbolicTestResult {
-        val contract = convertToTvmContractCode(sourcesPath)
-        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractDataHex, inputInfo, tvmOptions)
     }
 
     fun compileFuncSourceToFift(funcSourcesPath: Path, fiftFilePath: Path) {
@@ -202,29 +169,17 @@ class FuncAnalyzer(
 
 class FiftAnalyzer(
     private val fiftStdlibPath: Path,
-) : TvmAnalyzer {
+) : TvmAnalyzer<Path> {
     private val fiftExecutablePath: Path = Paths.get(FIFT_EXECUTABLE)
 
-    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
+    override fun convertToTvmContractCode(sources: Path): TsaContractCode {
         val tmpBocFile = createTempFile(suffix = ".boc")
         try {
-            compileFiftToBoc(sourcesPath, tmpBocFile)
+            compileFiftToBoc(sources, tmpBocFile)
             return BocAnalyzer.loadContractFromBoc(tmpBocFile)
         } finally {
             tmpBocFile.deleteIfExists()
         }
-    }
-
-    override fun analyzeAllMethods(
-        sourcesPath: Path,
-        contractDataHex: String?,
-        methodsBlackList: Set<MethodId>,
-        methodsWhiteList: Set<MethodId>?,
-        inputInfo: Map<BigInteger, TvmInputInfo>,
-        tvmOptions: TvmOptions,
-    ): TvmContractSymbolicTestResult {
-        val contract = convertToTvmContractCode(sourcesPath)
-        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractDataHex, inputInfo, tvmOptions)
     }
 
     /**
@@ -328,7 +283,7 @@ class FiftAnalyzer(
     private fun runFiftInterpreter(
         fiftWorkDir: Path,
         fiftInterpreterCommand: String
-    ): FiftInterpreterResult{
+    ): FiftInterpreterResult {
         val fiftCommand = "echo '$fiftInterpreterCommand' | $fiftExecutablePath -n"
         val executionCommand = fiftCommand.toExecutionCommand()
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
@@ -373,27 +328,13 @@ class FiftAnalyzer(
     }
 }
 
-data object BocAnalyzer : TvmAnalyzer {
-
-    override fun analyzeAllMethods(
-        sourcesPath: Path,
-        contractDataHex: String?,
-        methodsBlackList: Set<MethodId>,
-        methodsWhiteList: Set<MethodId>?,
-        inputInfo: Map<BigInteger, TvmInputInfo>,
-        tvmOptions: TvmOptions,
-    ): TvmContractSymbolicTestResult {
-        val contract = loadContractFromBoc(sourcesPath)
-        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractDataHex, inputInfo, tvmOptions)
-    }
-
-    override fun convertToTvmContractCode(sourcesPath: Path): TsaContractCode {
-        return loadContractFromBoc(sourcesPath)
+data object BocAnalyzer : TvmAnalyzer<Path> {
+    override fun convertToTvmContractCode(sources: Path): TsaContractCode {
+        return loadContractFromBoc(sources)
     }
 
     fun loadContractFromBoc(bocFilePath: Path): TsaContractCode {
-        val tvmContractCode = disassembleBoc(bocFilePath)
-        return TsaContractCode.construct(tvmContractCode)
+        return TsaContractCode.construct(bocFilePath)
     }
 }
 
@@ -455,7 +396,7 @@ fun analyzeInterContract(
         machine.analyze(
             contracts,
             startContractId,
-            Cell.Companion.of(DEFAULT_CONTRACT_DATA_HEX),
+            Cell.of(DEFAULT_CONTRACT_DATA_HEX),
             coverageStatistics,
             methodId,
             inputInfo = inputInfo,
@@ -476,6 +417,7 @@ fun analyzeAllMethods(
     contractDataHex: String? = null,
     inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
+    takeEmptyTests: Boolean = false,
 ): TvmContractSymbolicTestResult {
     val contractData = Cell.Companion.of(contractDataHex ?: DEFAULT_CONTRACT_DATA_HEX)
     val machineOptions = TvmMachine.defaultOptions.copy(
@@ -505,7 +447,7 @@ fun analyzeAllMethods(
 
     machine.close()
 
-    return TvmTestResolver.resolve(methodStates)
+    return TvmTestResolver.resolve(methodStates, takeEmptyTests)
 }
 
 private fun String.toExecutionCommand(): List<String> = listOf("/bin/sh", "-c", this)

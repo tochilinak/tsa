@@ -1,17 +1,26 @@
 package org.ton.bytecode
 
+import org.ton.boc.BagOfCells
+import org.usvm.machine.toTvmCell
+import java.nio.file.Path
+import kotlin.io.path.readBytes
+
 data class TsaContractCode(
     val mainMethod: TvmInstList,
-    val methods: Map<MethodId, TvmMethod>
+    val methods: Map<MethodId, TvmMethod>,
+    val codeCell: TvmCell,
 ) {
     var isContractWithTSACheckerFunctions: Boolean = false
 
     companion object {
-        fun construct(tvmContractCode: TvmContractCode): TsaContractCode {
+        fun construct(bocFilePath: Path): TsaContractCode {
+            val bocAsByteArray = bocFilePath.readBytes()
+            val cell = BagOfCells(bocAsByteArray).roots.first().toTvmCell()
+            val tvmContractCode = disassembleBoc(bocFilePath)
             val newMethods = tvmContractCode.methods.entries.associate { (key, value) ->
                 key to value.addReturnStmt()
             }
-            return TsaContractCode(mainMethod = tvmContractCode.mainMethod, methods = newMethods)
+            return TsaContractCode(mainMethod = tvmContractCode.mainMethod, methods = newMethods, codeCell = cell)
         }
     }
 }

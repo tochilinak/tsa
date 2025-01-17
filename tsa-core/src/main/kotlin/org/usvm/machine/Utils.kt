@@ -3,11 +3,14 @@ package org.usvm.machine
 import io.ksmt.expr.KBitVecValue
 import io.ksmt.utils.BvUtils.toBigIntegerSigned
 import org.ton.bytecode.MethodId
+import org.ton.bytecode.TvmCell
+import org.ton.bytecode.TvmCellData
 import org.ton.bytecode.TvmCodeBlock
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmInstLambdaLocation
 import org.ton.bytecode.TvmInstLocation
 import org.ton.bytecode.TvmMethod
+import org.ton.cell.Cell
 import org.usvm.UBvSort
 import org.usvm.UExpr
 import org.usvm.test.resolver.TvmTestDataCellValue
@@ -55,4 +58,10 @@ fun TvmInst.getRootLocation(): TvmInstLocation {
         curLoc = curLoc.parent
     }
     return curLoc
+}
+
+fun Cell.toTvmCell(): TvmCell {
+    val children = refs.map { it.toTvmCell() }
+    val data = TvmCellData(bits.toBinary())
+    return TvmCell(data, children)
 }

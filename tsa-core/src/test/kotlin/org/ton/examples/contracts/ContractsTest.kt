@@ -41,7 +41,7 @@ class ContractsTest {
     fun testPumpersMaster() {
         val bytecodeResourcePath = getResourcePath<ContractsTest>(pumpersPath)
         BocAnalyzer.analyzeAllMethods(
-            sourcesPath = bytecodeResourcePath,
+            sources = bytecodeResourcePath,
             methodsWhiteList = hashSetOf(MethodId.ZERO),
             inputInfo = emptyMap(),
             tvmOptions = TvmOptions(
