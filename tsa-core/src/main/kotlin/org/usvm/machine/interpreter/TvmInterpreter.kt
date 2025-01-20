@@ -336,7 +336,7 @@ class TvmInterpreter(
     private val contStackInterpreter = TvmContinuationStackInterpreter(ctx)
     private val transactionInterpreter = TvmTransactionInterpreter(ctx)
     private val tsaCheckerFunctionsInterpreter = TsaCheckerFunctionsInterpreter(contractsCode)
-    private val artificialInstInterpreter = TvmArtificialInstInterpreter()
+    private val artificialInstInterpreter = TvmArtificialInstInterpreter(ctx, contractsCode, transactionInterpreter)
 
     fun getInitialState(
         startContractId: ContractId,
@@ -506,8 +506,6 @@ class TvmInterpreter(
 
                 globalStructuralConstraintsHolder.applyTo(scope)
                     ?: error("Could not apply structural constraints")  // TODO: add special exit for that
-
-                processExitFromContract(scope)
             },
             exceptionHandler = {
                 logger.debug(it) {
@@ -523,105 +521,6 @@ class TvmInterpreter(
         return scope.stepResult().apply {
             if (state.gasUsage === initialGasUsage || forkedStates.any { it.gasUsage === initialGasUsage }) {
                 TODO("Gas usage was not updated after: $stmt")
-            }
-        }
-    }
-
-    private fun processExitFromContract(scope: TvmStepScopeManager) {
-        if (ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
-            processIntercontractExit(scope)
-        } else {
-            processCheckerExit(scope)
-        }
-    }
-
-    private fun processIntercontractExit(scope: TvmStepScopeManager) {
-        // TODO forked states ? maybe introduce artificial inst for post-processing
-        // TODO stop at failure state or at state without commitedState
-        scope.doWithState {
-            // TODO maybe refactor canBeProcessed check, again can be solved with artificial instruction
-            if (methodResult == TvmMethodResult.NoCall ||
-                entrypoint.id != RECEIVE_INTERNAL_ID ||
-                !scope.canBeProcessed
-            ) {
-                return@doWithState
-            }
-
-            processNewMessages(scope)
-                ?: return@doWithState
-
-            if (messageQueue.isEmpty()) {
-                return@doWithState
-            }
-
-            contractEpilogue()
-
-            val (nextContract, message) = messageQueue.first()
-            val nextContractCode = contractsCode.getOrNull(nextContract)
-                ?: error("Contract with id $nextContract was not found")
-            val nextMethod = nextContractCode.methods[RECEIVE_INTERNAL_ID]
-                ?: error("recv_internal in contract $nextContract was not found.")
-
-            messageQueue = messageQueue.removeAt(0)
-            intercontractPath = intercontractPath.add(nextContract)
-
-            val prevStack = stack
-            val newMemory = initializeContractExecutionMemory(contractsCode, this, currentContract, allowInputStackValues = false)
-            currentContract = nextContract
-            stack = newMemory.stack
-            stack.copyInputValues(prevStack)
-            registersOfCurrentContract = newMemory.registers
-
-            // TODO update balance using message value
-            val balance = getBalance()
-                ?: error("Unexpected incorrect config balance value")
-
-            stack.addInt(balance)
-            stack.addInt(message.msgValue)
-            addOnStack(message.fullMsgCell, TvmCellType)
-            addOnStack(message.msgBodySlice, TvmSliceType)
-
-            newStmt(nextMethod.instList.first())
-        }
-    }
-
-    private fun processNewMessages(scope: TvmStepScopeManager): Unit? = scope.calcOnState {
-        lastCommitedStateOfContracts[currentContract]
-            ?: return@calcOnState null
-
-        // TODO workaround, since `makeSliceTypeLoad` filters out terminated states
-        val prevResult = methodResult
-        methodResult = TvmMethodResult.NoCall
-        val messageDestinations = transactionInterpreter.parseActionsToDestinations(scope)
-            // [methodResult] is set to the corresponding parsing failure
-            ?: return@calcOnState null
-        methodResult = prevResult
-
-        messageQueue = messageQueue.addAll(messageDestinations)
-    }
-
-    private fun processCheckerExit(scope: TvmStepScopeManager) {
-        scope.doWithState {
-            // TODO: process dead states
-            // TODO: case of committed state of TvmFailure
-            if (methodResult is TvmMethodResult.TvmSuccess && contractStack.isNotEmpty()) {
-                val (prevContractId, prevInst, prevMem, expectedNumberOfOutputItems) = contractStack.last()
-
-                // update global c4 and c7
-                lastCommitedStateOfContracts[currentContract]
-                    ?: error("Did not find commited state of contract $currentContract")
-                contractEpilogue()
-
-                val stackFromOtherContract = stack
-
-                contractStack = contractStack.removeAt(contractStack.size - 1)
-                currentContract = prevContractId
-
-                val prevStack = prevMem.stack
-                stack = prevStack.clone()  // we should not touch stack from contractStack, as it is contained in other states
-                stack.takeValuesFromOtherStack(stackFromOtherContract, expectedNumberOfOutputItems)
-                registersOfCurrentContract = prevMem.registers
-                newStmt(prevInst.nextStmt())
             }
         }
     }

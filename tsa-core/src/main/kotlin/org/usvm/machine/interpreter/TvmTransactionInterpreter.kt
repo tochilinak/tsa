@@ -1,15 +1,20 @@
 package org.usvm.machine.interpreter
 
+import io.ksmt.utils.uncheckedCast
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.usvm.UBoolExpr
 import org.usvm.UExpr
 import org.usvm.UHeapRef
 import org.usvm.api.makeSymbolicPrimitive
 import org.usvm.machine.TvmContext
+import org.usvm.machine.TvmContext.Companion.INT_BITS
+import org.usvm.machine.TvmContext.Companion.NONE_ADDRESS_TAG
 import org.usvm.machine.TvmContext.Companion.OP_BITS
+import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.ContractId
+import org.usvm.machine.state.TvmCommitedState
 import org.usvm.machine.state.allocCellFromData
 import org.usvm.machine.state.allocEmptyBuilder
 import org.usvm.machine.state.allocSliceFromCell
@@ -18,6 +23,7 @@ import org.usvm.machine.state.builderStoreIntTransaction
 import org.usvm.machine.state.builderStoreSlice
 import org.usvm.machine.state.builderStoreSliceTransaction
 import org.usvm.machine.state.builderToCell
+import org.usvm.machine.state.doWithCtx
 import org.usvm.machine.state.getCellContractInfoParam
 import org.usvm.machine.state.getSliceRemainingRefsCount
 import org.usvm.machine.state.sliceLoadAddrTransaction
@@ -35,11 +41,14 @@ import org.usvm.mkSizeExpr
 import org.usvm.sizeSort
 
 class TvmTransactionInterpreter(val ctx: TvmContext) {
-    fun parseActionsToDestinations(scope: TvmStepScopeManager): List<Pair<ContractId, OutMessage>>? = with(ctx) {
+    fun parseActionsToDestinations(
+        scope: TvmStepScopeManager,
+        commitedState: TvmCommitedState
+    ): List<Pair<ContractId, OutMessage>>? = with(ctx) {
         val scheme = ctx.tvmOptions.intercontractOptions.communicationScheme
             ?: error("Communication scheme is not found")
 
-        val actions = parseActions(scope)
+        val actions = parseActions(scope, commitedState)
             ?: return null
 
         if (actions.isEmpty()) {
@@ -73,13 +82,8 @@ class TvmTransactionInterpreter(val ctx: TvmContext) {
         handler.destinations.zip(actions)
     }
 
-    fun parseActions(scope: TvmStepScopeManager): List<OutMessage>? = with(ctx) {
-        val contractId = scope.calcOnState { currentContract }
-        val commitedState = scope.calcOnState { lastCommitedStateOfContracts[contractId] }
-        val commitedActions = scope.calcOnState { commitedState?.c5?.value?.value }
-        if (commitedActions == null) {
-            return@with null
-        }
+    fun parseActions(scope: TvmStepScopeManager, commitedState: TvmCommitedState): List<OutMessage>? = with(ctx) {
+        val commitedActions = scope.calcOnState { commitedState.c5.value.value }
 
         val actions = extractActions(scope, commitedActions)
             ?: return null
@@ -176,17 +180,8 @@ class TvmTransactionInterpreter(val ctx: TvmContext) {
             builderStoreIntTransaction(scope, msgFull, flags, mkSizeExpr(4))
                 ?: return@with null
 
-            // src:MsgAddress
-            // TODO support std addresses
-            val src = sliceLoadIntTransaction(scope, ptr.slice, 2)?.unwrap(ptr)
+            sliceSkipNoneOrStdAddr(scope, ptr.slice)?.unwrap(ptr)
                 ?: return@with null
-
-            val isSrcNone = scope.checkCondition(src eq zeroValue)
-                ?: return@with null
-
-            require(isSrcNone) {
-                "Std source message address is not supported"
-            }
 
             val addrCell = scope.getCellContractInfoParam(ADDRESS_PARAMETER_IDX)
                 ?: return null
@@ -371,6 +366,36 @@ class TvmTransactionInterpreter(val ctx: TvmContext) {
         // TODO no implementation, since we don't compute actions fees and balance
 
         return Unit
+    }
+
+    private fun sliceSkipNoneOrStdAddr(
+        scope: TvmStepScopeManager,
+        slice: UHeapRef,
+    ): Pair<UHeapRef, Unit>? = scope.doWithCtx {
+        val (afterTagSlice, tag) = sliceLoadIntTransaction(scope, slice, 2)
+            ?: return@doWithCtx null
+
+        val noneTag = mkBv(NONE_ADDRESS_TAG, INT_BITS)
+        val isTagNone = scope.checkCondition(tag eq noneTag.uncheckedCast())
+            ?: return@doWithCtx null
+
+        if (isTagNone) {
+            return@doWithCtx afterTagSlice to Unit
+        }
+
+        // TODO not fallback to old memory
+        val stdTag = mkBv(STD_ADDRESS_TAG, INT_BITS)
+        val isTagStd = scope.checkCondition(tag eq stdTag.uncheckedCast())
+            ?: return@doWithCtx null
+
+        require(isTagStd) {
+            "Only none and std source addresses are supported"
+        }
+
+        val (nextSlice, _) = sliceLoadAddrTransaction(scope, slice)
+            ?: return@doWithCtx null
+
+        nextSlice to Unit
     }
 
     private fun TvmStepScopeManager.checkCondition(cond: UBoolExpr): Boolean? = with(ctx) {

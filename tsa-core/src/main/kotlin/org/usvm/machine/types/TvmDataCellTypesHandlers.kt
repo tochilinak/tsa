@@ -29,6 +29,7 @@ import org.usvm.machine.state.TvmMethodResult
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.calcOnStateCtx
 import org.usvm.machine.state.doWithCtx
+import org.usvm.machine.state.setExit
 import org.usvm.machine.types.memory.ConcreteSizeBlockField
 import org.usvm.machine.types.memory.SliceRefField
 import org.usvm.machine.types.memory.SymbolicSizeBlockField
@@ -138,9 +139,7 @@ fun <ReadResult : TvmCellDataTypeReadValue> TvmStepScopeManager.makeSliceTypeLoa
         },
         doForAllBlock = { param ->
             // we execute [restActions] only on states that haven't terminated yet
-            if (calcOnState { methodResult == TvmMethodResult.NoCall }) {
-                restActions(param)
-            }
+            restActions(param)
         }
     )
 }
@@ -156,7 +155,7 @@ private fun processMakeSliceTypeLoadOutcome(
         }
 
         is Error -> {
-            { methodResult = outcome.error }
+            { setExit(outcome.error) }
         }
 
         is NewTlbStack -> {
@@ -186,7 +185,7 @@ fun TvmStepScopeManager.assertEndOfCell(
                 noConflictCond,
                 falseStateIsExceptional = true,
                 blockOnFalseState = {
-                    methodResult = TvmMethodResult.TvmStructuralError(TvmUnexpectedEndOfReading)
+                    setExit(TvmMethodResult.TvmStructuralError(TvmUnexpectedEndOfReading, phase))
                 }
             ) ?: return@calcOnStateCtx null
         }
@@ -215,7 +214,7 @@ fun TvmStepScopeManager.makeSliceRefLoad(
                     noConflictCond,
                     falseStateIsExceptional = true,
                     blockOnFalseState = {
-                        methodResult = TvmMethodResult.TvmStructuralError(TvmUnexpectedRefReading)
+                        setExit(TvmMethodResult.TvmStructuralError(TvmUnexpectedRefReading, phase))
                     }
                 ) ?: return@calcOnStateCtx null
             }

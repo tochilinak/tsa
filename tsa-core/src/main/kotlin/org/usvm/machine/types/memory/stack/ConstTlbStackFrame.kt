@@ -8,7 +8,7 @@ import org.usvm.UExpr
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmSizeSort
 import org.usvm.machine.intValue
-import org.usvm.machine.state.TvmMethodResult
+import org.usvm.machine.state.TvmMethodResult.TvmStructuralError
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.types.SizedCellDataTypeRead
 import org.usvm.machine.types.TvmCellDataBitArrayRead
@@ -59,7 +59,7 @@ data class ConstTlbStackFrame(
                 GuardedResult(
                     trueExpr,
                     StepError(
-                        TvmMethodResult.TvmStructuralError(TvmReadingSwitchWithUnexpectedType(loadData.type))
+                        TvmStructuralError(TvmReadingSwitchWithUnexpectedType(loadData.type), state.phase)
                     ),
                     value = null,
                 )
@@ -108,7 +108,7 @@ data class ConstTlbStackFrame(
             result.add(
                 GuardedResult(
                     mkSizeGtExpr(readSize, leftBits),
-                    StepError(TvmMethodResult.TvmStructuralError(TvmReadingOutOfSwitchBounds(loadData.type))),
+                    StepError(TvmStructuralError(TvmReadingOutOfSwitchBounds(loadData.type), state.phase)),
                     value = null,
                 )
             )

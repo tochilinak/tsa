@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.PersistentList
 import org.ton.TlbStructure
 import org.usvm.isTrue
 import org.usvm.machine.TvmContext
-import org.usvm.machine.state.TvmMethodResult
+import org.usvm.machine.state.TvmMethodResult.TvmStructuralError
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.types.SizedCellDataTypeRead
 import org.usvm.machine.types.TvmCellDataTypeReadValue
@@ -41,7 +41,7 @@ data class SwitchTlbStackFrame(
                 GuardedResult(
                     trueExpr,
                     StepError(
-                        TvmMethodResult.TvmStructuralError(TvmReadingSwitchWithUnexpectedType(loadData.type))
+                        TvmStructuralError(TvmReadingSwitchWithUnexpectedType(loadData.type), state.phase)
                     ),
                     value = null,
                 )
@@ -55,7 +55,7 @@ data class SwitchTlbStackFrame(
             GuardedResult(
                 mkSizeGtExpr(readSize, switchSize),
                 StepError(
-                    TvmMethodResult.TvmStructuralError(TvmReadingOutOfSwitchBounds(loadData.type))
+                    TvmStructuralError(TvmReadingOutOfSwitchBounds(loadData.type), state.phase)
                 ),
                 value = null,
             )

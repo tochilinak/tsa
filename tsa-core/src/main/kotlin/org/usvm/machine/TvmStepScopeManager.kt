@@ -135,15 +135,19 @@ class TvmStepScopeManager(
                     }
                 }
 
-                val newScopeManager = TvmStepScopeManager(state, forkBlackList, allowFailuresOnCurrentStep)
-                newScopeManager.doForAllBlock(action.paramForDoForAllBlock)
+                var stateAlive = true
+                if (!state.isExceptional) {
+                    val newScopeManager = TvmStepScopeManager(state, forkBlackList, allowFailuresOnCurrentStep)
+                    newScopeManager.doForAllBlock(action.paramForDoForAllBlock)
 
-                // TODO filter out DEAD states ?
-                val newScopeResults = newScopeManager.stepResult()
-                if (state !== originalState) {
+                    val newScopeResults = newScopeManager.stepResult()
+                    forkedStates += newScopeResults.forkedStates
+                    stateAlive = newScopeResults.originalStateAlive
+                }
+
+                if (state !== originalState && stateAlive) {
                     forkedStates += state
                 }
-                forkedStates += newScopeResults.forkedStates
             }
         }
     }

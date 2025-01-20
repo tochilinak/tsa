@@ -32,7 +32,8 @@ sealed interface TvmMethodResult {
     @Serializable
     data class TvmFailure(
         val exit: TvmErrorExit,
-        val type: TvmFailureType
+        val type: TvmFailureType,
+        val phase: TmvPhase,
     ) : TvmMethodResult
 
     @Serializable
@@ -46,9 +47,9 @@ sealed interface TvmMethodResult {
         val ruleName: String
     }
 
-    @JvmInline
-    value class TvmStructuralError(
+    data class TvmStructuralError(
         val exit: TvmStructuralExit<TvmCellDataTypeRead<*>, TlbBuiltinLabel>,
+        val phase: TmvPhase,
     ) : TvmMethodResult
 }
 
@@ -179,3 +180,6 @@ data class TvmUnknownFailure(override val exitCode: UInt): TvmErrorExit {
 
     override fun toString(): String = "TVM user defined error with exit code $exitCode"
 }
+
+fun TvmMethodResult.isExceptional(): Boolean =
+    this is TvmMethodResult.TvmFailure || this is TvmMethodResult.TvmStructuralError

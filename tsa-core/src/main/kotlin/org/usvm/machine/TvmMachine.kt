@@ -144,8 +144,7 @@ class TvmMachine(
         }
     }
 
-    private fun isStateTerminated(state: TvmState): Boolean =
-        state.methodResult !is TvmMethodResult.NoCall
+    private fun isStateTerminated(state: TvmState): Boolean = state.isTerminated
 
     companion object {
         private val logger = object : KLogging() {}.logger

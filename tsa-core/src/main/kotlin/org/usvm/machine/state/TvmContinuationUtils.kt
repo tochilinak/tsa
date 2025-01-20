@@ -343,7 +343,8 @@ private fun TvmStepScopeManager.doQuitJump(cont: TvmQuitContinuation) = doWithSt
     val commitedState = TvmCommitedState(registers.c4, registers.c5)
 
     lastCommitedStateOfContracts = lastCommitedStateOfContracts.put(currentContract, commitedState)
-    methodResult = TvmMethodResult.TvmSuccess(exit, stack)
+
+    setExit(TvmMethodResult.TvmSuccess(exit, stack))
 }
 
 private fun TvmStepScopeManager.doLoopEntranceJump(cont: TvmLoopEntranceContinuation) {
@@ -437,6 +438,6 @@ private fun TvmStepScopeManager.doExceptionJump(cont: TvmExceptionContinuation) 
     doWithState {
         stack.addInt(exitCode)
 
-        methodResult = TvmMethodResult.TvmFailure(failure, TvmFailureType.UnknownError)
+        setExit(TvmMethodResult.TvmFailure(failure, TvmFailureType.UnknownError, phase))
     }
 }

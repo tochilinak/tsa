@@ -25,7 +25,7 @@ class TvmDataCellInfoStorage private constructor(
         val staticAddresses = extractAddresses(ref).map { it.second }
 
         staticAddresses.forEach {
-            if (state.methodResult is TvmMethodResult.NoCall) {
+            if (!state.isTerminated) {
                 mapper.initializeConstraintsForChildren(state, it)
             }
         }

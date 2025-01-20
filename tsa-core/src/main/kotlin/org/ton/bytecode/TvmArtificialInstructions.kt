@@ -1,6 +1,7 @@
 package org.ton.bytecode
 
 import kotlinx.serialization.Serializable
+import org.usvm.machine.state.TvmMethodResult
 
 sealed interface TsaArtificialInst : TvmArtificialInst
 
@@ -25,6 +26,30 @@ data class TsaArtificialImplicitRetInst(
 ) : TsaArtificialInst {
     override val mnemonic: String get() = "implicit RET"
     override val gasConsumption get() = TvmFixedGas(value = 5)
+
+    init {
+        checkLocationInitialized()
+    }
+}
+
+@Serializable
+data class TsaArtificialActionPhaseInst(
+    val computePhaseResult: TvmMethodResult,
+    override val location: TvmInstLocation,
+) : TsaArtificialInst {
+    override val mnemonic: String get() = "artificial_action_phase"
+
+    init {
+        checkLocationInitialized()
+    }
+}
+
+@Serializable
+data class TsaArtificialExitInst(
+    val result: TvmMethodResult,
+    override val location: TvmInstLocation,
+) : TsaArtificialInst {
+    override val mnemonic: String get() = "artificial_exit"
 
     init {
         checkLocationInitialized()

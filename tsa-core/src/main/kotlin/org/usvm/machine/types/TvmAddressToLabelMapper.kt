@@ -122,7 +122,7 @@ class TvmAddressToLabelMapper(
     }
 
     fun initializeConstraintsForChildren(state: TvmState, ref: UConcreteHeapRef) = with(state.ctx) {
-        check(state.methodResult is TvmMethodResult.NoCall) {
+        check(!state.isTerminated) {
             "initializeAddressChildren should be called only when the state is not terminated, but " +
                     "given state's result is ${state.methodResult}"
         }

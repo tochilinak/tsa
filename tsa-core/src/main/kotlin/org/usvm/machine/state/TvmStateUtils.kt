@@ -35,6 +35,10 @@ import org.usvm.mkSizeLeExpr
 import org.usvm.sizeSort
 import org.usvm.types.USingleTypeStream
 import java.math.BigInteger
+import org.ton.bytecode.TsaArtificialActionPhaseInst
+import org.ton.bytecode.TsaArtificialExitInst
+import org.usvm.machine.state.TmvPhase.ACTION_PHASE
+import org.usvm.machine.state.TmvPhase.COMPUTE_PHASE
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 
 val TvmState.lastStmt get() = pathNode.statement
@@ -69,11 +73,18 @@ fun TvmContext.setFailure(
 
     val c2 = state.registersOfCurrentContract.c2.value
     if (state.c2IsDefault()) {
-        state.methodResult = TvmMethodResult.TvmFailure(failure, level)
+        state.setExit(TvmMethodResult.TvmFailure(failure, level, state.phase))
     } else {
         state.newStmt(TsaArtificialJmpToContInst(c2, state.lastStmt.location))
     }
 }
+
+fun TvmState.setExit(methodResult: TvmMethodResult) =
+    when (phase) {
+        COMPUTE_PHASE -> newStmt(TsaArtificialActionPhaseInst(methodResult, lastStmt.location))
+        ACTION_PHASE -> newStmt(TsaArtificialExitInst(methodResult, lastStmt.location))
+        else -> error("Unexpected exit on phase: $phase")
+    }
 
 fun <R> TvmStepScopeManager.calcOnStateCtx(block: context(TvmContext) TvmState.() -> R): R = calcOnState {
     block(ctx, this)
@@ -298,7 +309,6 @@ fun TvmState.contractEpilogue() {
         registersOfCurrentContract.c7.value[0, stack].cell(stack) as TvmStackTupleValueConcreteNew
     )
     lastMsgBody = null
-    methodResult = TvmMethodResult.NoCall
 
     val commitedState = lastCommitedStateOfContracts[currentContract]
         ?: return

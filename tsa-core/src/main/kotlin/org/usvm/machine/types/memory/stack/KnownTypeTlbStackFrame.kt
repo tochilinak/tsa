@@ -73,7 +73,8 @@ data class KnownTypeTlbStackFrame(
                 struct.typeLabel,
                 args,
                 loadData.type,
-            )
+            ),
+            state.phase,
         )
 
         val value = struct.typeLabel.extractTlbValueIfPossible(struct, loadData.type, loadData.cellAddress, path, state, leftTlbDepth)

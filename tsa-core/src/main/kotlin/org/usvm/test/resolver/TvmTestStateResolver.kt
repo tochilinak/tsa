@@ -73,6 +73,7 @@ import org.usvm.sizeSort
 import java.math.BigInteger
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.ton.bytecode.BALANCE_PARAMETER_IDX
+import org.ton.bytecode.TvmArtificialInst
 import org.usvm.machine.state.TvmStack.TvmStackValue
 
 class TvmTestStateResolver(
@@ -128,7 +129,15 @@ class TvmTestStateResolver(
 
         return when (val it = state.methodResult) {
             TvmMethodResult.NoCall -> error("Missed result for state $state")
-            is TvmMethodResult.TvmFailure -> TvmMethodFailure(it, state.lastStmt, it.exit.exitCode, resolvedResults)
+            is TvmMethodResult.TvmFailure -> {
+                var node = state.pathNode
+                while (node.statement is TvmArtificialInst) {
+                    node = node.parent
+                        ?: error("Unexpected execution path without non-artificial instructions")
+                }
+
+                TvmMethodFailure(it, node.statement, it.exit.exitCode, resolvedResults)
+            }
             is TvmMethodResult.TvmSuccess -> TvmSuccessfulExecution(it.exit.exitCode, resolvedResults)
             is TvmMethodResult.TvmStructuralError -> resolveTvmStructuralError(state.lastStmt, resolvedResults, it)
         }

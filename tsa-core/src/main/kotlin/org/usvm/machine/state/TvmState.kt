@@ -6,6 +6,8 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentHashSetOf
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import org.ton.bytecode.TsaArtificialActionPhaseInst
+import org.ton.bytecode.TsaArtificialExitInst
 import org.ton.bytecode.TvmCodeBlock
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmMethod
@@ -24,6 +26,8 @@ import org.usvm.isStaticHeapRef
 import org.usvm.machine.TvmCellDataFieldManager
 import org.usvm.machine.TvmContext
 import org.usvm.machine.interpreter.OutMessage
+import org.usvm.machine.state.TmvPhase.COMPUTE_PHASE
+import org.usvm.machine.state.TmvPhase.TERMINATED
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.types.GlobalStructuralConstraintsHolder
 import org.usvm.machine.types.TvmDataCellInfoStorage
@@ -52,6 +56,7 @@ class TvmState(
     models: List<UModelBase<TvmType>> = listOf(),
     pathNode: PathNode<TvmInst> = PathNode.root(),
     forkPoints: PathNode<PathNode<TvmInst>> = PathNode.root(),
+    var phase: TmvPhase = COMPUTE_PHASE,
     var methodResult: TvmMethodResult = TvmMethodResult.NoCall,
     targets: UTargetsSet<TvmTarget, TvmInst> = UTargetsSet.empty(),
     val typeSystem: TvmTypeSystem,
@@ -82,7 +87,13 @@ class TvmState(
     targets,
 ) {
     override val isExceptional: Boolean
-        get() = methodResult is TvmMethodResult.TvmFailure || methodResult is TvmMethodResult.TvmStructuralError
+        get() = lastStmt.let {
+            it is TsaArtificialActionPhaseInst && it.computePhaseResult.isExceptional() ||
+            it is TsaArtificialExitInst && it.result.isExceptional()
+        }
+
+    val isTerminated: Boolean
+        get() = phase == TERMINATED
 
     lateinit var dataCellInfoStorage: TvmDataCellInfoStorage
     lateinit var registersOfCurrentContract: TvmRegisters
@@ -171,6 +182,7 @@ class TvmState(
             messageQueue = messageQueue,
             lastMsgBody = lastMsgBody,
             intercontractPath = intercontractPath,
+            phase = phase,
         ).also { newState ->
             newState.dataCellInfoStorage = dataCellInfoStorage.clone()
             newState.contractIdToInitialData = contractIdToInitialData
@@ -203,6 +215,13 @@ class TvmState(
         memory.types.allocate(ref.address, referenceType)
         initializer(ref)
     }
+}
+
+enum class TmvPhase {
+    COMPUTE_PHASE,
+    ACTION_PHASE,
+    EXIT_PHASE,
+    TERMINATED,
 }
 
 data class TvmCommitedState(
