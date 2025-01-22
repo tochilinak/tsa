@@ -76,6 +76,7 @@ class TvmContext(
     val intBitsValue: KBitVecValue<TvmInt257Sort> = INT_BITS.toInt().toBv257()
     val maxTupleSizeValue: KBitVecValue<TvmInt257Sort> = MAX_TUPLE_SIZE.toBv257()
     val unitTimeMinValue: KBitVecValue<TvmInt257Sort> = UNIX_TIME_MIN.toBv257()
+    val unitTimeMaxValue: KBitVecValue<TvmInt257Sort> = UNIX_TIME_MAX.toBv257()
     val min257BitValue: KExpr<TvmInt257Sort> = bvMinValueSignedExtended(intBitsValue)
     val max257BitValue: KExpr<TvmInt257Sort> = bvMaxValueSignedExtended(intBitsValue)
     val maxGramsValue: KExpr<TvmInt257Sort> = bvMaxValueUnsigned<UBvSort>(MAX_GRAMS_BITS).unsignedExtendToInteger()
@@ -205,7 +206,10 @@ class TvmContext(
         const val INT_BITS: UInt = 257u
         val CELL_DATA_BITS: UInt = MAX_DATA_LENGTH.toUInt()
 
-        const val UNIX_TIME_MIN: Int = 1712318909
+        // Apr 05 2024 12:08:29 GMT+0000
+        const val UNIX_TIME_MIN: Long = 1712318909
+        // Jan 01 2100 00:00:00 GMT+0000
+        const val UNIX_TIME_MAX: Long = 4102444800
 
         const val MAX_GRAMS_BITS: UInt = 120u
 

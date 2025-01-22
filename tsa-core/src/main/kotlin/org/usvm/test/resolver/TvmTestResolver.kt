@@ -20,6 +20,7 @@ data object TvmTestResolver {
         val usedParameters = stateResolver.resolveParameters()
         val contractAddress = stateResolver.resolveContractAddress()
         val contractBalance = stateResolver.resolveContractBalance()
+        val time = stateResolver.resolveTime()
         val initialData = stateResolver.resolveInitialData()
         val result = stateResolver.resolveResultStack()
         val gasUsage = stateResolver.resolveGasUsage()
@@ -29,6 +30,7 @@ data object TvmTestResolver {
             contractAddress = contractAddress,
             initialData = initialData,
             contractBalance = contractBalance,
+            time = time,
             usedParameters = usedParameters,
             result = result,
             stackTrace = state.continuationStack,
@@ -84,6 +86,7 @@ data class TvmSymbolicTest(
     val methodId: MethodId,
     val contractAddress: TvmTestDataCellValue,
     val contractBalance: TvmTestIntegerValue,
+    val time: TvmTestIntegerValue,
     val initialData: TvmTestCellValue,
     val usedParameters: List<TvmTestValue>,
     val result: TvmMethodSymbolicResult,

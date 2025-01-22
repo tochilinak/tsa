@@ -20,7 +20,7 @@ import org.ton.test.gen.dsl.models.TsEmptyLine
 import org.ton.test.gen.dsl.models.TsEquals
 import org.ton.test.gen.dsl.models.TsExpectToEqual
 import org.ton.test.gen.dsl.models.TsExpectToHaveTransaction
-import org.ton.test.gen.dsl.models.TsFieldRead
+import org.ton.test.gen.dsl.models.TsFieldAccess
 import org.ton.test.gen.dsl.models.TsInt
 import org.ton.test.gen.dsl.models.TsIntValue
 import org.ton.test.gen.dsl.models.TsMethodCall
@@ -28,7 +28,6 @@ import org.ton.test.gen.dsl.models.TsNum
 import org.ton.test.gen.dsl.models.TsNumAdd
 import org.ton.test.gen.dsl.models.TsNumDiv
 import org.ton.test.gen.dsl.models.TsNumSub
-import org.ton.test.gen.dsl.models.TsReference
 import org.ton.test.gen.dsl.models.TsSandboxContract
 import org.ton.test.gen.dsl.models.TsSendMessageResult
 import org.ton.test.gen.dsl.models.TsSlice
@@ -40,6 +39,7 @@ import org.ton.test.gen.dsl.models.TsTestBlock
 import org.ton.test.gen.dsl.models.TsTestCase
 import org.ton.test.gen.dsl.models.TsTestFile
 import org.ton.test.gen.dsl.models.TsType
+import org.ton.test.gen.dsl.models.TsVariable
 import org.ton.test.gen.dsl.models.TsVoid
 import org.ton.test.gen.dsl.models.TsWrapper
 
@@ -81,8 +81,8 @@ interface TsVisitor<R> {
     fun visit(element: TsExpectToHaveTransaction): R
 
     /* expressions */
-    fun <T : TsType> visit(element: TsReference<T>): R
-    fun <P : TsType, T : TsType> visit(element: TsFieldRead<P, T>): R
+    fun <T : TsType> visit(element: TsVariable<T>): R
+    fun <P : TsType, T : TsType> visit(element: TsFieldAccess<P, T>): R
     fun visit(element: TsBooleanValue): R
     fun visit(element: TsIntValue): R
     fun visit(element: TsBigintValue): R

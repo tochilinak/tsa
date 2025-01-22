@@ -8,8 +8,10 @@ import org.ton.test.gen.dsl.models.TsBlockchain
 import org.ton.test.gen.dsl.models.TsCell
 import org.ton.test.gen.dsl.models.blockchainCreate
 import org.ton.test.gen.dsl.models.compileContract
+import org.ton.test.gen.dsl.models.now
 import org.ton.test.gen.dsl.models.openContract
 import org.ton.test.gen.dsl.models.parseAddress
+import org.ton.test.gen.dsl.models.toInt
 import org.ton.test.gen.dsl.models.toTsValue
 import org.ton.test.gen.dsl.render.TsRenderer
 import org.ton.test.gen.dsl.testFile
@@ -40,9 +42,10 @@ fun generateTests(
         .filter { it.result is TvmMethodFailure }
 
     val name = extractContractName(sourceRelativePath)
+    val testNames = generateTestNames(entryTests)
 
     val ctx = TsContext()
-    val test = ctx.recvInternalTests(name, entryTests, sourceRelativePath.toString())
+    val test = ctx.recvInternalTests(name, testNames.zip(entryTests), sourceRelativePath.toString())
     val renderedTests = TsRenderer(ctx).renderTests(test)
 
     writeRenderedTest(projectPath, renderedTests)
@@ -51,7 +54,7 @@ fun generateTests(
 
 private fun TsContext.recvInternalTests(
     name: String,
-    tests: List<TvmSymbolicTest>,
+    tests: List<Pair<String, TvmSymbolicTest>>,
     sourcePath: String
 ) = testFile(name) {
     val wrapperDescriptor = TsBasicWrapperDescriptor(name)
@@ -75,11 +78,14 @@ private fun TsContext.recvInternalTests(
 
         emptyLine()
 
-        tests.forEachIndexed { idx, test ->
+        tests.forEachIndexed { idx, (name, test) ->
             val input = resolveReceiveInternalInput(test)
 
-            // TODO more specific names
-            it("test-$idx") {
+            it(name) {
+                blockchain.now() assign test.time.toTsValue().toInt()
+
+                emptyLine()
+
                 val data = newVar("data", test.initialData.toTsValue())
                 val contractAddr = newVar("contractAddr", parseAddress(input.address))
                 val contractBalance = newVar("contractBalance", input.initialBalance.toTsValue())
@@ -160,6 +166,7 @@ private fun resolveReceiveInternalInput(test: TvmSymbolicTest): TvmReceiveIntern
         fullMsg,
         msgCurrency,
         initialBalance,
+        test.time,
         contractAddress,
         srcAddress,
         bounce,
@@ -173,12 +180,27 @@ private data class TvmReceiveInternalInput(
     val fullMsg: TvmTestDataCellValue,
     val msgCurrency: TvmTestIntegerValue,
     val initialBalance: TvmTestIntegerValue,
+    val time: TvmTestIntegerValue,
     val address: String,
     val srcAddress: String,
     val bounce: Boolean,
     val bounced: Boolean,
     val exitCode: Int,
 )
+
+private fun generateTestNames(tests: List<TvmSymbolicTest>): List<String> {
+    val exitsCounter = mutableMapOf<String, Int>()
+
+    return tests.map { test ->
+        val exitName = (test.result as? TvmMethodFailure)?.failure?.exit?.ruleName
+            ?: "successful"
+        val testIdx = exitsCounter.getOrDefault(exitName, 0)
+
+        exitsCounter[exitName] = testIdx + 1
+
+        "$exitName-$testIdx"
+    }
+}
 
 private fun extractContractName(sourceRelativePath: Path): String {
     val fileName = sourceRelativePath.fileName.nameWithoutExtension

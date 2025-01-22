@@ -163,8 +163,15 @@ fun <T : TsWrapper> TsExpression<TsBlockchain>.openContract(wrapper: TsExpressio
         type = TsSandboxContract(wrapper.type)
     )
 
+fun TsExpression<TsBlockchain>.now(): TsFieldAccess<TsBlockchain, TsInt> =
+    TsFieldAccess(
+        receiver = this,
+        fieldName = "now",
+        type = TsInt,
+    )
+
 fun Boolean.toTsValue(): TsBooleanValue = TsBooleanValue(this)
-fun Int.toTsValue(): TsIntValue = TsIntValue(this)
+fun Int.toTsValue(): TsIntValue = TsIntValue(BigInteger.valueOf(this.toLong()))
 fun BigInteger.toTsValue(): TsBigintValue = TsBigintValue(TvmTestIntegerValue(this))
 fun TvmTestIntegerValue.toTsValue(): TsBigintValue = TsBigintValue(this)
 fun String.toTsValue(): TsStringValue = TsStringValue(this)
@@ -177,3 +184,5 @@ fun TvmTestCellValue.toTsValue(): TsExpression<TsCell> = when (this) {
     is TvmTestDataCellValue -> toTsValue()
     is TvmTestDictCellValue -> toTsValue()
 }
+
+fun TsBigintValue.toInt(): TsIntValue = TsIntValue(value.value)

@@ -4,13 +4,13 @@ import java.math.BigInteger
 import java.util.Collections.newSetFromMap
 import java.util.IdentityHashMap
 import org.ton.test.gen.dsl.models.TsBooleanValue
-import org.ton.test.gen.dsl.models.TsReference
+import org.ton.test.gen.dsl.models.TsVariable
 import org.ton.test.gen.dsl.models.toTsValue
 import org.usvm.test.resolver.TvmTestDataCellValue
 
 // TODO: create all elements only through context to collect properties
 class TsContext {
-    private val mutableVariables: MutableSet<TsReference<*>> = newSetFromMap(IdentityHashMap())
+    private val mutableVariables: MutableSet<TsVariable<*>> = newSetFromMap(IdentityHashMap())
 
     val emptyCell = TvmTestDataCellValue().toTsValue()
 
@@ -26,9 +26,9 @@ class TsContext {
     val oneBigIntValue = BigInteger.ONE.toTsValue()
     val twoBigIntValue = BigInteger.TWO.toTsValue()
 
-    internal fun TsReference<*>.isMutable(): Boolean = this in mutableVariables
+    internal fun TsVariable<*>.isMutable(): Boolean = this in mutableVariables
 
-    internal fun markAsMutable(ref: TsReference<*>) {
+    internal fun markAsMutable(ref: TsVariable<*>) {
         mutableVariables.add(ref)
     }
 }

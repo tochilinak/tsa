@@ -25,7 +25,7 @@ import org.ton.test.gen.dsl.models.TsExecutableCall
 import org.ton.test.gen.dsl.models.TsExpectToEqual
 import org.ton.test.gen.dsl.models.TsExpectToHaveTransaction
 import org.ton.test.gen.dsl.models.TsExpression
-import org.ton.test.gen.dsl.models.TsFieldRead
+import org.ton.test.gen.dsl.models.TsFieldAccess
 import org.ton.test.gen.dsl.models.TsStatementExpression
 import org.ton.test.gen.dsl.models.TsInt
 import org.ton.test.gen.dsl.models.TsIntValue
@@ -34,7 +34,6 @@ import org.ton.test.gen.dsl.models.TsNum
 import org.ton.test.gen.dsl.models.TsNumAdd
 import org.ton.test.gen.dsl.models.TsNumDiv
 import org.ton.test.gen.dsl.models.TsNumSub
-import org.ton.test.gen.dsl.models.TsReference
 import org.ton.test.gen.dsl.models.TsSandboxContract
 import org.ton.test.gen.dsl.models.TsSendMessageResult
 import org.ton.test.gen.dsl.models.TsSlice
@@ -45,6 +44,7 @@ import org.ton.test.gen.dsl.models.TsTestBlock
 import org.ton.test.gen.dsl.models.TsTestCase
 import org.ton.test.gen.dsl.models.TsTestFile
 import org.ton.test.gen.dsl.models.TsType
+import org.ton.test.gen.dsl.models.TsVariable
 import org.ton.test.gen.dsl.models.TsVoid
 import org.ton.test.gen.dsl.models.TsWrapper
 import org.ton.test.gen.dsl.wrapper.TsWrapperDescriptor
@@ -216,11 +216,11 @@ class TsRenderer(val ctx: TsContext) : TsVisitor<Unit> {
         endStatement()
     }
 
-    override fun <T : TsType> visit(element: TsReference<T>) {
+    override fun <T : TsType> visit(element: TsVariable<T>) {
         printer.print(element.name)
     }
 
-    override fun <R : TsType, T : TsType> visit(element: TsFieldRead<R, T>) {
+    override fun <R : TsType, T : TsType> visit(element: TsFieldAccess<R, T>) {
         precedencePrint(element.receiver, element)
         printer.print(".${element.fieldName}")
     }
@@ -385,9 +385,9 @@ class TsRenderer(val ctx: TsContext) : TsVisitor<Unit> {
             is TsDataCellValue -> maxPrecedence
             is TsSliceValue -> maxPrecedence
             is TsDictValue -> maxPrecedence
-            is TsReference -> maxPrecedence
+            is TsVariable -> maxPrecedence
 
-            is TsFieldRead<*, *> -> 17
+            is TsFieldAccess<*, *> -> 17
             is TsConstructorCall<*> -> if (element.arguments.isEmpty()) 16 else 17
             is TsMethodCall<*> -> if (element.async) 14 else maxPrecedence
             is TsNumDiv<*> -> 12

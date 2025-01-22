@@ -14,10 +14,8 @@ import org.ton.bytecode.TRANSACTION_TIME_PARAMETER_IDX
 import org.ton.bytecode.TvmAppConfigConfigoptparamInst
 import org.ton.bytecode.TvmAppConfigGetparamInst
 import org.ton.bytecode.TvmAppConfigInst
-import org.usvm.api.makeSymbolicPrimitive
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmStepScopeManager
-import org.usvm.machine.state.TvmStack.TvmStackIntValue
 import org.usvm.machine.state.addInt
 import org.usvm.machine.state.addOnStack
 import org.usvm.machine.state.addTuple
@@ -31,9 +29,7 @@ import org.usvm.machine.state.getContractInfoParam
 import org.usvm.machine.state.getIntContractInfoParam
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
-import org.usvm.machine.state.setContractInfoParam
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
-import org.usvm.machine.state.toStackEntry
 import org.usvm.machine.types.TvmCellType
 import org.usvm.machine.types.TvmSliceType
 
@@ -81,21 +77,11 @@ class TvmConfigInterpreter(private val ctx: TvmContext) {
                     val blockLogicalTime = scope.getIntContractInfoParam(i)
                         ?: return@doWithStateCtx
 
-                    scope.assert(
-                        mkBvSignedGreaterExpr(maxTimestampValue, blockLogicalTime),
-                        unsatBlock = { error("Cannot make BLOCK_LTIME less than 2^64") }
-                    ) ?: return@doWithStateCtx
-
                     stack.addInt(blockLogicalTime)
                 }
                 TRANSACTION_TIME_PARAMETER_IDX -> { // LTIME
                     val logicalTime = scope.getIntContractInfoParam(i)
                         ?: return@doWithStateCtx
-
-                    scope.assert(
-                        mkBvSignedGreaterExpr(maxTimestampValue, logicalTime),
-                        unsatBlock = { error("Cannot make LTIME less than 2^64") }
-                    ) ?: return@doWithStateCtx
 
                     stack.addInt(logicalTime)
                 }

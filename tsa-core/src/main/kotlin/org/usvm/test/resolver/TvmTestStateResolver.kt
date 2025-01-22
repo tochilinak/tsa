@@ -73,6 +73,7 @@ import org.usvm.sizeSort
 import java.math.BigInteger
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.ton.bytecode.BALANCE_PARAMETER_IDX
+import org.ton.bytecode.TIME_PARAMETER_IDX
 import org.ton.bytecode.TvmArtificialInst
 import org.usvm.machine.state.TvmStack.TvmStackValue
 
@@ -111,6 +112,13 @@ class TvmTestStateResolver(
 
         return (resolveStackValue(balance) as? TvmTestIntegerValue)
             ?: error("Unexpected balance type")
+    }
+
+    fun resolveTime(): TvmTestIntegerValue {
+        val now = getContractParam(TIME_PARAMETER_IDX)
+
+        return (resolveStackValue(now) as? TvmTestIntegerValue)
+            ?: error("Unexpected address type")
     }
 
     private fun getContractParam(idx: Int): TvmStackValue {

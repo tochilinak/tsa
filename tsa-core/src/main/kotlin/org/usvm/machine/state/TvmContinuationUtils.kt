@@ -214,7 +214,7 @@ fun TvmStepScopeManager.returnFromContinuation() {
         registersOfCurrentContract.c0 = C0Register(quit0Cont)
     }
 
-    jump(c0)
+    jumpToContinuation(c0)
 }
 
 fun TvmStepScopeManager.returnAltFromContinuation() {
@@ -224,7 +224,7 @@ fun TvmStepScopeManager.returnAltFromContinuation() {
         registersOfCurrentContract.c1 = C1Register(quit1Cont)
     }
 
-    jump(c1)
+    jumpToContinuation(c1)
 }
 
 fun TvmContinuation.defineC0(cont: TvmContinuation): TvmContinuation {
@@ -287,6 +287,10 @@ fun TvmContinuation.defineC7(tuple: TvmStackTupleValue): TvmContinuation {
     return update(newSavelist = savelist.copy(c7 = C7Register(tuple)))
 }
 
+/**
+ * Low-level primitive for internal use. Should probably be used [jumpToContinuation] instead.
+ * @see jumpToContinuation
+ */
 private fun TvmStepScopeManager.jump(cont: TvmContinuation) {
     when (cont) {
         is TvmOrdContinuation -> doOrdJump(cont)
