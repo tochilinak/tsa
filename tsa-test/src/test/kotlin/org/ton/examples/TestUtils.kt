@@ -52,7 +52,7 @@ val testFiftOptions = TvmOptions(
 
 fun extractResource(resourcePath: String) =
     object {}.javaClass.getResource(resourcePath)?.path?.let { Path(it) }
-        ?: error("Cannot find resource bytecode $resourcePath")
+        ?: error("Cannot find resource $resourcePath")
 
 fun tactCompileAndAnalyzeAllMethods(
     tactSources: TactSourcesDescription,

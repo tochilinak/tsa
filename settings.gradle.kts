@@ -12,6 +12,7 @@ include("tsa-cli")
 include("tsa-sarif")
 include("tsa-test-gen")
 include("tsa-safety-properties")
+include("tsa-test")
 
 // TODO: fix this module (https://github.com/explyt/tsa/issues/118)
 // include("tsa-intellij")

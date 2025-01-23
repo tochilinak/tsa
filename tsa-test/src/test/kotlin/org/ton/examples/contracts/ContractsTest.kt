@@ -1,0 +1,231 @@
+package org.ton.examples.contracts
+
+import java.nio.file.Path
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import org.ton.bytecode.MethodId
+import org.ton.examples.checkAtLeastOneStateForAllMethods
+import org.ton.examples.extractResource
+import org.ton.examples.funcCompileAndAnalyzeAllMethods
+import org.ton.runHardTestsRegex
+import org.ton.runHardTestsVar
+import org.ton.test.gen.TestStatus
+import org.ton.test.gen.dsl.render.TsRenderer
+import org.ton.test.gen.executeTests
+import org.ton.test.gen.generateTests
+import org.usvm.machine.BocAnalyzer
+import org.usvm.machine.TvmOptions
+import org.usvm.machine.getResourcePath
+import org.usvm.test.resolver.TvmContractSymbolicTestResult
+import org.usvm.utils.executeCommandWithTimeout
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.deleteRecursively
+import kotlin.test.Ignore
+import kotlin.test.Test
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+
+class ContractsTest {
+    private val nftItemPath: String = "/contracts/nft-item/nft-item.fc"
+    private val walletV4Path: String = "/contracts/wallet-v4/wallet-v4-code.fc"
+    private val walletV5Path: String = "/contracts/wallet-v5/wallet_v5.fc"
+    private val subscriptionPluginPath: String = "/contracts/wallet-v4/simple-subscription-plugin.fc"
+    private val jettonMinterPath: String = "/contracts/modern-jetton/jetton-minter.func"
+    private val jettonWalletPath: String = "/contracts/modern-jetton/jetton-wallet.func"
+    private val universalLockupWalletPath: String = "/contracts/universal-lockup-wallet/uni-lockup-wallet.fc"
+    private val vestingLockupWalletPath: String = "/contracts/vesting-lockup-wallet/vesting-lockup-wallet.fc"
+    private val bridgePath: String = "/contracts/bridge/bridge_code.fc"
+    private val bridgeMultisigPath: String = "/contracts/bridge/multisig-code.fc"
+    private val bridgeVotesCollectorPath: String = "/contracts/bridge/votes-collector.fc"
+    private val multisigPath: String = "/contracts/multisig/multisig-code.fc"
+    private val storagePath: String = "/contracts/storage/storage-contract.fc"
+    private val storageProviderPath: String = "/contracts/storage/storage-provider.fc"
+    private val vestingPath: String = "/contracts/vesting/vesting_wallet.fc"
+    private val singleNominatorPath: String = "/contracts/single-nominator/single-nominator.fc"
+    private val nominatorPoolPath: String = "/contracts/nominator-pool/pool.fc"
+    private val stocksPath: String = "/contracts/stocks/stock_options.fc"
+    private val pumpersPath: String = "/contracts/EQCV_FsDSymN83YeKZKj_7sgwQHV0jJhCTvX5SkPHHxVOi0D.boc"
+
+    // TODO: implement the rest of instructions
+    @Ignore
+    @Test
+    fun testPumpersMaster() {
+        val bytecodeResourcePath = getResourcePath<ContractsTest>(pumpersPath)
+        BocAnalyzer.analyzeAllMethods(
+            sources = bytecodeResourcePath,
+            methodsWhiteList = hashSetOf(MethodId.ZERO),
+            inputInfo = emptyMap(),
+            tvmOptions = TvmOptions(
+                excludeExecutionsWithFailures = true,
+                timeout = 120.seconds,
+            )
+        )
+    }
+
+    @Test
+    fun testStocks() {
+        analyzeContract(stocksPath, methodsNumber = 6, enableTestGeneration = true)
+    }
+
+    @Test
+    fun testWalletV4() {
+        analyzeContract(walletV4Path, methodsNumber = 7, enableTestGeneration = true)
+    }
+
+    @Ignore("slow hash validation https://github.com/explyt/tsa/issues/112")
+    @Test
+    fun testWalletV5() {
+        analyzeContract(walletV5Path, methodsNumber = 7, enableTestGeneration = true)
+    }
+
+    @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
+    @Test
+    fun nftItem() {
+        // TODO export config to sandbox
+        analyzeContract(nftItemPath, methodsNumber = 15, enableTestGeneration = false)
+    }
+
+    @Test
+    fun jettonMinter() {
+        analyzeContract(jettonMinterPath, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Test
+    fun jettonWallet() {
+        analyzeContract(jettonWalletPath, methodsNumber = 3, enableTestGeneration = true)
+    }
+
+    @Test
+    fun singleNominator() {
+        analyzeContract(singleNominatorPath, methodsNumber = 3, enableTestGeneration = true)
+    }
+
+    @Test
+    fun storage() {
+        analyzeContract(storagePath, methodsNumber = 7, enableTestGeneration = true)
+    }
+
+    @Test
+    fun vestingLockupWallet() {
+        analyzeContract(vestingLockupWalletPath, methodsNumber = 6, enableTestGeneration = true)
+    }
+
+    @Test
+    fun testSubscriptionPlugin() {
+        analyzeContract(subscriptionPluginPath, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Test
+    fun bridge() {
+        analyzeContract(bridgePath, methodsNumber = 8, enableTestGeneration = true)
+    }
+
+    @Test
+    fun bridgeVotesCollector() {
+        // TODO unexpected overflow errors during DICTUDELGET:
+        //  "cannot change label of an old dictionary cell while merging edges"
+        analyzeContract(bridgeVotesCollectorPath, methodsNumber = 5, enableTestGeneration = false)
+    }
+
+    @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
+    @Test
+    fun nominatorPool() {
+        // TODO export config to sandbox
+        // long test execution (4 min)
+        analyzeContract(nominatorPoolPath, methodsNumber = 10, enableTestGeneration = false)
+    }
+
+    @Ignore("slow hash validation https://github.com/explyt/tsa/issues/112")
+    @Test
+    fun multisig() {
+        analyzeContract(multisigPath, methodsNumber = 16, enableTestGeneration = true)
+    }
+
+    @Ignore("ksmt bug https://github.com/UnitTestBot/ksmt/issues/160")
+    @Test
+    fun bridgeMultisig() {
+        analyzeContract(bridgeMultisigPath, methodsNumber = 18, enableTestGeneration = true)
+    }
+
+    @Test
+    fun storageProvider() {
+        analyzeContract(storageProviderPath, methodsNumber = 10, enableTestGeneration = true)
+    }
+
+    @Test
+    fun vesting() {
+        analyzeContract(vestingPath, methodsNumber = 9, enableTestGeneration = true)
+    }
+
+    @Ignore("PFXDICTGETQ is not supported")
+    @Test
+    fun universalLockupWallet() {
+        analyzeContract(universalLockupWalletPath, methodsNumber = 13, enableTestGeneration = true)
+    }
+
+    private fun analyzeContract(
+        contractPath: String,
+        methodsNumber: Int,
+        methodsBlackList: Set<MethodId> = hashSetOf(),
+        enableTestGeneration: Boolean
+    ) {
+        val bytecodeResourcePath = extractResource(contractPath)
+
+        val methodStates = funcCompileAndAnalyzeAllMethods(bytecodeResourcePath, methodsBlackList = methodsBlackList)
+        checkAtLeastOneStateForAllMethods(methodsNumber = methodsNumber, methodStates)
+
+        if (enableTestGeneration) {
+            executeGeneratedTests(methodStates, bytecodeResourcePath)
+        }
+    }
+
+    @OptIn(ExperimentalPathApi::class)
+    private fun executeGeneratedTests(states: TvmContractSymbolicTestResult, sources: Path) {
+        val project = extractResource(SANDBOX_PROJECT_PATH)
+
+        try {
+            val generatedTests = generateTests(states, project, sources.toAbsolutePath())
+                ?: return
+            val (testResults, successful) = executeTests(
+                projectPath = project,
+                testFileName = generatedTests,
+                testsExecutionTimeout = TEST_EXECUTION_TIMEOUT
+            )
+            val failedTests = testResults
+                .flatMap { it.assertionResults }
+                .filter { it.status == TestStatus.FAILED }
+            val failMessage = "${failedTests.size} generated tests failed: ${failedTests.joinToString { it.fullName }}"
+
+            assertTrue(successful, failMessage)
+        } finally {
+            val testsDir = project.resolve(TsRenderer.TESTS_DIR_NAME)
+            val wrappersDir = project.resolve(TsRenderer.WRAPPERS_DIR_NAME)
+
+            testsDir.deleteRecursively()
+            wrappersDir.deleteRecursively()
+        }
+    }
+
+    companion object {
+        private const val SANDBOX_PROJECT_PATH: String = "/sandbox"
+
+        private val PROJECT_INIT_TIMEOUT = 5.minutes
+        private val TEST_EXECUTION_TIMEOUT = 5.minutes
+
+        @JvmStatic
+        @BeforeAll
+        fun initProject() {
+            val project = extractResource(SANDBOX_PROJECT_PATH).toFile()
+            val (exitCode, _, _, _) = executeCommandWithTimeout(
+                command = "npm i",
+                timeoutSeconds = PROJECT_INIT_TIMEOUT.inWholeSeconds,
+                processWorkingDirectory = project
+            )
+
+            check(exitCode == 0) {
+                "Couldn't initialize the test sandbox project"
+            }
+        }
+    }
+}

@@ -32,14 +32,21 @@ import org.usvm.test.resolver.TvmTestIntegerValue
 import org.usvm.test.resolver.TvmTestSliceValue
 import kotlin.io.path.nameWithoutExtension
 
+/**
+ * @return the generated test file name, or `null` if test states are empty
+ */
 fun generateTests(
     analysisResult: TvmContractSymbolicTestResult,
     projectPath: Path,
     sourceRelativePath: Path,
-): String {
+): String? {
     val entryTests = analysisResult.testSuites
         .single { it.methodId == TvmContext.RECEIVE_INTERNAL_ID }
         .filter { it.result is TvmMethodFailure }
+
+    if (entryTests.isEmpty()) {
+        return null
+    }
 
     val name = extractContractName(sourceRelativePath)
     val testNames = generateTestNames(entryTests)

@@ -12,10 +12,12 @@ object Versions {
     const val logback = "1.4.8"
     const val usvm = "aee926e88f31af801192239d8997d213f9145424"
     const val tvmDisasm = "26c235621bbce57c502e8ab741b0c2b24aa9a8df"
+    const val tonKotlin = "0.3.1"
 }
 
 object Packages {
     const val usvm = "com.github.UnitTestBot.usvm"
     const val ksmtBv2Int = "com.github.bupaheh.ksmt"
     const val tvmDisasm = "com.github.espritoxyz.ton-disassembler"
+    const val tonKotlin = "org.ton"
 }

@@ -60,14 +60,7 @@ Currently, `TSA` can only be run on Windows using the JAR executables. Refer to 
    - [NodeJS](https://nodejs.org/en)
    - [Tact compiler](https://github.com/tact-lang/tact)
    - [FunC and Fift compilers](https://github.com/ton-blockchain/ton/releases/latest)
-2. Clone this repo with all submodules (using `IntelliJ Idea` or `git clone git clone --recurse-submodules https://github.com/espritoxyz/tsa/`).
-3. Build the submodule:
-
-    ```bash
-    cd tvm-disasm
-    npm i
-    npm run build
-    ```
-4. Ensure `tact`, `func`, and `fift` are in your `$PATH`
-5. Run `./gradlew tsa-cli:shadowJar` from the root of the project to build [error-checking analysis tool](./error-checking-tests-generation-mode.md) (will be located in [build dir](../tsa-cli/build/libs/tsa-cli.jar))
+2. Clone this repository
+3. Ensure `tact`, `func`, and `fift` are in your `$PATH`
+4. Run `./gradlew tsa-cli:shadowJar` from the root of the project to build [error-checking analysis tool](./error-checking-tests-generation-mode.md) (will be located in [build dir](../tsa-cli/build/libs/tsa-cli.jar))
    or `./gradlew tsa-safety-properties:shadowJar` to build [safety-properties checker](./safety-properties-mode.md) (will be located in [build dir](/tsa-safety-properties/build/libs/tsa-safety-properties.jar))

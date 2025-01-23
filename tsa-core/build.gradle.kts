@@ -6,16 +6,16 @@ plugins {
 dependencies {
     implementation(group = Packages.tvmDisasm, name = "tvm-opcodes", version = Versions.tvmDisasm)
 
-    implementation("org.ton:ton-kotlin-crypto:0.3.1")
-    implementation("org.ton:ton-kotlin-tvm:0.3.1")
-    implementation("org.ton:ton-kotlin-tonapi-tl:0.3.1")
-    implementation("org.ton:ton-kotlin-tlb:0.3.1")
-    implementation("org.ton:ton-kotlin-tl:0.3.1")
-    implementation("org.ton:ton-kotlin-hashmap-tlb:0.3.1")
-    implementation("org.ton:ton-kotlin-contract:0.3.1")
-    implementation("org.ton:ton-kotlin-block-tlb:0.3.1")
-    implementation("org.ton:ton-kotlin-bitstring:0.3.1")
-    implementation("org.ton:ton-kotlin-bigint:0.3.1")
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-crypto", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-tvm", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-tonapi-tl", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-tlb", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-tl", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-hashmap-tlb", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-contract", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-block-tlb", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-bitstring", version = Versions.tonKotlin)
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-bigint", version = Versions.tonKotlin)
 
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
