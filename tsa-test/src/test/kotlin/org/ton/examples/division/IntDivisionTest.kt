@@ -45,7 +45,7 @@ class IntDivisionTest {
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testFiftOptions)
 
-        val methodIds = (0..94).toSet()
+        val methodIds = (0..96).toSet()
         compareSymbolicAndConcreteResults(methodIds, symbolicResult) { methodId ->
             runFiftMethod(fiftResourcePath, methodId)
         }

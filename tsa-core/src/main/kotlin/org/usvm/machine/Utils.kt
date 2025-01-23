@@ -23,8 +23,7 @@ inline fun UExpr<out UBvSort>.bigIntValue() = (this as KBitVecValue<*>).toBigInt
 @Suppress("NOTHING_TO_INLINE")
 inline fun UExpr<out UBvSort>.intValue() = bigIntValue().toInt()
 
-fun TvmCodeBlock.extractMethodId(): MethodId = (this as? TvmMethod)?.id
-    ?: error("Cannot extract method id from $this")
+fun TvmCodeBlock.extractMethodIdOrNull(): MethodId? = (this as? TvmMethod)?.id
 
 inline fun <T> tryCatchIf(condition: Boolean, body: () -> T, exceptionHandler: (Throwable) -> T): T {
     if (!condition) {

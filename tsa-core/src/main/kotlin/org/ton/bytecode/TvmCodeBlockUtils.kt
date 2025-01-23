@@ -15,6 +15,20 @@ fun TvmMethod.addReturnStmt(): TvmMethod {
     }
 }
 
+/**
+ * Note: after this old [TvmMainMethod] becomes invalid.
+ */
+fun TvmMainMethod.addReturnStmt(): TvmMainMethod {
+    val retStmt = TsaArtificialImplicitRetInst(TvmMainMethodLocation(instList.size))
+    val instListNew = instList.toMutableList()
+    instListNew.add(retStmt)
+    return TvmMainMethod(
+        instListRaw = instListNew,
+    ).also {
+        retStmt.location.codeBlock = it
+    }
+}
+
 // An artificial entity representing instructions in continuation
 data class TvmLambda(
     private val instListRaw: MutableList<TvmInst>

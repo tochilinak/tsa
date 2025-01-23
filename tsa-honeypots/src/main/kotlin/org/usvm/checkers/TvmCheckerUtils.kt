@@ -32,10 +32,7 @@ fun runAnalysisAndExtractFailingExecutions(
         inputInfo = inputInfo ?: TvmInputInfo(),
         manualStatePostProcess = manualStatePostProcess,
     )
-    check(analysisResult.testSuites.size == 1) {
-        "Number of test suites must be 1, but found ${analysisResult.testSuites.size}"
-    }
-    val foundTests = analysisResult.testSuites.single().tests
+    val foundTests = analysisResult.tests
     val result = foundTests.filter { it.result is TvmMethodFailure }
     return result
 }

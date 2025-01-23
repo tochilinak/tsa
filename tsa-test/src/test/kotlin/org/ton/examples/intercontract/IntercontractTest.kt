@@ -34,7 +34,7 @@ class IntercontractTest {
             options = options,
             startContract = 0,
         )
-        val failedPaths = resultStates.single().mapNotNull { test ->
+        val failedPaths = resultStates.mapNotNull { test ->
             val result = test.result as? TvmMethodFailure
                 ?: return@mapNotNull null
 

@@ -215,7 +215,7 @@ import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.bigIntValue
-import org.usvm.machine.extractMethodId
+import org.usvm.machine.extractMethodIdOrNull
 import org.usvm.machine.intValue
 import org.usvm.machine.state.C0Register
 import org.usvm.machine.state.C1Register
@@ -225,7 +225,6 @@ import org.usvm.machine.state.C5Register
 import org.usvm.machine.state.C7Register
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmInitialStateData
-import org.usvm.machine.state.TvmMethodResult
 import org.usvm.machine.state.TvmRefEmptyValue
 import org.usvm.machine.state.TvmStack
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
@@ -305,8 +304,11 @@ import java.math.BigInteger
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaArtificialExecuteContInst
 import org.ton.bytecode.TsaContractCode
-import org.usvm.machine.state.contractEpilogue
+import org.ton.bytecode.TvmContConditionalIfnotretInst
+import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
 import org.usvm.machine.state.getBalance
+import org.usvm.machine.state.switchToFirstMethodInContract
+import org.usvm.machine.types.TvmIntegerType
 
 // TODO there are a lot of `scope.calcOnState` and `scope.doWithState` invocations that are not inline - optimize it
 class TvmInterpreter(
@@ -369,7 +371,6 @@ class TvmInterpreter(
 
         val contractCode = contractsCode.getOrNull(startContractId)
             ?: error("Contract $startContractId not found.")
-        val method = contractCode.methods[methodId] ?: error("Unknown method $methodId")
 
         val initOwnership = MutabilityOwnership()
         val pathConstraints = UPathConstraints<TvmType>(ctx, initOwnership)
@@ -380,7 +381,7 @@ class TvmInterpreter(
         val state = TvmState(
             ctx = ctx,
             ownership = initOwnership,
-            entrypoint = method,
+            entrypoint = contractCode.mainMethod,
             memory = memory,
             pathConstraints = pathConstraints,
             emptyRefValue = refEmptyValue,
@@ -390,6 +391,7 @@ class TvmInterpreter(
             currentContract = startContractId,
             cellDataFieldManager = cellDataFieldManager,
             intercontractPath = persistentListOf(startContractId),
+            analysisOfGetMethod = methodId != RECEIVE_INTERNAL_ID && methodId != RECEIVE_EXTERNAL_ID,
         )
 
         state.contractIdToC4Register = contractsCode.indices.associateWith {
@@ -432,8 +434,8 @@ class TvmInterpreter(
         val model = kModel.model
         state.models = listOf(model)
 
-        state.callStack.push(method, returnSite = null)
-        state.newStmt(method.instList.first())
+        state.callStack.push(contractCode.mainMethod, returnSite = null)
+        state.switchToFirstMethodInContract(contractCode, methodId)
 
         state.stateInitialized = true
         return state
@@ -1931,26 +1933,8 @@ class TvmInterpreter(
         stmt: TvmContConditionalInst
     ) {
         when (stmt) {
-            is TvmContConditionalIfretInst -> {
-                scope.consumeDefaultGas(stmt)
-
-                val operand = scope.takeLastIntOrThrowTypeError() ?: return
-                with(ctx) {
-                    val neqZero = mkEq(operand, zeroValue).not()
-                    scope.fork(
-                        neqZero,
-                        falseStateIsExceptional = false,
-                        blockOnFalseState = {
-                            newStmt(stmt.nextStmt())
-                        }
-                    ) ?: return@with
-
-                    // TODO check NaN for integer overflow exception
-
-                    scope.returnFromContinuation()
-                }
-            }
-
+            is TvmContConditionalIfretInst -> visitIfRet(scope, stmt, invertCondition = false)
+            is TvmContConditionalIfnotretInst -> visitIfRet(scope, stmt, invertCondition = true)
             is TvmContConditionalIfInst -> visitIf(scope, stmt, invertCondition = false)
             is TvmContConditionalIfnotInst -> visitIf(scope, stmt, invertCondition = true)
             is TvmContConditionalIfrefInst -> visitIfRef(scope, stmt, stmt.c, invertCondition = false)
@@ -1964,6 +1948,32 @@ class TvmInterpreter(
             is TvmContConditionalIfrefelseInst -> visitIfRefElseInst(scope, stmt)
             is TvmContConditionalIfelserefInst -> visitIfElseRefInst(scope, stmt)
             else -> TODO("$stmt")
+        }
+    }
+
+    private fun visitIfRet(scope: TvmStepScopeManager, stmt: TvmInst, invertCondition: Boolean) {
+        scope.consumeDefaultGas(stmt)
+
+        val operand = scope.takeLastIntOrThrowTypeError() ?: return
+
+        with(ctx) {
+            val neqZero = if (!invertCondition) {
+                mkEq(operand, zeroValue).not()
+            } else {
+                mkEq(operand, zeroValue)
+            }
+
+            scope.fork(
+                neqZero,
+                falseStateIsExceptional = false,
+                blockOnFalseState = {
+                    newStmt(stmt.nextStmt())
+                }
+            ) ?: return@with
+
+            // TODO check NaN for integer overflow exception
+
+            scope.returnFromContinuation()
         }
     }
 
@@ -2126,11 +2136,15 @@ class TvmInterpreter(
                 performCall(scope, stmt, stmt.n)
             }
             is TvmContDictPreparedictInst -> {
-                val method = extractMethod(scope, stmt.n)
-                    ?: return
-                val continuation = TvmOrdContinuation(method)
+                val contractCode = scope.calcOnState {
+                    contractsCode.getOrNull(currentContract)
+                        ?: error("Contract $currentContract not found")
+                }
 
-                scope.doWithState {
+                val continuation = TvmOrdContinuation(contractCode.mainMethod)
+
+                scope.doWithStateCtx {
+                    stack.addInt(stmt.n.toBv257())
                     stack.addContinuation(continuation)
                     newStmt(stmt.nextStmt())
                 }
@@ -2150,7 +2164,7 @@ class TvmInterpreter(
         val methodRecursionDepth = scope.calcOnState { getMethodRecursionDepth(nextMethod.id) }
 
         if (methodRecursionDepth >= ctx.tvmOptions.maxRecursionDepth) {
-            logger.debug { "Maximum recursion depth of method $methodId is reached, dropping the state" }
+            logger.warn { "Maximum recursion depth of method $methodId is reached, dropping the state" }
             scope.killCurrentState()
                 ?: return null
         }
@@ -2159,7 +2173,6 @@ class TvmInterpreter(
     }
 
     private fun performCall(scope: TvmStepScopeManager, stmt: TvmContDictInst, methodIdInt: Int) {
-        // TODO checker functions can be called using PREPAREDICT + CALLXARGS
         tsaCheckerFunctionsInterpreter.doTSACheckerOperation(scope, stmt, methodIdInt)
             ?: return
 
@@ -2181,25 +2194,39 @@ class TvmInterpreter(
                     "The general case is not supported: $stmt"
                 }
 
-                val methodId = scope.takeLastIntOrThrowTypeError()?.bigIntValue()
+                val methodIdSymbolic = scope.takeLastIntOrThrowTypeError()
+                val methodId = methodIdSymbolic?.bigIntValue()
                     ?: return
+
+                // This is for (hypothetical) case when methodId doesn't fit into Int.
+                // In this case, this is not a checker function.
+                if (methodId <= Int.MAX_VALUE.toBigInteger()) {
+                    tsaCheckerFunctionsInterpreter.doTSACheckerOperation(scope, stmt, methodId.intValueExact())
+                        ?: return
+                }
+
                 val contractCode = scope.calcOnState {
                     contractsCode.getOrNull(currentContract)
                         ?: error("Contract $currentContract not found.")
                 }
-                val method = contractCode.methods[methodId]!!
+                val method = contractCode.methods[methodId] ?: run {
+                    scope.addOnStack(methodIdSymbolic, TvmIntegerType)
+                    return
+                }
 
                 // The remainder of the previous current continuation cc is discarded.
                 scope.jumpToContinuation(TvmOrdContinuation(method))
             }
 
             is TvmDictSpecialDictpushconstInst -> {
-                val keyLength = stmt.n
-//                val currentContinuation = scope.calcOnState { currentContinuation }
-//                val nextRef = currentContinuation.slice.loadRef()
 
-                scope.calcOnState {
-//                    stack += ctx.mkHe
+                val contractCode = scope.calcOnState {
+                    contractsCode.getOrNull(currentContract)
+                        ?: error("Contract $currentContract not found.")
+                }
+
+                if (stmt.location !is TvmMainMethodLocation || contractCode.methods.isEmpty()) {
+                    TODO("General case of TvmDictSpecialDictpushconstInst not supported")
                 }
 
                 scope.doWithState { newStmt(stmt.nextStmt()) }
@@ -2229,5 +2256,5 @@ class TvmInterpreter(
     }
 
     private fun TvmState.getMethodRecursionDepth(methodId: MethodId): Int =
-        callStack.count { it.method.extractMethodId() == methodId }
+        callStack.count { it.method.extractMethodIdOrNull() == methodId }
 }

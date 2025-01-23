@@ -22,6 +22,7 @@ data class TvmOptions(
     val excludeExecutionsWithFailures: Boolean = false,
     val loopIterationLimit: Int = DEFAULT_LOOP_ITERATIONS_LIMIT,
     val intercontractOptions: IntercontractOptions = IntercontractOptions(),
+    val useMainMethodForInitialMethodJump: Boolean = true,
 )
 
 data class TlbOptions(

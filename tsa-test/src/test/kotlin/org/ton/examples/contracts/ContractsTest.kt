@@ -1,10 +1,10 @@
 package org.ton.examples.contracts
 
-import java.nio.file.Path
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.ton.bytecode.MethodId
 import org.ton.examples.checkAtLeastOneStateForAllMethods
+import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.extractResource
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.runHardTestsRegex
@@ -18,6 +18,7 @@ import org.usvm.machine.TvmOptions
 import org.usvm.machine.getResourcePath
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
 import org.usvm.utils.executeCommandWithTimeout
+import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Ignore
@@ -46,6 +47,7 @@ class ContractsTest {
     private val nominatorPoolPath: String = "/contracts/nominator-pool/pool.fc"
     private val stocksPath: String = "/contracts/stocks/stock_options.fc"
     private val pumpersPath: String = "/contracts/EQCV_FsDSymN83YeKZKj_7sgwQHV0jJhCTvX5SkPHHxVOi0D.boc"
+    private val walletV3Path: String = "/contracts/wallet-v3/wallet-v3-code.fif"
 
     // TODO: implement the rest of instructions
     @Ignore
@@ -58,7 +60,7 @@ class ContractsTest {
             inputInfo = emptyMap(),
             tvmOptions = TvmOptions(
                 excludeExecutionsWithFailures = true,
-                timeout = 120.seconds,
+                timeout = 300.seconds,
             )
         )
     }
@@ -164,19 +166,24 @@ class ContractsTest {
         analyzeContract(universalLockupWalletPath, methodsNumber = 13, enableTestGeneration = true)
     }
 
+    @Test
+    fun testWalletV3() {
+        analyzeSpecificMethod(walletV3Path, methodId = MethodId.valueOf(-1))
+    }
+
     private fun analyzeContract(
         contractPath: String,
         methodsNumber: Int,
         methodsBlackList: Set<MethodId> = hashSetOf(),
         enableTestGeneration: Boolean
     ) {
-        val bytecodeResourcePath = extractResource(contractPath)
+        val funcResourcePath = extractResource(contractPath)
 
-        val methodStates = funcCompileAndAnalyzeAllMethods(bytecodeResourcePath, methodsBlackList = methodsBlackList)
+        val methodStates = funcCompileAndAnalyzeAllMethods(funcResourcePath, methodsBlackList = methodsBlackList)
         checkAtLeastOneStateForAllMethods(methodsNumber = methodsNumber, methodStates)
 
         if (enableTestGeneration) {
-            executeGeneratedTests(methodStates, bytecodeResourcePath)
+            executeGeneratedTests(methodStates, funcResourcePath)
         }
     }
 
@@ -227,5 +234,14 @@ class ContractsTest {
                 "Couldn't initialize the test sandbox project"
             }
         }
+    }
+
+    private fun analyzeSpecificMethod(
+        contractPath: String,
+        methodId: MethodId,
+    ) {
+        val fiftPath = getResourcePath<ContractsTest>(contractPath)
+        val tests = compileAndAnalyzeFift(fiftPath, methodId)
+        assertTrue { tests.isNotEmpty() }
     }
 }

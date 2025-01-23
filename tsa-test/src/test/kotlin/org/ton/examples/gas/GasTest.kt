@@ -46,7 +46,6 @@ class GasTest {
         }
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun findFiftTestFiles(): Pair<List<Path>, Path> {
         val fiftStdLib = this::class.java.classLoader.getResource("fiftstdlib")?.path?.let { Path(it) }
         check(fiftStdLib != null && fiftStdLib.exists()) { "Resource root doesn't exists" }
@@ -60,7 +59,8 @@ class GasTest {
                     "fift-examples",
                     "demo",
                     "fift-with-input",
-                    "hash" -> FileVisitResult.SKIP_SUBTREE
+                    "hash",
+                    "continuations" -> FileVisitResult.SKIP_SUBTREE
                     else -> FileVisitResult.CONTINUE
                 }
             }

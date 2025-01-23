@@ -97,6 +97,8 @@ PROGRAM{
   92 DECLMETHOD mulrshift_mod_var_overflow
   93 DECLMETHOD mulrshiftc_mod_var_overflow
   94 DECLMETHOD mulrshiftr_mod_var_overflow
+  95 DECLMETHOD modpow2_var_big
+  96 DECLMETHOD modpow2c_var_big
   addivmod_pos PROC:<{
       255 PUSHPOW2
       255 PUSHPOW2
@@ -235,11 +237,6 @@ PROGRAM{
       3 PUSHINT
       257 PUSHINT
       MODPOW2C
-  }>
-  modpow2r_big PROC:<{
-      3 PUSHINT
-      257 PUSHINT
-      MODPOW2R
   }>
   rshiftr_neg PROC:<{
       9 PUSHINT

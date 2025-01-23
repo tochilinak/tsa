@@ -17,7 +17,7 @@ import org.ton.bytecode.TvmUntilContinuation
 import org.ton.bytecode.TvmWhileContinuation
 import org.usvm.UHeapRef
 import org.usvm.machine.TvmStepScopeManager
-import org.usvm.machine.extractMethodId
+import org.usvm.machine.extractMethodIdOrNull
 import org.usvm.machine.state.TvmStack.TvmStackTupleValue
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.utils.intValueOrNull
@@ -324,7 +324,7 @@ private fun TvmStepScopeManager.doOrdJump(cont: TvmOrdContinuation) = doWithStat
 
 private fun TvmStepScopeManager.doMethodReturnJump(cont: TvmMethodReturnContinuation) {
     doWithState {
-        if (callStack.lastMethod().extractMethodId() == cont.method) {
+        if (callStack.lastMethod().extractMethodIdOrNull() == cont.method) {
             callStack.pop()
         } else {
             // TODO

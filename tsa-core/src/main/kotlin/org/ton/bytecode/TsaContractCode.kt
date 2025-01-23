@@ -6,7 +6,7 @@ import java.nio.file.Path
 import kotlin.io.path.readBytes
 
 data class TsaContractCode(
-    val mainMethod: TvmInstList,
+    val mainMethod: TvmMainMethod,
     val methods: Map<MethodId, TvmMethod>,
     val codeCell: TvmCell,
 ) {
@@ -20,8 +20,8 @@ data class TsaContractCode(
             val newMethods = tvmContractCode.methods.entries.associate { (key, value) ->
                 key to value.addReturnStmt()
             }
-            return TsaContractCode(mainMethod = tvmContractCode.mainMethod, methods = newMethods, codeCell = cell)
+            val newMainMethod = tvmContractCode.mainMethod.addReturnStmt()
+            return TsaContractCode(mainMethod = newMainMethod, methods = newMethods, codeCell = cell)
         }
     }
 }
-

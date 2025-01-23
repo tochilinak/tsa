@@ -19,7 +19,8 @@ class IntComparisonExample {
         val sourceResourcePath = this::class.java.getResource(sourcesPath)?.path?.let { Path(it) }
             ?: error("Cannot find resource source $sourcesPath")
 
-        val symbolicResult = funcCompileAndAnalyzeAllMethods(sourceResourcePath, tvmOptions = testFiftOptions)
+        val symbolicResult = funcCompileAndAnalyzeAllMethods(sourceResourcePath)
+        assertEquals(13, symbolicResult.testSuites.size)
         symbolicResult.forEach { (methodId, _, tests) ->
             if (methodId.toInt() == 0)
                 return@forEach

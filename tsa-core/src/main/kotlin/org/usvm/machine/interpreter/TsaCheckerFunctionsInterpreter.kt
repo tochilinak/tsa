@@ -10,6 +10,7 @@ import org.usvm.machine.state.doWithCtx
 import org.usvm.machine.state.initializeContractExecutionMemory
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
+import org.usvm.machine.state.switchToFirstMethodInContract
 import org.usvm.machine.state.takeLastIntOrNull
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
 import org.usvm.machine.toMethodId
@@ -92,9 +93,8 @@ class TsaCheckerFunctionsInterpreter(
 
             val nextContractCode = contractsCode.getOrNull(nextContractId)
                 ?: error("Contract with id $nextContractId not found")
-            val nextMethod = nextContractCode.methods[nextMethodId.toMethodId()]
-                ?: error("Method $nextMethodId in contract $nextContractId not found.")
-            newStmt(nextMethod.instList.first())
+
+            switchToFirstMethodInContract(nextContractCode, nextMethodId.toMethodId())
         }
     }
 

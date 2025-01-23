@@ -32,6 +32,7 @@ import org.usvm.machine.state.lastStmt
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
 import org.usvm.machine.state.returnFromContinuation
+import org.usvm.machine.state.switchToFirstMethodInContract
 import org.usvm.machine.types.TvmCellType
 import org.usvm.machine.types.TvmSliceType
 
@@ -81,7 +82,7 @@ class TvmArtificialInstInterpreter(
         scope.doWithState {
             val commitedState = lastCommitedStateOfContracts[currentContract]
 
-            if (entrypoint.id == RECEIVE_INTERNAL_ID &&
+            if (!analysisOfGetMethod &&
                 commitedState != null &&
                 ctx.tvmOptions.intercontractOptions.isIntercontractEnabled
             ) {
@@ -110,7 +111,7 @@ class TvmArtificialInstInterpreter(
             val commitedState = lastCommitedStateOfContracts[currentContract]
 
             // TODO stop at failure state or at state without commitedState
-            if (entrypoint.id != RECEIVE_INTERNAL_ID ||
+            if (analysisOfGetMethod ||
                 commitedState == null ||
                 messageQueue.isEmpty() ||
                 result is TvmFailure && result.phase == ACTION_PHASE ||
@@ -126,8 +127,6 @@ class TvmArtificialInstInterpreter(
             val (nextContract, message) = messageQueue.first()
             val nextContractCode = contractsCode.getOrNull(nextContract)
                 ?: error("Contract with id $nextContract was not found")
-            val nextMethod = nextContractCode.methods[RECEIVE_INTERNAL_ID]
-                ?: error("recv_internal in contract $nextContract was not found.")
 
             messageQueue = messageQueue.removeAt(0)
             intercontractPath = intercontractPath.add(nextContract)
@@ -149,7 +148,7 @@ class TvmArtificialInstInterpreter(
             addOnStack(message.msgBodySlice, TvmSliceType)
 
             phase = COMPUTE_PHASE
-            newStmt(nextMethod.instList.first())
+            switchToFirstMethodInContract(nextContractCode, RECEIVE_INTERNAL_ID)
         }
     }
 

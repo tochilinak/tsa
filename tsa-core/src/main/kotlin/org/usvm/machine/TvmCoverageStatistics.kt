@@ -5,6 +5,7 @@ import org.ton.bytecode.TvmArtificialInst
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmInstMethodLocation
+import org.ton.bytecode.TvmMainMethodLocation
 import org.ton.bytecode.TvmMethod
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmState
@@ -26,16 +27,29 @@ class TvmCoverageStatistics(
     private val coveredStatements: MutableSet<TvmInst> = newSetFromMap(IdentityHashMap())
     private val reachableMethods: MutableSet<MethodId> = hashSetOf()
     private val traversedMethodStatements: MutableMap<MethodId, List<TvmInst>> = hashMapOf()
+    private val coveredStatementsFromMain: MutableSet<TvmInst> = hashSetOf()
 
-    fun getMethodCoveragePercents(method: TvmMethod): Float {
+    fun getMethodCoveragePercents(methodId: MethodId): Float? {
+        val method = contractCode.methods[methodId]
+            ?: return null
+
         val methodStatements = getMethodStatements(method)
         val coveredMethodStatements = methodStatements.count { it in coveredStatements }
 
         return computeCoveragePercents(coveredMethodStatements, methodStatements.size)
     }
 
-    fun getTransitiveCoveragePercents(): Float {
+    fun getMainMethodCoveragePercents(): Float {
+        val allStatements = contractCode.mainMethod.instList.flattenStatements()
+        return computeCoveragePercents(coveredStatementsFromMain.size, allStatements.size)
+    }
+
+    fun getTransitiveCoveragePercents(): Float? {
         val allStatements = reachableMethods.flatMap(::getMethodStatements)
+
+        if (allStatements.isEmpty()) {
+            return null
+        }
 
         return computeCoveragePercents(coveredStatements.size, allStatements.size)
     }
@@ -93,8 +107,9 @@ class TvmCoverageStatistics(
         }
 
         val rootLocation = stmt.getRootLocation()
-        // instructions from main are not counted
-        if (rootLocation !is TvmInstMethodLocation) {
+        // instructions from main are counted separately
+        if (rootLocation is TvmMainMethodLocation) {
+            coveredStatementsFromMain.add(stmt)
             return
         }
 

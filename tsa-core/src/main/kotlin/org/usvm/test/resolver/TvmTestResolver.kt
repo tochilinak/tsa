@@ -12,7 +12,10 @@ import org.usvm.machine.state.TvmState
 import org.usvm.machine.types.TvmStructuralExit
 
 data object TvmTestResolver {
-    fun resolve(method: TvmMethod, state: TvmState): TvmSymbolicTest {
+    fun resolve(method: TvmMethod, state: TvmState): TvmSymbolicTest =
+        resolve(method.id, state)
+
+    fun resolve(methodId: MethodId, state: TvmState): TvmSymbolicTest {
         val model = state.models.first()
         val ctx = state.ctx
         val stateResolver = TvmTestStateResolver(ctx, model, state, ctx.tvmOptions.performAdditionalChecksWhileResolving)
@@ -26,7 +29,7 @@ data object TvmTestResolver {
         val gasUsage = stateResolver.resolveGasUsage()
 
         return TvmSymbolicTest(
-            methodId = method.id,
+            methodId = methodId,
             contractAddress = contractAddress,
             initialData = initialData,
             contractBalance = contractBalance,
@@ -41,32 +44,37 @@ data object TvmTestResolver {
         )
     }
 
-    fun resolve(
-        methodStates: Map<TvmMethod, Pair<List<TvmState>, TvmMethodCoverage>>,
+    fun groupTestSuites(
+        testSuites: List<TvmSymbolicTestSuite>,
         takeEmptyTests: Boolean = false,
     ): TvmContractSymbolicTestResult = TvmContractSymbolicTestResult(
-        methodStates.mapNotNull {
-            val method = it.key
-            val coverage = it.value.second
-            val states = it.value.first
-            val tests = states.mapNotNull { state ->
-                tryCatchIf(
-                    condition = state.ctx.tvmOptions.quietMode,
-                    body = { resolve(method, state) },
-                    exceptionHandler = { exception ->
-                        logger.debug(exception) { "Exception is thrown during the resolve of state $state" }
-                        null
-                    }
-                )
-            }
-
-            TvmSymbolicTestSuite(
-                method.id,
-                coverage,
-                tests,
-            ).takeIf { takeEmptyTests || tests.isNotEmpty() }
+        testSuites.mapNotNull {
+            it.takeIf { takeEmptyTests || it.tests.isNotEmpty() }
         }
     )
+
+    fun resolveSingleMethod(
+        methodId: MethodId,
+        states: List<TvmState>,
+        coverage: TvmMethodCoverage,
+    ): TvmSymbolicTestSuite {
+        val tests = states.mapNotNull { state ->
+            tryCatchIf(
+                condition = state.ctx.tvmOptions.quietMode,
+                body = { resolve(methodId, state) },
+                exceptionHandler = { exception ->
+                    logger.debug(exception) { "Exception is thrown during the resolve of state $state" }
+                    null
+                }
+            )
+        }
+
+        return TvmSymbolicTestSuite(
+            methodId,
+            coverage,
+            tests,
+        )
+    }
 }
 
 data class TvmContractSymbolicTestResult(val testSuites: List<TvmSymbolicTestSuite>) : List<TvmSymbolicTestSuite> by testSuites
@@ -78,8 +86,9 @@ data class TvmSymbolicTestSuite(
 ) : List<TvmSymbolicTest> by tests
 
 data class TvmMethodCoverage(
-    val coverage: Float,
-    val transitiveCoverage: Float,
+    val coverage: Float?,
+    val transitiveCoverage: Float?,
+    val coverageOfMainMethod: Float,
 )
 
 data class TvmSymbolicTest(

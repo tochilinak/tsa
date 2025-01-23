@@ -48,6 +48,7 @@ val testFiftOptions = TvmOptions(
     turnOnTLBParsingChecks = false,
     enableInternalArgsConstraints = false,
     enableInputValues = false,
+    useMainMethodForInitialMethodJump = false,
 )
 
 fun extractResource(resourcePath: String) =
@@ -107,6 +108,20 @@ fun compileAndAnalyzeFift(
     tvmOptions,
 )
 
+fun compileAndAnalyzeFift(
+    fiftPath: Path,
+    methodId: MethodId,
+    contractDataHex: String? = null,
+    inputInfo: TvmInputInfo = TvmInputInfo(),
+    tvmOptions: TvmOptions = TvmOptions(),
+): TvmSymbolicTestSuite = FiftAnalyzer(fiftStdlibPath = FIFT_STDLIB_RESOURCE).analyzeSpecificMethod(
+    fiftPath,
+    methodId,
+    contractDataHex,
+    inputInfo,
+    tvmOptions,
+)
+
 /**
  * [codeBlocks] -- blocks of FIFT instructions, surrounded with <{ ... }>
  * */
@@ -136,7 +151,7 @@ fun analyzeFuncIntercontract(
     sources: List<Path>,
     startContract: ContractId = 0,
     options: TvmOptions,
-): TvmContractSymbolicTestResult {
+): TvmSymbolicTestSuite {
     val contracts = sources.map { getFuncContract(it, FUNC_STDLIB_RESOURCE, FIFT_STDLIB_RESOURCE) }
 
     return analyzeInterContract(

@@ -2,6 +2,7 @@ package org.usvm.machine.state
 
 import io.ksmt.sort.KBvSort
 import io.ksmt.utils.powerOfTwo
+import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TvmCellValue
 import org.ton.bytecode.TsaContractCode
@@ -40,6 +41,7 @@ import org.ton.bytecode.TsaArtificialExitInst
 import org.usvm.machine.state.TmvPhase.ACTION_PHASE
 import org.usvm.machine.state.TmvPhase.COMPUTE_PHASE
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
+import org.usvm.memory.with
 
 val TvmState.lastStmt get() = pathNode.statement
 fun TvmState.newStmt(stmt: TvmInst) {
@@ -282,7 +284,6 @@ fun initializeContractExecutionMemory(
     allowInputStackValues: Boolean,
 ): TvmContractExecutionMemory {
     val contractCode = contractsCode[contractId]
-    val mainMethod = TvmLambda(contractCode.mainMethod.list.toMutableList())
     val ctx = state.ctx
     val c4 = state.contractIdToC4Register[contractId]
         ?: error("c4 for contract $contractId is not found")
@@ -295,7 +296,7 @@ fun initializeContractExecutionMemory(
             C0Register(ctx.quit0Cont),
             C1Register(ctx.quit1Cont),
             C2Register(TvmExceptionContinuation),
-            C3Register(TvmOrdContinuation(mainMethod)),
+            C3Register(TvmOrdContinuation(contractCode.mainMethod)),
             c4,
             C5Register(TvmCellValue(state.allocEmptyCell())),
             C7Register(state.initC7(firstElementOfC7)),
@@ -316,4 +317,16 @@ fun TvmState.contractEpilogue() {
     contractIdToC4Register = contractIdToC4Register.put(currentContract, commitedState.c4)
     // last commited state is cleared, as [currentContract] can be visited multiple times
     lastCommitedStateOfContracts = lastCommitedStateOfContracts.remove(currentContract)
+}
+
+fun TvmState.switchToFirstMethodInContract(contractCode: TsaContractCode, methodId: MethodId) = with(ctx) {
+    if (tvmOptions.useMainMethodForInitialMethodJump) {
+        val methodIdAsInt = methodId.toBv257()
+        stack.addInt(methodIdAsInt)
+        newStmt(contractCode.mainMethod.instList.first())
+    } else {
+        val method = contractCode.methods[methodId]
+            ?: error("Method $methodId not found")
+        newStmt(method.instList.first())
+    }
 }

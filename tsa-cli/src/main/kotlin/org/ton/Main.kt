@@ -329,7 +329,7 @@ class InterContractAnalysis : CliktCommand(
             options = options,
         )
 
-        echo(result.toSarifReport(methodsMapping = emptyMap()))
+        echo(result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = true))
     }
 }
 

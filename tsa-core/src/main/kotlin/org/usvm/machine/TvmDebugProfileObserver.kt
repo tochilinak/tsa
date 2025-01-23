@@ -12,6 +12,7 @@ import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmInstLambdaLocation
 import org.ton.bytecode.TvmInstLocation
 import org.ton.bytecode.TvmLambda
+import org.ton.bytecode.TvmMainMethod
 import org.ton.bytecode.TvmMethod
 import org.usvm.machine.state.TvmState
 import org.usvm.statistics.UDebugProfileObserver
@@ -75,6 +76,7 @@ private class TvmStatementOperations(
         return when (method) {
             is TvmMethod -> "Method ${method.id}"
             is TvmLambda -> "TvmLambda"
+            is TvmMainMethod -> "TvmMainMethod"
             else -> error("Unexpected TvmCodeBlock: $method")
         }
     }

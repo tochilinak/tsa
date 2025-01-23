@@ -9,8 +9,8 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.ton.bytecode.TsaArtificialActionPhaseInst
 import org.ton.bytecode.TsaArtificialExitInst
 import org.ton.bytecode.TvmCodeBlock
+import org.ton.bytecode.TvmDisasmCodeBlock
 import org.ton.bytecode.TvmInst
-import org.ton.bytecode.TvmMethod
 import org.ton.targets.TvmTarget
 import org.usvm.PathNode
 import org.usvm.UBv32Sort
@@ -44,9 +44,10 @@ typealias ContractId = Int
 class TvmState(
     ctx: TvmContext,
     ownership: MutabilityOwnership,
-    override val entrypoint: TvmMethod,
+    override val entrypoint: TvmDisasmCodeBlock,
 //    val registers: TvmRegisters, // TODO do we really need keep the registers this way?
     val emptyRefValue: TvmRefEmptyValue,
+    val analysisOfGetMethod: Boolean,
     private var symbolicRefs: PersistentSet<UConcreteHeapAddress> = persistentHashSetOf(),
     var gasUsage: PersistentList<UExpr<UBv32Sort>>,
     // TODO codepage
@@ -183,6 +184,7 @@ class TvmState(
             lastMsgBody = lastMsgBody,
             intercontractPath = intercontractPath,
             phase = phase,
+            analysisOfGetMethod = analysisOfGetMethod,
         ).also { newState ->
             newState.dataCellInfoStorage = dataCellInfoStorage.clone()
             newState.contractIdToInitialData = contractIdToInitialData
