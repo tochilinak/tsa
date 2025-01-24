@@ -7,6 +7,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentMap
 import mu.KLogging
 import org.ton.TvmInputInfo
+import org.ton.bytecode.MethodId
+import org.ton.bytecode.TsaArtificialExecuteContInst
+import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmAppActionsInst
 import org.ton.bytecode.TvmAppAddrInst
 import org.ton.bytecode.TvmAppConfigInst
@@ -92,6 +95,7 @@ import org.ton.bytecode.TvmConstIntPushpow2decInst
 import org.ton.bytecode.TvmContBasicCallrefInst
 import org.ton.bytecode.TvmContBasicCallxargsInst
 import org.ton.bytecode.TvmContBasicCallxargsVarInst
+import org.ton.bytecode.TvmContBasicCallxvarargsInst
 import org.ton.bytecode.TvmContBasicExecuteInst
 import org.ton.bytecode.TvmContBasicInst
 import org.ton.bytecode.TvmContBasicRetInst
@@ -105,6 +109,7 @@ import org.ton.bytecode.TvmContConditionalIfnotInst
 import org.ton.bytecode.TvmContConditionalIfnotjmpInst
 import org.ton.bytecode.TvmContConditionalIfnotjmprefInst
 import org.ton.bytecode.TvmContConditionalIfnotrefInst
+import org.ton.bytecode.TvmContConditionalIfnotretInst
 import org.ton.bytecode.TvmContConditionalIfrefInst
 import org.ton.bytecode.TvmContConditionalIfrefelseInst
 import org.ton.bytecode.TvmContConditionalIfrefelserefInst
@@ -204,6 +209,7 @@ import org.usvm.machine.TvmCellDataFieldManager
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
 import org.usvm.machine.TvmContext.Companion.MAX_DATA_LENGTH
+import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.RECEIVE_INTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
 import org.usvm.machine.TvmContext.Companion.cellDataLengthField
@@ -265,6 +271,7 @@ import org.usvm.machine.state.doXchg
 import org.usvm.machine.state.doXchg2
 import org.usvm.machine.state.doXchg3
 import org.usvm.machine.state.generateSymbolicCell
+import org.usvm.machine.state.getBalance
 import org.usvm.machine.state.getSliceRemainingBitsCount
 import org.usvm.machine.state.getSliceRemainingRefsCount
 import org.usvm.machine.state.initContractInfo
@@ -278,6 +285,7 @@ import org.usvm.machine.state.returnAltFromContinuation
 import org.usvm.machine.state.returnFromContinuation
 import org.usvm.machine.state.signedIntegerFitsBits
 import org.usvm.machine.state.slicesAreEqual
+import org.usvm.machine.state.switchToFirstMethodInContract
 import org.usvm.machine.state.takeLastCell
 import org.usvm.machine.state.takeLastContinuation
 import org.usvm.machine.state.takeLastIntOrNull
@@ -290,6 +298,7 @@ import org.usvm.machine.tryCatchIf
 import org.usvm.machine.types.TvmBuilderType
 import org.usvm.machine.types.TvmCellType
 import org.usvm.machine.types.TvmDataCellInfoStorage
+import org.usvm.machine.types.TvmIntegerType
 import org.usvm.machine.types.TvmSliceType
 import org.usvm.machine.types.TvmType
 import org.usvm.machine.types.TvmTypeSystem
@@ -301,14 +310,6 @@ import org.usvm.sizeSort
 import org.usvm.solver.USatResult
 import org.usvm.targets.UTargetsSet
 import java.math.BigInteger
-import org.ton.bytecode.MethodId
-import org.ton.bytecode.TsaArtificialExecuteContInst
-import org.ton.bytecode.TsaContractCode
-import org.ton.bytecode.TvmContConditionalIfnotretInst
-import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
-import org.usvm.machine.state.getBalance
-import org.usvm.machine.state.switchToFirstMethodInContract
-import org.usvm.machine.types.TvmIntegerType
 
 // TODO there are a lot of `scope.calcOnState` and `scope.doWithState` invocations that are not inline - optimize it
 class TvmInterpreter(
@@ -1900,13 +1901,34 @@ class TvmInterpreter(
             }
             is TvmContBasicCallxargsVarInst -> {
                 scope.consumeDefaultGas(stmt)
+                checkArgument(stmt.p, 0..15, stmt)
                 doCallxArgs(scope, stmt, passArgs = stmt.p, returnArgs = null)
             }
             is TvmContBasicCallxargsInst -> {
                 scope.consumeDefaultGas(stmt)
+                checkArgument(stmt.p, 0..15, stmt)
+                checkArgument(stmt.r, 0..15, stmt)
                 doCallxArgs(scope, stmt, passArgs = stmt.p, returnArgs = stmt.r)
             }
+            is TvmContBasicCallxvarargsInst -> {
+                scope.consumeDefaultGas(stmt)
+                val symbolicR = scope.takeLastIntOrThrowTypeError()
+                    ?: return
+                val symbolicP = scope.takeLastIntOrThrowTypeError()
+                    ?: return
+                val r = symbolicR.extractConcrete(stmt).takeIf { it != -1 }
+                val p = symbolicP.extractConcrete(stmt).takeIf { it != -1 }
+                checkArgument(p, 0..254, stmt)
+                checkArgument(r, 0..254, stmt)
+                doCallxArgs(scope, stmt, passArgs = p, returnArgs = r)
+            }
             else -> TODO("$stmt")
+        }
+    }
+
+    private fun checkArgument(arg: Int?, range: IntRange, stmt: TvmInst) {
+        check(arg == null || arg in range) {
+            "Unexpected number of arguments for $stmt: $arg"
         }
     }
 
@@ -1919,12 +1941,6 @@ class TvmInterpreter(
         val continuationValue = scope.calcOnState { stack.takeLastContinuation() }
             ?: return scope.doWithState(ctx.throwTypeCheckError)
 
-        check(passArgs == null || passArgs in 0..15) {
-            "Unexpected number of arguments: $stmt"
-        }
-        check(returnArgs == null || returnArgs in 0..15) {
-            "Unexpected number of return values: $stmt"
-        }
         scope.callContinuationComplex(stmt, continuationValue, passArgs?.toUInt(), returnArgs?.toUInt())
     }
 

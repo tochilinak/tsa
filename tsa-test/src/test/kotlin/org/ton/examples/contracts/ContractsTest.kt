@@ -49,8 +49,7 @@ class ContractsTest {
     private val pumpersPath: String = "/contracts/EQCV_FsDSymN83YeKZKj_7sgwQHV0jJhCTvX5SkPHHxVOi0D.boc"
     private val walletV3Path: String = "/contracts/wallet-v3/wallet-v3-code.fif"
 
-    // TODO: implement the rest of instructions
-    @Ignore
+    @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun testPumpersMaster() {
         val bytecodeResourcePath = getResourcePath<ContractsTest>(pumpersPath)
@@ -60,7 +59,6 @@ class ContractsTest {
             inputInfo = emptyMap(),
             tvmOptions = TvmOptions(
                 excludeExecutionsWithFailures = true,
-                timeout = 300.seconds,
             )
         )
     }
