@@ -300,7 +300,7 @@ class TvmDictOperationInterpreter(
             is TvmDictSerialPlddictInst -> doLoadDict(inst, scope, returnUpdatedSlice = false)
             is TvmDictSerialPlddictqInst -> TODO()
             is TvmDictSerialPlddictsInst -> TODO()
-            is TvmDictSerialSkipdictInst -> TODO()
+            is TvmDictSerialSkipdictInst -> doLoadDict(inst, scope, returnUpdatedSlice = true, putDictOnStack = false)
             is TvmDictSerialStdictInst -> doStoreDictToBuilder(inst, scope)
         }
     }
@@ -352,7 +352,12 @@ class TvmDictOperationInterpreter(
     }
 
     // this is actually load_maybe_ref, not necessarily load_dict
-    private fun doLoadDict(inst: TvmDictSerialInst, scope: TvmStepScopeManager, returnUpdatedSlice: Boolean) {
+    private fun doLoadDict(
+        inst: TvmDictSerialInst,
+        scope: TvmStepScopeManager,
+        returnUpdatedSlice: Boolean,
+        putDictOnStack: Boolean = true,
+    ) {
         val slice = scope.calcOnStateCtx { stack.takeLastSlice() }
         if (slice == null) {
             scope.doWithState(ctx.throwTypeCheckError)
@@ -376,7 +381,9 @@ class TvmDictOperationInterpreter(
                 isNotEmpty,
                 falseStateIsExceptional = false,
                 blockOnFalseState = {
-                    addOnStack(ctx.nullValue, TvmNullType)
+                    if (putDictOnStack) {
+                        addOnStack(ctx.nullValue, TvmNullType)
+                    }
 
                     if (returnUpdatedSlice) {
                         updatedSlice.also { sliceCopy(slice, it) }
@@ -390,7 +397,9 @@ class TvmDictOperationInterpreter(
 
             doWithStateCtx {
                 val dictCellRef = slicePreloadNextRef(slice) ?: return@doWithStateCtx
-                addOnStack(dictCellRef, TvmCellType)
+                if (putDictOnStack) {
+                    addOnStack(dictCellRef, TvmCellType)
+                }
 
                 if (returnUpdatedSlice) {
                     updatedSlice.also { sliceCopy(slice, it) }

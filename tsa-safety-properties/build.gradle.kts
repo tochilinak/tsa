@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":tsa-core"))
     implementation(project(":tsa-sarif"))
     implementation(project(":tsa-test-gen"))
+    implementation(project(":tsa-networking"))
 
     implementation("org.ton:ton-kotlin-crypto:0.3.1")
     implementation("org.ton:ton-kotlin-tvm:0.3.1")

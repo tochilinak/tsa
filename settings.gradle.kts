@@ -16,3 +16,4 @@ include("tsa-test")
 
 // TODO: fix this module (https://github.com/explyt/tsa/issues/118)
 // include("tsa-intellij")
+include("tsa-networking")

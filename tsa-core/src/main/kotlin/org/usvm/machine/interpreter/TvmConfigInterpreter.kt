@@ -12,6 +12,7 @@ import org.ton.bytecode.TAG_PARAMETER_IDX
 import org.ton.bytecode.TIME_PARAMETER_IDX
 import org.ton.bytecode.TRANSACTION_TIME_PARAMETER_IDX
 import org.ton.bytecode.TvmAppConfigConfigoptparamInst
+import org.ton.bytecode.TvmAppConfigGetoriginalfwdfeeInst
 import org.ton.bytecode.TvmAppConfigGetparamInst
 import org.ton.bytecode.TvmAppConfigInst
 import org.usvm.machine.TvmContext
@@ -40,6 +41,7 @@ class TvmConfigInterpreter(private val ctx: TvmContext) {
         when (stmt) {
             is TvmAppConfigGetparamInst -> visitGetParamInst(scope, stmt)
             is TvmAppConfigConfigoptparamInst -> visitConfigParamInst(scope, stmt)
+            is TvmAppConfigGetoriginalfwdfeeInst -> TODO("$stmt") // needed for many jettons
             else -> TODO("$stmt")
         }
     }

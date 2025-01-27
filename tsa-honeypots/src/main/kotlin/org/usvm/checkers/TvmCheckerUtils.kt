@@ -33,6 +33,11 @@ fun runAnalysisAndExtractFailingExecutions(
         manualStatePostProcess = manualStatePostProcess,
     )
     val foundTests = analysisResult.tests
+
+    check(foundTests.isNotEmpty()) {
+        "No executions found during analysis"
+    }
+
     val result = foundTests.filter { it.result is TvmMethodFailure }
     return result
 }
