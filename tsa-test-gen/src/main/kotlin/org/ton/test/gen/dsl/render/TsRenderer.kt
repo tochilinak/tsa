@@ -26,7 +26,6 @@ import org.ton.test.gen.dsl.models.TsExpectToEqual
 import org.ton.test.gen.dsl.models.TsExpectToHaveTransaction
 import org.ton.test.gen.dsl.models.TsExpression
 import org.ton.test.gen.dsl.models.TsFieldAccess
-import org.ton.test.gen.dsl.models.TsStatementExpression
 import org.ton.test.gen.dsl.models.TsInt
 import org.ton.test.gen.dsl.models.TsIntValue
 import org.ton.test.gen.dsl.models.TsMethodCall
@@ -38,6 +37,7 @@ import org.ton.test.gen.dsl.models.TsSandboxContract
 import org.ton.test.gen.dsl.models.TsSendMessageResult
 import org.ton.test.gen.dsl.models.TsSlice
 import org.ton.test.gen.dsl.models.TsSliceValue
+import org.ton.test.gen.dsl.models.TsStatementExpression
 import org.ton.test.gen.dsl.models.TsString
 import org.ton.test.gen.dsl.models.TsStringValue
 import org.ton.test.gen.dsl.models.TsTestBlock
@@ -56,7 +56,15 @@ import org.usvm.test.resolver.TvmTestNullValue
 import org.usvm.test.resolver.TvmTestSliceValue
 import org.usvm.test.resolver.TvmTestValue
 
-class TsRenderer(val ctx: TsContext) : TsVisitor<Unit> {
+class TsRenderer(
+    private val ctx: TsContext,
+    private val contractType: ContractType,
+) : TsVisitor<Unit> {
+    enum class ContractType {
+        Boc,
+        Func,
+    }
+
     private val printer = TsPrinterImpl()
 
     private val maxPrecedence = 18
@@ -142,13 +150,26 @@ class TsRenderer(val ctx: TsContext) : TsVisitor<Unit> {
     override fun visit(element: TsTestFile) {
         val wrapperImports = element.wrappers.joinToString(
             separator = System.lineSeparator(),
-            postfix = System.lineSeparator(),
             transform = ::renderWrapperImport,
         )
 
         // TODO optimize imports
         printer.println(TEST_FILE_IMPORTS)
         printer.println(wrapperImports)
+
+        when (contractType) {
+            ContractType.Func -> {
+                printer.println(FUNC_COMPILER_IMPORT)
+                printer.println()
+                printer.println(COMPILE_FUNC_CONTRACT)
+            }
+            ContractType.Boc -> {
+                printer.println()
+                printer.println(COMPILE_BOC_CONTRACT)
+            }
+        }
+
+        printer.println()
         printer.println(TEST_FILE_UTILS)
 
         element.testBlocks.forEach { it.accept(this) }
@@ -472,27 +493,11 @@ class TsRenderer(val ctx: TsContext) : TsVisitor<Unit> {
             import {Blockchain, createShardAccount, SandboxContract, SendMessageResult} from '@ton/sandbox'
             import {Address, beginCell, Builder, Cell, Dictionary, DictionaryValue, Slice, toNano} from '@ton/core'
             import '@ton/test-utils'
-            import {compileFunc} from "@ton-community/func-js"
             import * as fs from "node:fs"
             import {randomAddress} from "@ton/test-utils"
         """.trimIndent()
 
         private val TEST_FILE_UTILS = """
-            async function compileContract(target: string): Promise<Cell> {
-                let compileResult = await compileFunc({
-                    targets: [target],
-                    sources: (x) => fs.readFileSync(x).toString("utf8"),
-                })
-    
-                if (compileResult.status === "error") {
-                    console.error("Compilation Error!")
-                    console.error(`\n${'$'}{compileResult.message}`)
-                    process.exit(1)
-                }
-    
-                return Cell.fromBoc(Buffer.from(compileResult.codeBoc, "base64"))[0]
-            }
-            
             async function initializeContract(
                 blockchain: Blockchain, 
                 address: Address, 
@@ -523,6 +528,32 @@ class TsRenderer(val ctx: TsContext) : TsVisitor<Unit> {
                 return Cell.fromBoc(Buffer.from(hex, 'hex'))[0];
             }
             
+            """.trimIndent()
+
+        private const val FUNC_COMPILER_IMPORT = "import {compileFunc} from \"@ton-community/func-js\""
+
+        private val COMPILE_FUNC_CONTRACT = """
+            async function compileContract(target: string): Promise<Cell> {
+                let compileResult = await compileFunc({
+                    targets: [target],
+                    sources: (x) => fs.readFileSync(x).toString("utf8"),
+                })
+    
+                if (compileResult.status === "error") {
+                    console.error("Compilation Error!")
+                    console.error(`\n${'$'}{compileResult.message}`)
+                    process.exit(1)
+                }
+    
+                return Cell.fromBoc(Buffer.from(compileResult.codeBoc, "base64"))[0]
+            }
+        """.trimIndent()
+
+        private val COMPILE_BOC_CONTRACT = """
+            async function compileContract(target: string): Promise<Cell> {
+                 const fileBuffer = fs.readFileSync(target);
+                 return Cell.fromBoc(fileBuffer)[0]
+            }
         """.trimIndent()
     }
 }

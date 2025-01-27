@@ -25,7 +25,6 @@ import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 class ContractsTest {
     private val nftItemPath: String = "/contracts/nft-item/nft-item.fc"
@@ -65,67 +64,67 @@ class ContractsTest {
 
     @Test
     fun testStocks() {
-        analyzeContract(stocksPath, methodsNumber = 6, enableTestGeneration = true)
+        analyzeFuncContract(stocksPath, methodsNumber = 6, enableTestGeneration = true)
     }
 
     @Test
     fun testWalletV4() {
-        analyzeContract(walletV4Path, methodsNumber = 7, enableTestGeneration = true)
+        analyzeFuncContract(walletV4Path, methodsNumber = 7, enableTestGeneration = true)
     }
 
     @Ignore("slow hash validation https://github.com/explyt/tsa/issues/112")
     @Test
     fun testWalletV5() {
-        analyzeContract(walletV5Path, methodsNumber = 7, enableTestGeneration = true)
+        analyzeFuncContract(walletV5Path, methodsNumber = 7, enableTestGeneration = true)
     }
 
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun nftItem() {
         // TODO export config to sandbox
-        analyzeContract(nftItemPath, methodsNumber = 15, enableTestGeneration = false)
+        analyzeFuncContract(nftItemPath, methodsNumber = 15, enableTestGeneration = false)
     }
 
     @Test
     fun jettonMinter() {
-        analyzeContract(jettonMinterPath, methodsNumber = 4, enableTestGeneration = true)
+        analyzeFuncContract(jettonMinterPath, methodsNumber = 4, enableTestGeneration = true)
     }
 
     @Test
     fun jettonWallet() {
-        analyzeContract(jettonWalletPath, methodsNumber = 3, enableTestGeneration = true)
+        analyzeFuncContract(jettonWalletPath, methodsNumber = 3, enableTestGeneration = true)
     }
 
     @Test
     fun singleNominator() {
-        analyzeContract(singleNominatorPath, methodsNumber = 3, enableTestGeneration = true)
+        analyzeFuncContract(singleNominatorPath, methodsNumber = 3, enableTestGeneration = true)
     }
 
     @Test
     fun storage() {
-        analyzeContract(storagePath, methodsNumber = 7, enableTestGeneration = true)
+        analyzeFuncContract(storagePath, methodsNumber = 7, enableTestGeneration = true)
     }
 
     @Test
     fun vestingLockupWallet() {
-        analyzeContract(vestingLockupWalletPath, methodsNumber = 6, enableTestGeneration = true)
+        analyzeFuncContract(vestingLockupWalletPath, methodsNumber = 6, enableTestGeneration = true)
     }
 
     @Test
     fun testSubscriptionPlugin() {
-        analyzeContract(subscriptionPluginPath, methodsNumber = 4, enableTestGeneration = true)
+        analyzeFuncContract(subscriptionPluginPath, methodsNumber = 4, enableTestGeneration = true)
     }
 
     @Test
     fun bridge() {
-        analyzeContract(bridgePath, methodsNumber = 8, enableTestGeneration = true)
+        analyzeFuncContract(bridgePath, methodsNumber = 8, enableTestGeneration = true)
     }
 
     @Test
     fun bridgeVotesCollector() {
         // TODO unexpected overflow errors during DICTUDELGET:
         //  "cannot change label of an old dictionary cell while merging edges"
-        analyzeContract(bridgeVotesCollectorPath, methodsNumber = 5, enableTestGeneration = false)
+        analyzeFuncContract(bridgeVotesCollectorPath, methodsNumber = 5, enableTestGeneration = false)
     }
 
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
@@ -133,35 +132,35 @@ class ContractsTest {
     fun nominatorPool() {
         // TODO export config to sandbox
         // long test execution (4 min)
-        analyzeContract(nominatorPoolPath, methodsNumber = 10, enableTestGeneration = false)
+        analyzeFuncContract(nominatorPoolPath, methodsNumber = 10, enableTestGeneration = false)
     }
 
     @Ignore("slow hash validation https://github.com/explyt/tsa/issues/112")
     @Test
     fun multisig() {
-        analyzeContract(multisigPath, methodsNumber = 16, enableTestGeneration = true)
+        analyzeFuncContract(multisigPath, methodsNumber = 16, enableTestGeneration = true)
     }
 
     @Ignore("ksmt bug https://github.com/UnitTestBot/ksmt/issues/160")
     @Test
     fun bridgeMultisig() {
-        analyzeContract(bridgeMultisigPath, methodsNumber = 18, enableTestGeneration = true)
+        analyzeFuncContract(bridgeMultisigPath, methodsNumber = 18, enableTestGeneration = true)
     }
 
     @Test
     fun storageProvider() {
-        analyzeContract(storageProviderPath, methodsNumber = 10, enableTestGeneration = true)
+        analyzeFuncContract(storageProviderPath, methodsNumber = 10, enableTestGeneration = true)
     }
 
     @Test
     fun vesting() {
-        analyzeContract(vestingPath, methodsNumber = 9, enableTestGeneration = true)
+        analyzeFuncContract(vestingPath, methodsNumber = 9, enableTestGeneration = true)
     }
 
     @Ignore("PFXDICTGETQ is not supported")
     @Test
     fun universalLockupWallet() {
-        analyzeContract(universalLockupWalletPath, methodsNumber = 13, enableTestGeneration = true)
+        analyzeFuncContract(universalLockupWalletPath, methodsNumber = 13, enableTestGeneration = true)
     }
 
     @Test
@@ -169,7 +168,7 @@ class ContractsTest {
         analyzeSpecificMethod(walletV3Path, methodId = MethodId.valueOf(-1))
     }
 
-    private fun analyzeContract(
+    private fun analyzeFuncContract(
         contractPath: String,
         methodsNumber: Int,
         methodsBlackList: Set<MethodId> = hashSetOf(),
@@ -181,16 +180,16 @@ class ContractsTest {
         checkAtLeastOneStateForAllMethods(methodsNumber = methodsNumber, methodStates)
 
         if (enableTestGeneration) {
-            executeGeneratedTests(methodStates, funcResourcePath)
+            executeGeneratedTests(methodStates, funcResourcePath, TsRenderer.ContractType.Func)
         }
     }
 
     @OptIn(ExperimentalPathApi::class)
-    private fun executeGeneratedTests(states: TvmContractSymbolicTestResult, sources: Path) {
+    private fun executeGeneratedTests(states: TvmContractSymbolicTestResult, sources: Path, contractType: TsRenderer.ContractType) {
         val project = extractResource(SANDBOX_PROJECT_PATH)
 
         try {
-            val generatedTests = generateTests(states, project, sources.toAbsolutePath())
+            val generatedTests = generateTests(states, project, sources.toAbsolutePath(), contractType)
                 ?: return
             val (testResults, successful) = executeTests(
                 projectPath = project,

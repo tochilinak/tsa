@@ -4,7 +4,11 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
+import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
+import com.github.ajalt.clikt.parameters.groups.required
+import com.github.ajalt.clikt.parameters.groups.single
+import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.multiple
@@ -16,6 +20,7 @@ import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import org.ton.sarif.toSarifReport
+import org.ton.test.gen.dsl.render.TsRenderer
 import org.ton.test.gen.generateTests
 import org.ton.tlb.readFromJson
 import org.usvm.machine.BocAnalyzer
@@ -30,8 +35,8 @@ import org.usvm.machine.state.ContractId
 import org.usvm.machine.toMethodId
 import java.math.BigInteger
 import java.nio.file.Path
-import kotlin.io.path.exists
 import kotlin.io.path.readText
+import kotlin.math.abs
 
 class ContractProperties : OptionGroup("Contract properties") {
     val contractData by option("-d", "--data").help("The serialized contract persistent data")
@@ -80,39 +85,66 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
         .required()
         .help("The path to the FunC project")
 
-    private val funcSourcesRelativePath by option("-c", "--contract")
-        .path(canBeFile = true, canBeDir = false)
-        .required()
-        .help("Relative path from the project root to the FunC file")
-        .validate {
-            require(!it.isAbsolute) {
-                "Contract file path must be relative (to project path)"
-            }
-            require(projectPath.resolve(it).exists()) {
-                "Contract file must exist"
-            }
-        }
+    private val sourcesDescription: Pair<Path, TsRenderer.ContractType> by mutuallyExclusiveOptions(
+        option("--boc")
+            .help("Relative path from the project root to the BoC file")
+            .path(canBeFile = true, canBeDir = false)
+            .convert {
+                require(!it.isAbsolute) {
+                    "Contract file path must be relative (to project path)"
+                }
+                it to TsRenderer.ContractType.Boc
+            },
+        option("--func")
+            .help("Relative path from the project root to the FunC file")
+            .path(canBeFile = true, canBeDir = false)
+            .convert {
+                require(!it.isAbsolute) {
+                    "Contract file path must be relative (to project path)"
+                }
+                it to TsRenderer.ContractType.Func
+            },
+    ).single().required()
+
+    private val sourcesRelativePath by lazy { sourcesDescription.first }
+    private val contractType by lazy { sourcesDescription.second }
 
     private val contractProperties by ContractProperties()
+
+    // TODO: make these optional (only for FunC)
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
+
     private val tlbOptions by TlbOptions()
 
     override fun run() {
-        FuncAnalyzer(
-            funcStdlibPath = funcOptions.funcStdlibPath,
-            fiftStdlibPath = fiftOptions.fiftStdlibPath
-        ).analyzeAllMethods(
-            projectPath.resolve(funcSourcesRelativePath),
-            contractProperties.contractData,
-            inputInfo = TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath)
-        ).let {
-            generateTests(
-                it,
-                projectPath,
-                funcSourcesRelativePath
-            )
+        val analyzer = when (contractType) {
+            TsRenderer.ContractType.Func -> {
+                FuncAnalyzer(
+                    funcStdlibPath = funcOptions.funcStdlibPath,
+                    fiftStdlibPath = fiftOptions.fiftStdlibPath
+                )
+            }
+            TsRenderer.ContractType.Boc -> {
+                BocAnalyzer
+            }
         }
+
+        val absolutePath = projectPath.resolve(sourcesRelativePath)
+        val inputInfo = TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath)
+
+        val results = analyzer.analyzeAllMethods(
+            absolutePath,
+            contractProperties.contractData,
+            inputInfo = inputInfo,
+        )
+
+        generateTests(
+            results,
+            projectPath,
+            sourcesRelativePath,
+            contractType,
+        )
     }
 }
 

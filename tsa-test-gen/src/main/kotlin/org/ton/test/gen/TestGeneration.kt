@@ -1,8 +1,5 @@
 package org.ton.test.gen
 
-import java.math.BigInteger
-import java.nio.file.Path
-import java.util.Locale
 import org.ton.test.gen.dsl.TsContext
 import org.ton.test.gen.dsl.models.TsBlockchain
 import org.ton.test.gen.dsl.models.TsCell
@@ -30,6 +27,9 @@ import org.usvm.test.resolver.TvmTerminalMethodSymbolicResult
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestIntegerValue
 import org.usvm.test.resolver.TvmTestSliceValue
+import java.math.BigInteger
+import java.nio.file.Path
+import java.util.Locale
 import kotlin.io.path.nameWithoutExtension
 
 /**
@@ -39,6 +39,7 @@ fun generateTests(
     analysisResult: TvmContractSymbolicTestResult,
     projectPath: Path,
     sourceRelativePath: Path,
+    contractType: TsRenderer.ContractType,
 ): String? {
     val entryTests = analysisResult.testSuites
         .single { it.methodId == TvmContext.RECEIVE_INTERNAL_ID }
@@ -53,7 +54,7 @@ fun generateTests(
 
     val ctx = TsContext()
     val test = ctx.recvInternalTests(name, testNames.zip(entryTests), sourceRelativePath.toString())
-    val renderedTests = TsRenderer(ctx).renderTests(test)
+    val renderedTests = TsRenderer(ctx, contractType).renderTests(test)
 
     writeRenderedTest(projectPath, renderedTests)
     return renderedTests.fileName
@@ -62,7 +63,7 @@ fun generateTests(
 private fun TsContext.recvInternalTests(
     name: String,
     tests: List<Pair<String, TvmSymbolicTest>>,
-    sourcePath: String
+    sourcePath: String,
 ) = testFile(name) {
     val wrapperDescriptor = TsBasicWrapperDescriptor(name)
     registerWrapper(wrapperDescriptor)
