@@ -13,7 +13,7 @@ class TonCenterBlockchainInfoExtractor(
 ): TonBlockchainInfoExtractorWithRequestPause(pauseBetweenRequestsMillies) {
     override fun getContractState(address: String): ContractState? {
         val response = runCatching {
-            var request = "$API_URL/v3/addressInformation?address=${address.toUrlAddress()}&use_v2=false"
+            var request = "$API_URL/v3/addressInformation?address=${address.toUrlAddress()}&use_v2=true"
             if (apiKey != null) {
                 request += "&api_key=$apiKey"
             }
