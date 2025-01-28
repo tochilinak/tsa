@@ -45,6 +45,7 @@ class TvmConcreteEmulator(private val libPath: String) {
             ?: throw error
 
         return convertVmSliceToAddress(resultSlice)
+            ?: error("Could not extract wallet address")
     }
 
     fun getJettonInfo(address: String, contractState: ContractState): JettonContractInfo {
@@ -102,11 +103,12 @@ class TvmConcreteEmulator(private val libPath: String) {
         return balance
     }
 
-    private fun convertVmSliceToAddress(value: VmStackValueSlice): String {
+    private fun convertVmSliceToAddress(value: VmStackValueSlice): String? {
         val resBits = value.cell.cell.bits.toBooleanArray().slice(value.cell.stBits..<value.cell.endBits)
         val resCell = Cell.of(BitString(resBits))
 
-        val stdAddress = MsgAddress.loadTlb(resCell) as AddrStd
+        val stdAddress = MsgAddress.loadTlb(resCell) as? AddrStd
+            ?: return null
         val workchain = stdAddress.workchainId
         val parsedAddress = stdAddress.address.toHex()
 

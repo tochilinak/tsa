@@ -7,7 +7,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 data class JettonContractInfo(
     val masterState: ContractState,
     val walletContractBytesHex: String,
-    val declaredOwner: String,
+    val declaredOwner: String?,
     val declaredMintable: Boolean,
     val declaredTotalSupply: String,
 ) {
