@@ -74,9 +74,17 @@ abstract class TsBlockBuilder<T : TsBlock> : TsBuilder<T> {
     operator fun TsExpression<*>.unaryPlus() {
         statements += TsStatementExpression(this)
     }
+
+    fun beforeAll(block: TsBeforeAllBuilder.() -> Unit) {
+        statements += TsBeforeAllBuilder(ctx).apply(block).build()
+    }
+
+    fun beforeEach(block: TsBeforeEachBuilder.() -> Unit) {
+        statements += TsBeforeEachBuilder(ctx).apply(block).build()
+    }
 }
 
-data class TsTestFileBuilder(override val ctx: TsContext, val name: String) : TsBuilder<TsTestFile> {
+data class TsTestFileBuilder(override val ctx: TsContext, val name: String) : TsBlockBuilder<TsTestFile>() {
     private val wrappers = mutableListOf<TsWrapperDescriptor<*>>()
     private val testBlocks = mutableListOf<TsTestBlock>()
 
@@ -88,18 +96,10 @@ data class TsTestFileBuilder(override val ctx: TsContext, val name: String) : Ts
         wrappers += wrapper
     }
 
-    override fun build(): TsTestFile = TsTestFile(name, wrappers, testBlocks)
+    override fun build(): TsTestFile = TsTestFile(name, wrappers, statements, testBlocks)
 }
 
 class TsTestBlockBuilder(override val ctx: TsContext, private val name: String) : TsBlockBuilder<TsTestBlock>() {
-    fun beforeAll(block: TsBeforeAllBuilder.() -> Unit) {
-        statements += TsBeforeAllBuilder(ctx).apply(block).build()
-    }
-
-    fun beforeEach(block: TsBeforeEachBuilder.() -> Unit) {
-        statements += TsBeforeEachBuilder(ctx).apply(block).build()
-    }
-
     fun it(name: String, block: TsTestCaseBuilder.() -> Unit) {
         statements += TsTestCaseBuilder(ctx, name).apply(block).build()
     }

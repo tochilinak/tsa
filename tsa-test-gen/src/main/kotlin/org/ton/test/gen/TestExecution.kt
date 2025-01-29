@@ -55,9 +55,15 @@ enum class TestStatus {
 }
 
 @Serializable
+data class FailureDetails(
+    val error: String,
+)
+
+@Serializable
 data class TestResult(
     val fullName: String,
     val status: TestStatus,
+    val failureDetails: List<FailureDetails>,
 )
 
 @Serializable

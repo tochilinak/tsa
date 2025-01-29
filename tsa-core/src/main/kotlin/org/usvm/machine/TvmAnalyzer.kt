@@ -241,7 +241,7 @@ class FiftAnalyzer(
         return runFiftInterpreter(fiftWorkDir, fiftTextWithOutputCommand)
     }
 
-    private fun compileFiftToBoc(fiftPath: Path, bocFilePath: Path) {
+    fun compileFiftToBoc(fiftPath: Path, bocFilePath: Path) {
         val fiftCommand = "echo '\"$fiftPath\" include boc>B \"$bocFilePath\" B>file' | fift"
         performFiftCommand(fiftCommand, bocFilePath)
     }

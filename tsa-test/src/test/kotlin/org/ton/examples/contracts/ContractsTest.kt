@@ -3,6 +3,7 @@ package org.ton.examples.contracts
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.ton.bytecode.MethodId
+import org.ton.examples.FIFT_STDLIB_RESOURCE
 import org.ton.examples.checkAtLeastOneStateForAllMethods
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.extractResource
@@ -14,17 +15,21 @@ import org.ton.test.gen.dsl.render.TsRenderer
 import org.ton.test.gen.executeTests
 import org.ton.test.gen.generateTests
 import org.usvm.machine.BocAnalyzer
-import org.usvm.machine.TvmOptions
+import org.usvm.machine.FiftAnalyzer
 import org.usvm.machine.getResourcePath
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
+import org.usvm.test.resolver.TvmSymbolicTestSuite
 import org.usvm.utils.executeCommandWithTimeout
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.deleteIfExists
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
+import kotlin.io.path.createTempFile
+
 
 class ContractsTest {
     private val nftItemPath: String = "/contracts/nft-item/nft-item.fc"
@@ -51,15 +56,8 @@ class ContractsTest {
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun testPumpersMaster() {
-        val bytecodeResourcePath = getResourcePath<ContractsTest>(pumpersPath)
-        BocAnalyzer.analyzeAllMethods(
-            sources = bytecodeResourcePath,
-            methodsWhiteList = hashSetOf(MethodId.ZERO),
-            inputInfo = emptyMap(),
-            tvmOptions = TvmOptions(
-                excludeExecutionsWithFailures = true,
-            )
-        )
+        // TODO: one test fails concrete execution + sometimes test generation fails itself
+        analyzeSpecificMethodBoc(pumpersPath, MethodId.ZERO, enableTestGeneration = false)
     }
 
     @Test
@@ -165,7 +163,12 @@ class ContractsTest {
 
     @Test
     fun testWalletV3() {
-        analyzeSpecificMethod(walletV3Path, methodId = MethodId.valueOf(-1))
+        // TODO: make tests for recvExternal pass
+        analyzeSpecificMethodFift(walletV3Path, methodId = MethodId.valueOf(-1), enableTestGeneration = false)
+
+        // no tests will be generated for these two for now
+        analyzeSpecificMethodFift(walletV3Path, methodId = MethodId.valueOf(85143), enableTestGeneration = false)
+        analyzeSpecificMethodFift(walletV3Path, methodId = MethodId.ZERO, enableTestGeneration = false)
     }
 
     private fun analyzeFuncContract(
@@ -184,24 +187,28 @@ class ContractsTest {
         }
     }
 
+    private fun executeTests(project: Path, generatedTestsPath: String) {
+        val (testResults, successful) = executeTests(
+            projectPath = project,
+            testFileName = generatedTestsPath,
+            testsExecutionTimeout = TEST_EXECUTION_TIMEOUT
+        )
+        val allTests = testResults.flatMap { it.assertionResults }
+        val failedTests = allTests.filter { it.status == TestStatus.FAILED }
+
+        val failMessage = "${failedTests.size} of ${allTests.size} generated tests failed: ${failedTests.joinToString { it.fullName }}"
+
+        assertTrue(successful, failMessage)
+    }
+
     @OptIn(ExperimentalPathApi::class)
-    private fun executeGeneratedTests(states: TvmContractSymbolicTestResult, sources: Path, contractType: TsRenderer.ContractType) {
+    private fun executeGeneratedTests(generateTestsBlock: (Path) -> String?) {
         val project = extractResource(SANDBOX_PROJECT_PATH)
 
         try {
-            val generatedTests = generateTests(states, project, sources.toAbsolutePath(), contractType)
+            val generatedTests = generateTestsBlock(project)
                 ?: return
-            val (testResults, successful) = executeTests(
-                projectPath = project,
-                testFileName = generatedTests,
-                testsExecutionTimeout = TEST_EXECUTION_TIMEOUT
-            )
-            val failedTests = testResults
-                .flatMap { it.assertionResults }
-                .filter { it.status == TestStatus.FAILED }
-            val failMessage = "${failedTests.size} generated tests failed: ${failedTests.joinToString { it.fullName }}"
-
-            assertTrue(successful, failMessage)
+            executeTests(project, generatedTests)
         } finally {
             val testsDir = project.resolve(TsRenderer.TESTS_DIR_NAME)
             val wrappersDir = project.resolve(TsRenderer.WRAPPERS_DIR_NAME)
@@ -209,6 +216,24 @@ class ContractsTest {
             testsDir.deleteRecursively()
             wrappersDir.deleteRecursively()
         }
+    }
+
+    private fun executeGeneratedTests(
+        testResult: TvmContractSymbolicTestResult,
+        sources: Path,
+        contractType: TsRenderer.ContractType
+    ) {
+        executeGeneratedTests { project ->
+            generateTests(testResult, project, sources.toAbsolutePath(), contractType)
+        }
+    }
+
+    private fun executeGeneratedTests(
+        testSuite: TvmSymbolicTestSuite,
+        sources: Path,
+        contractType: TsRenderer.ContractType
+    ) {
+        executeGeneratedTests(TvmContractSymbolicTestResult(listOf(testSuite)), sources, contractType)
     }
 
     companion object {
@@ -233,12 +258,39 @@ class ContractsTest {
         }
     }
 
-    private fun analyzeSpecificMethod(
+    private fun analyzeSpecificMethodFift(
         contractPath: String,
         methodId: MethodId,
+        enableTestGeneration: Boolean,
     ) {
         val fiftPath = getResourcePath<ContractsTest>(contractPath)
         val tests = compileAndAnalyzeFift(fiftPath, methodId)
         assertTrue { tests.isNotEmpty() }
+        if (enableTestGeneration) {
+            val bocFile = createTempFile()
+            try {
+                FiftAnalyzer(fiftStdlibPath = FIFT_STDLIB_RESOURCE).compileFiftToBoc(fiftPath, bocFile)
+                executeGeneratedTests(tests, bocFile, TsRenderer.ContractType.Boc)
+            } finally {
+                bocFile.deleteIfExists()
+            }
+        }
+    }
+
+    private fun analyzeSpecificMethodBoc(
+        contractPath: String,
+        methodId: MethodId,
+        enableTestGeneration: Boolean,
+    ) {
+        val bocPath = getResourcePath<ContractsTest>(contractPath)
+        val tests = BocAnalyzer.analyzeSpecificMethod(
+            bocPath,
+            methodId
+        )
+        assertTrue { tests.isNotEmpty() }
+
+        if (enableTestGeneration) {
+            executeGeneratedTests(tests, bocPath, TsRenderer.ContractType.Boc)
+        }
     }
 }

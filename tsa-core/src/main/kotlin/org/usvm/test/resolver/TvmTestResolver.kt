@@ -2,6 +2,7 @@ package org.usvm.test.resolver
 
 import org.ton.TlbResolvedBuiltinLabel
 import org.ton.bytecode.MethodId
+import org.ton.bytecode.TvmAppGasAcceptInst
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmMethod
 import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
@@ -27,6 +28,7 @@ data object TvmTestResolver {
         val initialData = stateResolver.resolveInitialData()
         val result = stateResolver.resolveResultStack()
         val gasUsage = stateResolver.resolveGasUsage()
+        val externalMessageWasAccepted = state.pathNode.allStatements.any { it is TvmAppGasAcceptInst }
 
         return TvmSymbolicTest(
             methodId = methodId,
@@ -41,6 +43,7 @@ data object TvmTestResolver {
             additionalFlags = state.additionalFlags,
             numberOfAddressesWithAssertedDataConstraints = state.cellDataFieldManager.getCellsWithAssertedCellData().size,
             intercontractPath = state.intercontractPath,
+            externalMessageWasAccepted = externalMessageWasAccepted,
         )
     }
 
@@ -99,6 +102,7 @@ data class TvmSymbolicTest(
     val initialData: TvmTestCellValue,
     val usedParameters: List<TvmTestValue>,
     val result: TvmMethodSymbolicResult,
+    val externalMessageWasAccepted: Boolean,
     val stackTrace: List<TvmInst>,
     val gasUsage: Int,
     val additionalFlags: Set<String>,

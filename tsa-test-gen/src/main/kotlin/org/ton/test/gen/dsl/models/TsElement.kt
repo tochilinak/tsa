@@ -12,7 +12,6 @@ import org.usvm.test.resolver.TvmTestSliceValue
 sealed interface TsElement {
     fun <R> accept(visitor: TsVisitor<R>): R = visitor.run {
         when (val element = this@TsElement) {
-            is TsTestFile -> visit(element)
             is TsType -> visitType(element)
             is TsStatement -> visitStatement(element)
             is TsExpression<*> -> visitExpression(element)
@@ -38,6 +37,7 @@ sealed interface TsElement {
 
     fun <R> TsVisitor<R>.visitStatement(element: TsStatement): R =
         when (element) {
+            is TsTestFile -> visit(element)
             is TsTestBlock -> visit(element)
             is TsTestCase -> visit(element)
             is TsBeforeEachBlock -> visit(element)
@@ -74,8 +74,12 @@ sealed interface TsElement {
 data class TsTestFile(
     val name: String,
     val wrappers: List<TsWrapperDescriptor<*>>,
+    val globalStatements: List<TsStatement>,
     val testBlocks: List<TsTestBlock>
-) : TsElement
+) : TsBlock {
+    override val statements: List<TsStatement>
+        get() = globalStatements
+}
 
 /* statements */
 

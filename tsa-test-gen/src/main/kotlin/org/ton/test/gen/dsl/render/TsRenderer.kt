@@ -172,6 +172,9 @@ class TsRenderer(
         printer.println()
         printer.println(TEST_FILE_UTILS)
 
+        element.statements.forEach { it.accept(this) }
+
+        printer.println()
         element.testBlocks.forEach { it.accept(this) }
     }
 

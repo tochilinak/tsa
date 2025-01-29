@@ -42,6 +42,17 @@ fun TsExpression<TsSandboxContract<TsBasicWrapper>>.internal(
     type = TsSendMessageResult
 )
 
+fun TsExpression<TsSandboxContract<TsBasicWrapper>>.external(
+    blockchain: TsExpression<TsBlockchain>,
+    body: TsExpression<TsCell>,
+): TsExpression<TsSendMessageResult> = TsMethodCall(
+    caller = this,
+    executableName = "external",
+    arguments = listOf(blockchain, body),
+    async = true,
+    type = TsSendMessageResult
+)
+
 fun TsExpression<TsSandboxContract<TsBasicWrapper>>.initializeContract(
     blockchain: TsExpression<TsBlockchain>,
     balance: TsExpression<TsBigint>

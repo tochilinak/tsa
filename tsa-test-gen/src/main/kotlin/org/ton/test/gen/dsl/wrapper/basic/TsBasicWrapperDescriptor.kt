@@ -34,6 +34,20 @@ class TsBasicWrapperDescriptor(override val name: String) : TsWrapperDescriptor<
                 }))
             }
 
+            async external(
+                blockchain: Blockchain,
+                body: Cell,
+            ) {
+                return await blockchain.sendMessage({
+                    info: {
+                        type: 'external-in',
+                        dest: this.address,
+                        importFee: 0n,
+                    },
+                    body: body,
+                })
+            }
+
             async initializeContract(blockchain: Blockchain, balance: bigint) {
                 const contr = await blockchain.getContract(this.address);
                 contr.account = createShardAccount({

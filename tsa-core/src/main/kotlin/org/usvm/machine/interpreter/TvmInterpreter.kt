@@ -100,6 +100,7 @@ import org.ton.bytecode.TvmContBasicExecuteInst
 import org.ton.bytecode.TvmContBasicInst
 import org.ton.bytecode.TvmContBasicRetInst
 import org.ton.bytecode.TvmContBasicRetaltInst
+import org.ton.bytecode.TvmContConditionalCondselInst
 import org.ton.bytecode.TvmContConditionalIfInst
 import org.ton.bytecode.TvmContConditionalIfelseInst
 import org.ton.bytecode.TvmContConditionalIfelserefInst
@@ -1963,8 +1964,30 @@ class TvmInterpreter(
             is TvmContConditionalIfrefelserefInst -> visitIfRefElseRefInst(scope, stmt)
             is TvmContConditionalIfrefelseInst -> visitIfRefElseInst(scope, stmt)
             is TvmContConditionalIfelserefInst -> visitIfElseRefInst(scope, stmt)
+            is TvmContConditionalCondselInst -> visitCondsel(scope, stmt)
             else -> TODO("$stmt")
         }
+    }
+
+    private fun visitCondsel(scope: TvmStepScopeManager, stmt: TvmContConditionalCondselInst) {
+        scope.consumeDefaultGas(stmt)
+        val y = scope.calcOnState { stack.takeLastEntry() }
+        val x = scope.calcOnState { stack.takeLastEntry() }
+        val cond = scope.takeLastIntOrThrowTypeError()
+            ?: return
+        val neqZero = scope.doWithCtx { mkEq(cond, zeroValue).not() }
+        scope.fork(
+            neqZero,
+            falseStateIsExceptional = false,
+            blockOnFalseState = {
+                stack.addStackEntry(y)
+                newStmt(stmt.nextStmt())
+            },
+            blockOnTrueState = {
+                stack.addStackEntry(x)
+                newStmt(stmt.nextStmt())
+            }
+        )
     }
 
     private fun visitIfRet(scope: TvmStepScopeManager, stmt: TvmInst, invertCondition: Boolean) {

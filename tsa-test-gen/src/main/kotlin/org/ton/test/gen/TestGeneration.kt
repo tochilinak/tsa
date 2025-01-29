@@ -1,8 +1,12 @@
 package org.ton.test.gen
 
 import org.ton.test.gen.dsl.TsContext
+import org.ton.test.gen.dsl.TsTestBlockBuilder
+import org.ton.test.gen.dsl.TsTestFileBuilder
 import org.ton.test.gen.dsl.models.TsBlockchain
 import org.ton.test.gen.dsl.models.TsCell
+import org.ton.test.gen.dsl.models.TsTestFile
+import org.ton.test.gen.dsl.models.TsVariable
 import org.ton.test.gen.dsl.models.blockchainCreate
 import org.ton.test.gen.dsl.models.compileContract
 import org.ton.test.gen.dsl.models.now
@@ -14,11 +18,15 @@ import org.ton.test.gen.dsl.render.TsRenderer
 import org.ton.test.gen.dsl.testFile
 import org.ton.test.gen.dsl.wrapper.basic.TsBasicWrapperDescriptor
 import org.ton.test.gen.dsl.wrapper.basic.constructor
+import org.ton.test.gen.dsl.wrapper.basic.external
 import org.ton.test.gen.dsl.wrapper.basic.initializeContract
 import org.ton.test.gen.dsl.wrapper.basic.internal
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_LENGTH
+import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
+import org.usvm.machine.TvmContext.Companion.RECEIVE_INTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
+import org.usvm.machine.state.TvmUnknownFailure
 import org.usvm.machine.truncateSliceCell
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
 import org.usvm.test.resolver.TvmMethodFailure
@@ -40,35 +48,55 @@ fun generateTests(
     projectPath: Path,
     sourceRelativePath: Path,
     contractType: TsRenderer.ContractType,
+    generateRecvExternalTests: Boolean = false,  // TODO: make `true` default (after fixes for recv_external)
 ): String? {
-    val entryTests = analysisResult.testSuites
-        .single { it.methodId == TvmContext.RECEIVE_INTERNAL_ID }
-        .filter { it.result is TvmMethodFailure }
+    val entryTests = analysisResult.testSuites.flatten()
+    return generateTests(entryTests, projectPath, sourceRelativePath, contractType, generateRecvExternalTests)
+}
 
-    if (entryTests.isEmpty()) {
-        return null
-    }
-
+fun generateTests(
+    tests: List<TvmSymbolicTest>,
+    projectPath: Path,
+    sourceRelativePath: Path,
+    contractType: TsRenderer.ContractType,
+    generateRecvExternalTests: Boolean = false,  // TODO: make `true` default (after fixes for recv_external)
+): String? {
     val name = extractContractName(sourceRelativePath)
-    val testNames = generateTestNames(entryTests)
 
     val ctx = TsContext()
-    val test = ctx.recvInternalTests(name, testNames.zip(entryTests), sourceRelativePath.toString())
+    val test = ctx.constructTests(name, tests, sourceRelativePath.toString(), generateRecvExternalTests)
+        ?: return null
+
     val renderedTests = TsRenderer(ctx, contractType).renderTests(test)
 
     writeRenderedTest(projectPath, renderedTests)
     return renderedTests.fileName
 }
 
-private fun TsContext.recvInternalTests(
+private fun TsContext.constructTests(
     name: String,
-    tests: List<Pair<String, TvmSymbolicTest>>,
+    tests: List<TvmSymbolicTest>,
     sourcePath: String,
-) = testFile(name) {
-    val wrapperDescriptor = TsBasicWrapperDescriptor(name)
-    registerWrapper(wrapperDescriptor)
+    generateRecvExternalTests: Boolean,
+): TsTestFile? {
+    val recvInternalTests = tests.filter { it.methodId == RECEIVE_INTERNAL_ID && it.result is TvmMethodFailure }
 
-    describe("tsa-tests") {
+    val recvExternalTests = if (generateRecvExternalTests) {
+        tests.filter {
+            it.methodId == RECEIVE_EXTERNAL_ID && it.result is TvmMethodFailure && it.externalMessageWasAccepted
+        }
+    } else {
+        emptyList()
+    }
+
+    if (recvInternalTests.isEmpty() && recvExternalTests.isEmpty()) {
+        return null
+    }
+
+    return testFile(name) {
+        val wrapperDescriptor = TsBasicWrapperDescriptor(name)
+        registerWrapper(wrapperDescriptor)
+
         val code = newVar("code", TsCell)
         val blockchain = newVar("blockchain", TsBlockchain)
 
@@ -84,47 +112,138 @@ private fun TsContext.recvInternalTests(
             blockchain assign blockchainCreate()
         }
 
-        emptyLine()
+        registerRecvInternalTests(wrapperDescriptor, recvInternalTests, code, blockchain)
 
-        tests.forEachIndexed { idx, (name, test) ->
-            val input = resolveReceiveInternalInput(test)
+        registerRecvExternalTests(wrapperDescriptor, recvExternalTests, code, blockchain)
+    }
+}
 
-            it(name) {
-                blockchain.now() assign test.time.toTsValue().toInt()
+private data class TestCaseContext(
+    val testName: String,
+    val test: TvmSymbolicTest,
+    val code: TsVariable<TsCell>,
+    val blockchain: TsVariable<TsBlockchain>,
+)
 
-                emptyLine()
+private fun TsTestFileBuilder.registerTestsForMethod(
+    testGroupName: String,
+    tests: List<TvmSymbolicTest>,
+    code: TsVariable<TsCell>,
+    blockchain: TsVariable<TsBlockchain>,
+    registerTestBlock: TsTestBlockBuilder.(TestCaseContext) -> Unit,
+) {
+    if (tests.isEmpty()) {
+        return
+    }
 
-                val data = newVar("data", test.initialData.toTsValue())
-                val contractAddr = newVar("contractAddr", parseAddress(input.address))
-                val contractBalance = newVar("contractBalance", input.initialBalance.toTsValue())
+    val testsWithNames = generateTestNames(tests) zip tests
 
-                emptyLine()
+    describe(testGroupName) {
+        testsWithNames.forEach { (name, test) ->
+            val ctx = TestCaseContext(name, test, code, blockchain)
+            registerTestBlock(ctx)
+        }
+    }
+}
 
-                val contract = newVar(
-                    "contract",
-                    blockchain.openContract(wrapperDescriptor.constructor(contractAddr, code, data))
-                )
-                +contract.initializeContract(blockchain, contractBalance)
+private fun TsTestFileBuilder.registerRecvInternalTests(
+    wrapperDescriptor: TsBasicWrapperDescriptor,
+    tests: List<TvmSymbolicTest>,
+    code: TsVariable<TsCell>,
+    blockchain: TsVariable<TsBlockchain>,
+) {
+    registerTestsForMethod(
+        "tsa-tests-recv-internal",
+        tests,
+        code,
+        blockchain,
+    ) { ctx ->
+        val input = resolveReceiveInternalInput(ctx.test)
 
-                emptyLine()
+        it(name) {
+            ctx.blockchain.now() assign ctx.test.time.toTsValue().toInt()
 
-                val srcAddr = newVar("srcAddr", parseAddress(input.srcAddress))
-                val msgBody = newVar("msgBody", input.msgBody.toTsValue())
-                val msgCurrency = newVar("msgCurrency", input.msgCurrency.toTsValue())
-                val bounce = newVar("bounce", input.bounce.toTsValue())
-                val bounced = newVar("bounced", input.bounced.toTsValue())
+            emptyLine()
 
-                emptyLine()
+            val data = newVar("data", ctx.test.initialData.toTsValue())
+            val contractAddr = newVar("contractAddr", parseAddress(input.address))
+            val contractBalance = newVar("contractBalance", input.initialBalance.toTsValue())
 
-                val sendMessageResult = newVar(
-                    "sendMessageResult",
-                    contract.internal(blockchain, srcAddr, msgBody, msgCurrency, bounce, bounced)
-                )
-                sendMessageResult.expectToHaveTransaction {
-                    from = srcAddr
-                    to = contractAddr
-                    exitCode = input.exitCode.toTsValue()
-                }
+            emptyLine()
+
+            val contract = newVar(
+                "contract",
+                ctx.blockchain.openContract(wrapperDescriptor.constructor(contractAddr, ctx.code, data))
+            )
+            +contract.initializeContract(ctx.blockchain, contractBalance)
+
+            emptyLine()
+
+            val srcAddr = newVar("srcAddr", parseAddress(input.srcAddress))
+            val msgBody = newVar("msgBody", input.msgBody.toTsValue())
+            val msgCurrency = newVar("msgCurrency", input.msgCurrency.toTsValue())
+            val bounce = newVar("bounce", input.bounce.toTsValue())
+            val bounced = newVar("bounced", input.bounced.toTsValue())
+
+            emptyLine()
+
+            val sendMessageResult = newVar(
+                "sendMessageResult",
+                contract.internal(ctx.blockchain, srcAddr, msgBody, msgCurrency, bounce, bounced)
+            )
+            sendMessageResult.expectToHaveTransaction {
+                from = srcAddr
+                to = contractAddr
+                exitCode = input.exitCode.toTsValue()
+            }
+        }
+    }
+}
+
+private fun TsTestFileBuilder.registerRecvExternalTests(
+    wrapperDescriptor: TsBasicWrapperDescriptor,
+    tests: List<TvmSymbolicTest>,
+    code: TsVariable<TsCell>,
+    blockchain: TsVariable<TsBlockchain>,
+) {
+    registerTestsForMethod(
+        "tsa-tests-recv-external",
+        tests,
+        code,
+        blockchain,
+    ) { ctx ->
+        val input = resolveReceiveExternalInput(ctx.test)
+
+        it(name) {
+            ctx.blockchain.now() assign ctx.test.time.toTsValue().toInt()
+
+            emptyLine()
+
+            val data = newVar("data", ctx.test.initialData.toTsValue())
+            val contractAddr = newVar("contractAddr", parseAddress(input.address))
+            val contractBalance = newVar("contractBalance", input.initialBalance.toTsValue())
+
+            emptyLine()
+
+            val contract = newVar(
+                "contract",
+                ctx.blockchain.openContract(wrapperDescriptor.constructor(contractAddr, ctx.code, data))
+            )
+            +contract.initializeContract(ctx.blockchain, contractBalance)
+
+            emptyLine()
+
+            val msgBody = newVar("msgBody", input.msgBody.toTsValue())
+
+            emptyLine()
+
+            val sendMessageResult = newVar(
+                "sendMessageResult",
+                contract.external(ctx.blockchain, msgBody)
+            )
+            sendMessageResult.expectToHaveTransaction {
+                to = contractAddr
+                exitCode = input.exitCode.toTsValue()
             }
         }
     }
@@ -152,6 +271,7 @@ private fun resolveReceiveInternalInput(test: TvmSymbolicTest): TvmReceiveIntern
         "Unexpected recv_internal arg at index 2: $msgCurrency"
     }
 
+    // TODO: this is not really correct, because part of msgCurrency is used for paying for gas
     val balance = test.contractBalance
     val initialBalance = TvmTestIntegerValue(balance.value - msgCurrency.value)
 
@@ -196,12 +316,55 @@ private data class TvmReceiveInternalInput(
     val exitCode: Int,
 )
 
+private fun resolveReceiveExternalInput(test: TvmSymbolicTest): TvmReceiveExternalInput {
+    // TODO: for now, take into account only in_message
+    // in theory, up to 4 arguments can be used (same as for receive_internal)
+    val args = test.usedParameters.reversed()
+    val msgBody = args.getOrNull(0)
+        ?: TvmTestSliceValue()
+
+    require(msgBody is TvmTestSliceValue) {
+        "Unexpected recv_external arg at index 0: $msgBody"
+    }
+
+    // TODO: this is probably balance at the end of execution. But since we don't take into account gas for now, that's the same thing
+    val balance = test.contractBalance
+
+    val contractAddress = extractAddress(test.contractAddress.data)
+        ?: error("Unexpected incorrect contract address")
+
+    val result = test.result
+    require(result is TvmTerminalMethodSymbolicResult) {
+        "Unexpected test result: $result"
+    }
+
+    return TvmReceiveExternalInput(
+        truncateSliceCell(msgBody),
+        contractAddress,
+        balance,
+        test.time,
+        result.exitCode.toInt(),
+    )
+}
+
+private data class TvmReceiveExternalInput(
+    val msgBody: TvmTestDataCellValue,
+    val address: String,
+    val initialBalance: TvmTestIntegerValue,
+    val time: TvmTestIntegerValue,
+    val exitCode: Int,
+)
+
 private fun generateTestNames(tests: List<TvmSymbolicTest>): List<String> {
     val exitsCounter = mutableMapOf<String, Int>()
 
     return tests.map { test ->
-        val exitName = (test.result as? TvmMethodFailure)?.failure?.exit?.ruleName
-            ?: "successful"
+        val exit = (test.result as? TvmMethodFailure)?.failure?.exit
+        val exitName = if (exit is TvmUnknownFailure) {
+            "${exit.ruleName}-${exit.exitCode}"
+        } else {
+            exit?.ruleName ?: "successful"
+        }
         val testIdx = exitsCounter.getOrDefault(exitName, 0)
 
         exitsCounter[exitName] = testIdx + 1
@@ -223,7 +386,15 @@ private fun extractContractName(sourceRelativePath: Path): String {
         }
     }
 
-    return capitalizedWords.joinToString(separator = "")
+    return capitalizedWords.joinToString(separator = "").let {
+        // Sometimes, the file with sources can start with digits (for example, if this is a temporary file with BoC from Fift)
+        // In this case, we have to add something before contract name to avoid TS syntax errors
+        if (it.first().isDigit()) {
+            "Contract$it"
+        } else {
+            it
+        }
+    }
 }
 
 private fun extractAddress(bits: String): String? {

@@ -160,5 +160,5 @@ class ConcreteGetMethodRunFailed(
 ) : RuntimeException()
 
 class MissingLibraryException(
-    private val library: String,
+    val library: String,
 ) : RuntimeException()
