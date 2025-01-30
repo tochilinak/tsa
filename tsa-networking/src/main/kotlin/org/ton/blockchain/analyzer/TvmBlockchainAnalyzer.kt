@@ -10,6 +10,7 @@ interface TvmBlockchainAnalyzer {
     fun extractJettonContractInfo(address: String): JettonContractInfo
     fun getContractState(address: String): ContractState?
     fun getJettonWalletInfo(jettonAddress: String, jettonState: ContractState, holderAddress: String): JettonWalletInfo?
+    fun getJettonWalletAddress(jettonAddress: String, jettonState: ContractState, holderAddress: String): String
 }
 
 abstract class TvmBlockchainAnalyzerBase(
@@ -33,12 +34,20 @@ abstract class TvmBlockchainAnalyzerBase(
         jettonState: ContractState,
         holderAddress: String
     ): JettonWalletInfo? {
-        val walletAddress = emulator.getWalletAddress(holderAddress, jettonAddress, jettonState)
+        val walletAddress = getJettonWalletAddress(jettonAddress, jettonState, holderAddress)
         val walletState = getContractState(walletAddress)
             ?: return null
         val balance = emulator.getJettonWalletBalance(walletAddress, walletState)
 
         return JettonWalletInfo(walletAddress, holderAddress, balance.toString(), walletState)
+    }
+
+    override fun getJettonWalletAddress(
+        jettonAddress: String,
+        jettonState: ContractState,
+        holderAddress: String
+    ): String {
+        return emulator.getWalletAddress(holderAddress, jettonAddress, jettonState)
     }
 
     protected abstract fun processLibraryCells(jettonContractInfo: JettonContractInfo): JettonContractInfo

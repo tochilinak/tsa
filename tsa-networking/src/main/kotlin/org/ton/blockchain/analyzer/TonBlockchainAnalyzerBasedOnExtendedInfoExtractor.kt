@@ -23,4 +23,13 @@ class TonBlockchainAnalyzerBasedOnExtendedInfoExtractor(
             ?: return null
         return JettonWalletInfo(walletAddress, holderAddress, balance.toString(), state)
     }
+
+    override fun getJettonWalletAddress(
+        jettonAddress: String,
+        jettonState: ContractState,
+        holderAddress: String
+    ): String {
+        // [getJettonWalletInfo] cannot be used here, because we must calculate potential address even if it is not on blockchain
+        TODO("Not yet implemented")
+    }
 }
