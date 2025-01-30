@@ -62,8 +62,6 @@ data class BlacklistAddressChecker(private val resourcesDir: Path?) : TvmChecker
                 ?: return@mapNotNullTo null
             val firstAddressTypeLoad = msgBody.knownTypes.firstOrNull { it.type is TvmTestCellDataMsgAddrRead }
                 ?: return@mapNotNullTo null
-            @Suppress("CAST_NEVER_SUCCEEDS")
-            firstAddressTypeLoad as TvmTestCellDataMsgAddrRead
 
             val firstAddress = msgBody.data.substring(
                 firstAddressTypeLoad.offset,
