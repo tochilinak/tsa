@@ -26,7 +26,7 @@ import kotlin.time.Duration
 
 class TvmComponents(
     private val options: UMachineOptions,
-) : UComponents<TvmType, TvmSizeSort> {
+) : UComponents<TvmType, TvmSizeSort>, AutoCloseable {
     private val closeableResources = mutableListOf<AutoCloseable>()
     override val useSolverForForks: Boolean
         get() = true
@@ -81,7 +81,7 @@ class TvmComponents(
         return typeSystem
     }
 
-    fun close() {
+    override fun close() {
         closeableResources.forEach(AutoCloseable::close)
     }
 
