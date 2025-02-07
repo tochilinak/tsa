@@ -1,5 +1,6 @@
 package org.ton.test.gen
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -14,6 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 
 private val TESTS_EXECUTION_DEFAULT_TIMEOUT = 40.seconds
 
+@OptIn(ExperimentalSerializationApi::class)
 fun executeTests(
     projectPath: Path,
     testFileName: String,
@@ -40,6 +42,7 @@ fun executeTests(
     val jsonOutput = output.first { it.first() == '{' && it.last() == '}' }
     val json = Json {
         ignoreUnknownKeys = true
+        explicitNulls = false
     }
 
     return json.decodeFromString(jsonOutput)
@@ -55,15 +58,22 @@ enum class TestStatus {
 }
 
 @Serializable
+data class MatcherResult(
+    val pass: Boolean,
+    val message: String,
+)
+
+@Serializable
 data class FailureDetails(
-    val error: String,
+    val error: String?,
+    val matcherResult: MatcherResult?,
 )
 
 @Serializable
 data class TestResult(
     val fullName: String,
     val status: TestStatus,
-    val failureDetails: List<FailureDetails>,
+    val failureDetails: List<FailureDetails>?,
 )
 
 @Serializable

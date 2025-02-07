@@ -26,6 +26,7 @@ data object TvmTestResolver {
         val contractBalance = stateResolver.resolveContractBalance()
         val time = stateResolver.resolveTime()
         val initialData = stateResolver.resolveInitialData()
+        val rootInitialData = stateResolver.resolveRootData()
         val result = stateResolver.resolveResultStack()
         val gasUsage = stateResolver.resolveGasUsage()
         val externalMessageWasAccepted = state.pathNode.allStatements.any { it is TvmAppGasAcceptInst }
@@ -34,6 +35,7 @@ data object TvmTestResolver {
             methodId = methodId,
             contractAddress = contractAddress,
             initialData = initialData,
+            rootInitialData = rootInitialData,
             contractBalance = contractBalance,
             time = time,
             usedParameters = usedParameters,
@@ -99,7 +101,8 @@ data class TvmSymbolicTest(
     val contractAddress: TvmTestDataCellValue,
     val contractBalance: TvmTestIntegerValue,
     val time: TvmTestIntegerValue,
-    val initialData: TvmTestCellValue,
+    val rootInitialData: TvmTestCellValue,
+    val initialData: Map<ContractId, TvmTestCellValue>,
     val usedParameters: List<TvmTestValue>,
     val result: TvmMethodSymbolicResult,
     val externalMessageWasAccepted: Boolean,

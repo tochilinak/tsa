@@ -144,8 +144,9 @@ fun analyzeAllMethods(
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
+    options: TvmOptions = TvmOptions(),
 ): TvmContractSymbolicTestResult =
-    BocAnalyzer.analyzeAllMethods(Path(bytecodePath), contractDataHex, methodsBlackList, methodWhiteList, inputInfo)
+    BocAnalyzer.analyzeAllMethods(Path(bytecodePath), contractDataHex, methodsBlackList, methodWhiteList, inputInfo, options)
 
 fun analyzeFuncIntercontract(
     sources: List<Path>,

@@ -1,5 +1,6 @@
 package org.ton.examples.contracts
 
+import mu.KLogging
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.ton.bytecode.MethodId
@@ -52,12 +53,20 @@ class ContractsTest {
     private val stocksPath: String = "/contracts/stocks/stock_options.fc"
     private val pumpersPath: String = "/contracts/EQCV_FsDSymN83YeKZKj_7sgwQHV0jJhCTvX5SkPHHxVOi0D.boc"
     private val walletV3Path: String = "/contracts/wallet-v3/wallet-v3-code.fif"
+    private val jettonWalletWithConfigInstsPath: String = "/contracts/EQCnKexvdRR56OpxG2jpSUk0Dn6XpcgwHqE5A5plDz3TOQOt.boc"
 
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun testPumpersMaster() {
         // TODO: one test fails concrete execution + sometimes test generation fails itself
         analyzeSpecificMethodBoc(pumpersPath, MethodId.ZERO, enableTestGeneration = false)
+    }
+
+    @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
+    @Test
+    fun testJettonWalletWithConfigInsts() {
+        // TODO: fix test execution
+        analyzeSpecificMethodBoc(jettonWalletWithConfigInstsPath, MethodId.ZERO, enableTestGeneration = false)
     }
 
     @Test
@@ -199,6 +208,8 @@ class ContractsTest {
         val failMessage = "${failedTests.size} of ${allTests.size} generated tests failed: ${failedTests.joinToString { it.fullName }}"
 
         assertTrue(successful, failMessage)
+
+        logger.info("Generated tests executed")
     }
 
     @OptIn(ExperimentalPathApi::class)
@@ -293,4 +304,6 @@ class ContractsTest {
             executeGeneratedTests(tests, bocPath, TsRenderer.ContractType.Boc)
         }
     }
+
+    private val logger = object : KLogging() {}.logger
 }

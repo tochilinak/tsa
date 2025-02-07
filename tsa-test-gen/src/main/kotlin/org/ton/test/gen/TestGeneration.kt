@@ -160,12 +160,12 @@ private fun TsTestFileBuilder.registerRecvInternalTests(
     ) { ctx ->
         val input = resolveReceiveInternalInput(ctx.test)
 
-        it(name) {
+        it(ctx.testName) {
             ctx.blockchain.now() assign ctx.test.time.toTsValue().toInt()
 
             emptyLine()
 
-            val data = newVar("data", ctx.test.initialData.toTsValue())
+            val data = newVar("data", ctx.test.rootInitialData.toTsValue())
             val contractAddr = newVar("contractAddr", parseAddress(input.address))
             val contractBalance = newVar("contractBalance", input.initialBalance.toTsValue())
 
@@ -219,7 +219,7 @@ private fun TsTestFileBuilder.registerRecvExternalTests(
 
             emptyLine()
 
-            val data = newVar("data", ctx.test.initialData.toTsValue())
+            val data = newVar("data", ctx.test.rootInitialData.toTsValue())
             val contractAddr = newVar("contractAddr", parseAddress(input.address))
             val contractBalance = newVar("contractBalance", input.initialBalance.toTsValue())
 

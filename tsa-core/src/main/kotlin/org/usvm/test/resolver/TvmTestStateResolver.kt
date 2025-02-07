@@ -75,6 +75,7 @@ import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.ton.bytecode.BALANCE_PARAMETER_IDX
 import org.ton.bytecode.TIME_PARAMETER_IDX
 import org.ton.bytecode.TvmArtificialInst
+import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmStack.TvmStackValue
 
 class TvmTestStateResolver(
@@ -96,7 +97,11 @@ class TvmTestStateResolver(
 
     fun resolveParameters(): List<TvmTestValue> = stack.inputValues.filterNotNull().map { resolveStackValue(it) }.reversed()
 
-    fun resolveInitialData(): TvmTestCellValue = resolveCell(state.rootInitialData.persistentData)
+    fun resolveInitialData(): Map<ContractId, TvmTestCellValue> = state.contractIdToInitialData.entries.associate { (key, value) ->
+        key to resolveCell(value.persistentData)
+    }
+
+    fun resolveRootData(): TvmTestCellValue = resolveCell(state.rootInitialData.persistentData)
 
     fun resolveContractAddress(): TvmTestDataCellValue {
         val address = getContractParam(ADDRESS_PARAMETER_IDX)

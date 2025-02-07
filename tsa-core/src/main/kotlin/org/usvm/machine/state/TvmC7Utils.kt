@@ -30,7 +30,7 @@ import java.math.BigInteger
 
 
 fun TvmState.getContractInfoParam(idx: Int): TvmStackValue {
-    require(idx in 0..14) {
+    require(idx in 0..17) {
         "Unexpected param index $idx"
     }
 
@@ -132,15 +132,50 @@ fun TvmState.initC7(contractInfo: TvmStackTupleValue): TvmStackTupleValueConcret
         persistentListOf(contractInfo.toStackEntry())
     )
 
+const val bitPricePs = 1
+const val cellPricePs = 500
+const val mcBitPricePs = 1000
+const val mcCellPricePs = 500000
+
+const val lumpPriceMasterchain = 10000000
+const val firstFracMasterchain = 21845
+const val bitPriceMasterchain = 655360000
+const val cellPriceMasterchain = 65536000000
+const val flatGasLimitMasterchain = 100
+const val flatGasPriceMasterchain = 1000000
+const val gasPriceMasterchain = 655360000
+
+const val lumpPrice = 400000
+const val firstFrac = 21845
+const val bitPrice = 26214400
+const val cellPrice = 2621440000
+const val flatGasLimit = 100
+const val flatGasPrice = 40000
+const val gasPrice = 26214400
+
 fun TvmState.initContractInfo(
     contractCode: TsaContractCode,
 ): TvmStackTupleValueConcreteNew = with(ctx) {
     val tag = TvmStackIntValue(mkBvHex("076ef1ea", sizeBits = INT_BITS).uncheckedCast())
+
+    // Right now, this parameter can only be set to zero in emulator
+    // https://github.com/ton-blockchain/ton/blob/59a8cf0ae5c3062d14ec4c89a04fee80b5fd05c1/crypto/smc-envelope/SmartContract.cpp#L153
     val actions = TvmStackIntValue(zeroValue)
+
+    // Right now, this parameter can only be set to zero in emulator
+    // https://github.com/ton-blockchain/ton/blob/59a8cf0ae5c3062d14ec4c89a04fee80b5fd05c1/crypto/smc-envelope/SmartContract.cpp#L154
     val msgsSent = TvmStackIntValue(zeroValue)
+
     val unixTime = TvmStackIntValue(makeSymbolicPrimitive(int257sort))
-    val blockLogicTime = TvmStackIntValue(makeSymbolicPrimitive(int257sort))
-    val transactionLogicTime = TvmStackIntValue(makeSymbolicPrimitive(int257sort))
+
+    // Right now, this parameter can only be set to zero in emulator
+    // https://github.com/ton-blockchain/ton/blob/59a8cf0ae5c3062d14ec4c89a04fee80b5fd05c1/crypto/smc-envelope/SmartContract.cpp#L156
+    val blockLogicTime = TvmStackIntValue(zeroValue)
+
+    // Right now, this parameter can only be set to zero in emulator
+    // https://github.com/ton-blockchain/ton/blob/59a8cf0ae5c3062d14ec4c89a04fee80b5fd05c1/crypto/smc-envelope/SmartContract.cpp#L157
+    val transactionLogicTime = TvmStackIntValue(zeroValue)
+
     val randomSeed = TvmStackIntValue(makeSymbolicPrimitive(int257sort))
     val grams = makeSymbolicPrimitive(int257sort)
     val balance = TvmStackTupleValueConcreteNew(
@@ -168,11 +203,26 @@ fun TvmState.initContractInfo(
     )
     val config = TvmStackCellValue(initConfigRoot())
     val code = TvmStackCellValue(allocateCell(contractCode.codeCell))
+
     // TODO support `incomingValue` param
     val incomingValue = TvmStackNullValue
+
+    // Right now, this parameter can only be set to zero in emulator
+    // https://github.com/ton-blockchain/ton/blob/59a8cf0ae5c3062d14ec4c89a04fee80b5fd05c1/crypto/smc-envelope/SmartContract.cpp#L166
     val storagePhaseFees = TvmStackIntValue(makeSymbolicPrimitive(int257sort))
+
     // TODO support `prevBlocksInfo` param
     val prevBlocksInfo = TvmStackNullValue
+
+    // TODO support `unpacked_config_tuple` param
+    val unpackedConfigTuple = TvmStackNullValue
+
+    // Right now, this parameter can only be set to zero in emulator
+    // https://github.com/ton-blockchain/ton/blob/59a8cf0ae5c3062d14ec4c89a04fee80b5fd05c1/crypto/smc-envelope/SmartContract.cpp#L176
+    val duePayment = TvmStackIntValue(zeroValue)
+
+    // TODO support `precompiled` param
+    val gasUsageIfPrecompiled = TvmStackIntValue(zeroValue)
 
     // We can add constraints manually to path constraints because model list is empty
     check(models.isEmpty()) {
@@ -190,7 +240,8 @@ fun TvmState.initContractInfo(
 
     val paramList = listOf(
         tag, actions, msgsSent, unixTime, blockLogicTime, transactionLogicTime, randomSeed,
-        balance, addr, config, code, incomingValue, storagePhaseFees, prevBlocksInfo
+        balance, addr, config, code, incomingValue, storagePhaseFees, prevBlocksInfo,
+        unpackedConfigTuple, duePayment, gasUsageIfPrecompiled
     )
 
     TvmStackTupleValueConcreteNew(
@@ -236,21 +287,23 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
     )
     setConfigParam(configDict, 15, elections)
 
+    // TODO: set index 18 properly
+
     /**
      * Index: 20
      */
     val masterchainGasPrices = allocCellFromFields(
-        mkBvHex("d1", tagBits),         // gas_flat_pfx tag
-        mkBv(100, uint64Bits),          // flag_gas_limit
-        mkBv(1000000, uint64Bits),      // flag_gas_price
-        mkBvHex("de", tagBits),         // gas_prices_ext tag
-        mkBv(655360000, uint64Bits),    // gas_price
-        mkBv(1000000, uint64Bits),      // gas_limit
-        mkBv(35000000, uint64Bits),     // special_gas_limit
-        mkBv(10000, uint64Bits),        // gas_credit
-        mkBv(2500000, uint64Bits),      // block_gas_limit
-        mkBv(100000000, uint64Bits),    // freeze_due_limit
-        mkBv(1000000000, uint64Bits),   // delete_due_limit
+        mkBvHex("d1", tagBits),               // gas_flat_pfx tag
+        mkBv(flatGasLimitMasterchain, uint64Bits),  // flag_gas_limit
+        mkBv(flatGasPriceMasterchain, uint64Bits),  // flag_gas_price
+        mkBvHex("de", tagBits),               // gas_prices_ext tag
+        mkBv(gasPriceMasterchain, uint64Bits),      // gas_price
+        mkBv(1000000, uint64Bits),            // gas_limit
+        mkBv(35000000, uint64Bits),           // special_gas_limit
+        mkBv(10000, uint64Bits),              // gas_credit
+        mkBv(2500000, uint64Bits),            // block_gas_limit
+        mkBv(100000000, uint64Bits),          // freeze_due_limit
+        mkBv(1000000000, uint64Bits),         // delete_due_limit
     )
     setConfigParam(configDict, 20, masterchainGasPrices)
 
@@ -259,10 +312,10 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
      */
     val gasPrices = allocCellFromFields(
         mkBvHex("d1", tagBits),         // gas_flat_pfx tag
-        mkBv(100, uint64Bits),          // flag_gas_limit
-        mkBv(40000, uint64Bits),        // flag_gas_price
+        mkBv(flatGasLimit, uint64Bits),       // flag_gas_limit
+        mkBv(flatGasPrice, uint64Bits),       // flag_gas_price
         mkBvHex("de", tagBits),         // gas_prices_ext tag
-        mkBv(26214400, uint64Bits),     // gas_price
+        mkBv(gasPrice, uint64Bits),           // gas_price
         mkBv(1000000, uint64Bits),      // gas_limit
         mkBv(1000000, uint64Bits),      // special_gas_limit
         mkBv(10000, uint64Bits),        // gas_credit
@@ -276,13 +329,13 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
      * Index: 24
      */
     val masterchainMsgPrices = allocCellFromFields(
-        mkBvHex("ea", tagBits),         // msg_forward_prices tag
-        mkBv(10000000, uint64Bits),     // lump_price
-        mkBv(655360000, uint64Bits),    // bit_price
-        mkBv(65536000000, uint64Bits),  // cell_price
-        mkBv(98304, uint32Bits),        // ihr_price_factor
-        mkBv(21845, uint16Bits),        // first_frac
-        mkBv(21845, uint16Bits),        // next_frac
+        mkBvHex("ea", tagBits),             // msg_forward_prices tag
+        mkBv(lumpPriceMasterchain, uint64Bits),   // lump_price
+        mkBv(bitPriceMasterchain, uint64Bits),    // bit_price
+        mkBv(cellPriceMasterchain, uint64Bits),   // cell_price
+        mkBv(98304, uint32Bits),            // ihr_price_factor
+        mkBv(firstFracMasterchain, uint16Bits),   // first_frac
+        mkBv(21845, uint16Bits),            // next_frac
     )
     setConfigParam(configDict, 24, masterchainMsgPrices)
 
@@ -291,11 +344,11 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
      */
     val msgPrices = allocCellFromFields(
         mkBvHex("ea", tagBits),         // msg_forward_prices tag
-        mkBv(400000, uint64Bits),       // lump_price
-        mkBv(26214400, uint64Bits),     // bit_price
-        mkBv(2621440000, uint64Bits),   // cell_price
+        mkBv(lumpPrice, uint64Bits),          // lump_price
+        mkBv(bitPrice, uint64Bits),           // bit_price
+        mkBv(cellPrice, uint64Bits),          // cell_price
         mkBv(98304, uint32Bits),        // ihr_price_factor
-        mkBv(21845, uint16Bits),        // first_frac
+        mkBv(firstFrac, uint16Bits),          // first_frac
         mkBv(21845, uint16Bits),        // next_frac
     )
     setConfigParam(configDict, 25, msgPrices)
