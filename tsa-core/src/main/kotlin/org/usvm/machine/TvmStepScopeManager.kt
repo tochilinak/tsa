@@ -109,9 +109,9 @@ class TvmStepScopeManager(
 
     // TODO what to return?
     // TODO docs
-    fun doWithConditions(
-        givenConditionsWithActions: List<ActionOnCondition>,
-        doForAllBlock: TvmStepScopeManager.() -> Unit,
+    fun <T> doWithConditions(
+        givenConditionsWithActions: List<ActionOnCondition<T>>,
+        doForAllBlock: TvmStepScopeManager.(T) -> Unit,
     ) {
         val conditionsWithActions = if (!allowFailuresOnCurrentStep && originalState.c2IsDefault()) {
             givenConditionsWithActions.filter { !it.caseIsExceptional }
@@ -136,7 +136,7 @@ class TvmStepScopeManager(
                 }
 
                 val newScopeManager = TvmStepScopeManager(state, forkBlackList, allowFailuresOnCurrentStep)
-                doForAllBlock(newScopeManager)
+                newScopeManager.doForAllBlock(action.paramForDoForAllBlock)
 
                 // TODO filter out DEAD states ?
                 val newScopeResults = newScopeManager.stepResult()
@@ -148,10 +148,11 @@ class TvmStepScopeManager(
         }
     }
 
-    class ActionOnCondition(
+    class ActionOnCondition<T>(
         val action: TvmState.() -> Unit,
         val caseIsExceptional: Boolean,
         val condition: UBoolExpr,
+        val paramForDoForAllBlock: T,
     )
 
 

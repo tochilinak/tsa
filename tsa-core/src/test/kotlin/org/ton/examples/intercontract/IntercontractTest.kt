@@ -3,6 +3,7 @@ package org.ton.examples.intercontract
 import org.ton.communicationSchemeFromJson
 import org.ton.examples.analyzeFuncIntercontract
 import org.ton.examples.extractResource
+import org.usvm.machine.IntercontractOptions
 import org.usvm.machine.TvmOptions
 import org.usvm.test.resolver.TvmMethodFailure
 import kotlin.io.path.readText
@@ -26,11 +27,11 @@ class IntercontractTest {
 
         val schemeJson = extractResource(schemePath).readText()
         val scheme = communicationSchemeFromJson(schemeJson)
+        val options = TvmOptions(intercontractOptions = IntercontractOptions(scheme))
 
         val resultStates = analyzeFuncIntercontract(
             sources = sources,
-            communicationScheme = scheme,
-            options = TvmOptions(enableIntercontract = true),
+            options = options,
             startContract = 0,
         )
         val failedPaths = resultStates.single().mapNotNull { test ->

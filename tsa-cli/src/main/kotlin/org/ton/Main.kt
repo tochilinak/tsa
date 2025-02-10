@@ -23,6 +23,7 @@ import org.ton.tlb.readFromJson
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.FiftAnalyzer
 import org.usvm.machine.FuncAnalyzer
+import org.usvm.machine.IntercontractOptions
 import org.usvm.machine.TactAnalyzer
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.analyzeInterContract
@@ -272,13 +273,13 @@ class InterContractAnalysis : CliktCommand(
         }
 
         val communicationScheme = extractScheme()
+        val options = TvmOptions(intercontractOptions = IntercontractOptions(communicationScheme))
 
         val result = analyzeInterContract(
             contracts = contracts,
             startContractId = startContractId,
             methodId = methodId.toMethodId(),
-            communicationScheme = communicationScheme,
-            options = TvmOptions(enableIntercontract = true),
+            options = options,
         )
 
         echo(result.toSarifReport(methodsMapping = emptyMap()))

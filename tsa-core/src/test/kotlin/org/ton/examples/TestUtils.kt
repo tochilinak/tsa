@@ -26,7 +26,6 @@ import org.usvm.test.resolver.TvmTestTupleValue
 import org.usvm.test.resolver.TvmTestValue
 import java.math.BigInteger
 import java.nio.file.Path
-import org.ton.TvmContractHandlers
 import org.usvm.machine.TvmContext
 import org.usvm.machine.analyzeInterContract
 import org.usvm.machine.state.ContractId
@@ -133,7 +132,6 @@ fun analyzeAllMethods(
 fun analyzeFuncIntercontract(
     sources: List<Path>,
     startContract: ContractId = 0,
-    communicationScheme: Map<ContractId, TvmContractHandlers>,
     options: TvmOptions,
 ): TvmContractSymbolicTestResult {
     val contracts = sources.map { getFuncContract(it, FUNC_STDLIB_RESOURCE, FIFT_STDLIB_RESOURCE) }
@@ -142,7 +140,6 @@ fun analyzeFuncIntercontract(
         contracts = contracts,
         startContractId = startContract,
         methodId = TvmContext.RECEIVE_INTERNAL_ID,
-        communicationScheme = communicationScheme,
         options = options,
     )
 }

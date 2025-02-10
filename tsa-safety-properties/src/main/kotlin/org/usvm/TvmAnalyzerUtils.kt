@@ -15,7 +15,7 @@ import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
 
-fun getContractFromBytes(bytes: ByteArray): TsaContractCode{
+fun getContractFromBytes(bytes: ByteArray): TsaContractCode {
     val tmpBocFile = createTempFile(suffix = ".boc")
     try {
         tmpBocFile.writeBytes(bytes)

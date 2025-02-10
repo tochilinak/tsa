@@ -48,7 +48,7 @@ sealed interface TvmMethodResult {
 
     @JvmInline
     value class TvmStructuralError(
-        val exit: TvmStructuralExit<TvmCellDataTypeRead, TlbBuiltinLabel>,
+        val exit: TvmStructuralExit<TvmCellDataTypeRead<*>, TlbBuiltinLabel>,
     ) : TvmMethodResult
 }
 

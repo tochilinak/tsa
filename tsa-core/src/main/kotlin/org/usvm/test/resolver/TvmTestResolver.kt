@@ -15,7 +15,7 @@ data object TvmTestResolver {
     fun resolve(method: TvmMethod, state: TvmState): TvmSymbolicTest {
         val model = state.models.first()
         val ctx = state.ctx
-        val stateResolver = TvmTestStateResolver(ctx, model, state)
+        val stateResolver = TvmTestStateResolver(ctx, model, state, ctx.tvmOptions.performAdditionalChecksWhileResolving)
 
         val usedParameters = stateResolver.resolveParameters()
         val contractAddress = stateResolver.resolveContractAddress()
@@ -34,6 +34,7 @@ data object TvmTestResolver {
             stackTrace = state.continuationStack,
             gasUsage = gasUsage,
             additionalFlags = state.additionalFlags,
+            numberOfAddressesWithAssertedDataConstraints = state.cellDataFieldManager.getCellsWithAssertedCellData().size,
             intercontractPath = state.intercontractPath,
         )
     }
@@ -89,6 +90,7 @@ data class TvmSymbolicTest(
     val gasUsage: Int,
     val additionalFlags: Set<String>,
     val intercontractPath: List<ContractId>,
+    val numberOfAddressesWithAssertedDataConstraints: Int,  // for testing
 )
 
 sealed interface TvmMethodSymbolicResult {

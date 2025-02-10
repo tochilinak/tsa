@@ -26,7 +26,6 @@ import org.usvm.stopstrategies.StepLimitStopStrategy
 import org.usvm.stopstrategies.StopStrategy
 import org.usvm.stopstrategies.TimeoutStopStrategy
 import java.math.BigInteger
-import org.ton.TvmContractHandlers
 import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.seconds
 
@@ -53,7 +52,6 @@ class TvmMachine(
         coverageStatistics: TvmCoverageStatistics,  // TODO: adapt for several contracts
         methodId: BigInteger,
         inputInfo: TvmInputInfo = TvmInputInfo(),
-        communicationScheme: Map<ContractId, TvmContractHandlers> = mapOf(),
         additionalStopStrategy: StopStrategy = StopStrategy { false },
         additionalObserver: UMachineObserver<TvmState>? = null,
         manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
@@ -63,7 +61,6 @@ class TvmMachine(
             contractsCode,
             typeSystem = components.typeSystem,
             inputInfo = inputInfo,
-            communicationScheme = communicationScheme,
         )
         logger.debug("{}.analyze({})", this, contractsCode)
         val initialState = interpreter.getInitialState(startContractId, contractData, methodId)
@@ -154,7 +151,7 @@ class TvmMachine(
         private val logger = object : KLogging() {}.logger
 
         const val DEFAULT_MAX_RECURSION_DEPTH: Int = 2
-        private const val LOOP_ITERATIONS_LIMIT: Int = 2 // TODO find the best value
+        const val DEFAULT_LOOP_ITERATIONS_LIMIT: Int = 2 // TODO find the best value
         const val DEFAULT_MAX_TLB_DEPTH = 10
         const val DEFAULT_MAX_CELL_DEPTH_FOR_DEFAULT_CELLS_CONSISTENT_WITH_TLB = 10
 
@@ -164,7 +161,7 @@ class TvmMachine(
             timeout = INFINITE,
             stopOnCoverage = -1,
             loopIterativeDeepening = true,
-            loopIterationLimit = LOOP_ITERATIONS_LIMIT,
+            loopIterationLimit = DEFAULT_LOOP_ITERATIONS_LIMIT,
             stepLimit = null,
             solverTimeout = 1.seconds
         )

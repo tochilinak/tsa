@@ -147,10 +147,13 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
     /**
      * Generate expression that fixates ref's value given by model, and its hash (which is originally a mock).
      * */
-    fun fixateValueAndHash(state: TvmState, ref: UHeapRef, hash: UExpr<TvmInt257Sort>): UBoolExpr = with(ctx) {
-        val resolver = TvmTestStateResolver(ctx, state.models.first(), state)
+    fun fixateValueAndHash(scope: TvmStepScopeManager, ref: UHeapRef, hash: UExpr<TvmInt257Sort>): UBoolExpr? = with(ctx) {
+        val resolver = scope.calcOnState {
+            TvmTestStateResolver(ctx, models.first(), this)
+        }
         val value = resolver.resolveRef(ref)
-        val fixateValueCond = fixateConcreteValue(state, ref, value, resolver)
+        val fixateValueCond = fixateConcreteValue(scope, ref, value, resolver)
+            ?: return@with null
         val concreteHash = calculateConcreteHash(value)
         val hashCond = hash eq concreteHash
         return fixateValueCond and hashCond
@@ -218,20 +221,20 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
     }
 
     private fun fixateConcreteValue(
-        state: TvmState,
+        scope: TvmStepScopeManager,
         ref: UHeapRef,
         value: TvmTestReferenceValue,
         resolver: TvmTestStateResolver,
-    ): UBoolExpr =
+    ): UBoolExpr? =
         when (value) {
             is TvmTestDataCellValue -> {
-                fixateConcreteValueForDataCell(state, ref, value, resolver)
+                fixateConcreteValueForDataCell(scope, ref, value, resolver)
             }
             is TvmTestSliceValue -> {
-                fixateConcreteValueForSlice(state, ref, value, resolver)
+                fixateConcreteValueForSlice(scope, ref, value, resolver)
             }
             is TvmTestDictCellValue -> {
-                fixateConcreteValueForDictCell(state, ref, value, resolver)
+                fixateConcreteValueForDictCell(scope, ref, value, resolver)
             }
             is TvmTestBuilderValue -> {
                 TODO()
@@ -239,32 +242,41 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
         }
 
     private fun fixateConcreteValueForSlice(
-        state: TvmState,
+        scope: TvmStepScopeManager,
         ref: UHeapRef,
         value: TvmTestSliceValue,
         resolver: TvmTestStateResolver,
-    ): UBoolExpr = with(ctx) {
-        val dataPosSymbolic = state.memory.readField(ref, sliceDataPosField, sizeSort)
-        val refPosSymbolic = state.memory.readField(ref, sliceRefPosField, sizeSort)
+    ): UBoolExpr? = with(ctx) {
+        val dataPosSymbolic = scope.calcOnState { memory.readField(ref, sliceDataPosField, sizeSort) }
+        val refPosSymbolic = scope.calcOnState { memory.readField(ref, sliceRefPosField, sizeSort) }
         val posGuard = (dataPosSymbolic eq mkSizeExpr(value.dataPos)) and (refPosSymbolic eq mkSizeExpr(value.refPos))
-        val cellRef = state.memory.readField(ref, TvmContext.sliceCellField, addressSort)
-        return posGuard and fixateConcreteValueForDataCell(state, cellRef, value.cell, resolver)
+        val cellRef = scope.calcOnState { memory.readField(ref, TvmContext.sliceCellField, addressSort) }
+        val fixateGuard = fixateConcreteValueForDataCell(scope, cellRef, value.cell, resolver)
+            ?: return@with null
+        return posGuard and fixateGuard
     }
 
     private fun fixateConcreteValueForDataCell(
-        state: TvmState,
+        scope: TvmStepScopeManager,
         ref: UHeapRef,
         value: TvmTestDataCellValue,
         resolver: TvmTestStateResolver,
-    ): UBoolExpr = with(ctx) {
+    ): UBoolExpr? = with(ctx) {
         val childrenCond = value.refs.foldIndexed(trueExpr as UBoolExpr) { index, acc, child ->
-            val childRef = state.readCellRef(ref, mkSizeExpr(index))
-            acc and fixateConcreteValue(state, childRef, child, resolver)
+            val childRef = scope.calcOnState { readCellRef(ref, mkSizeExpr(index)) }
+            val currentConstraint = fixateConcreteValue(scope, childRef, child, resolver)
+                ?: return@with null
+            acc and currentConstraint
         }
 
-        val symbolicData = state.preloadDataBitsFromCellWithoutChecks(ref, zeroSizeExpr, value.data.length)
-        val symbolicDataLength = state.memory.readField(ref, TvmContext.cellDataLengthField, sizeSort)
-        val symbolicRefNumber = state.memory.readField(ref, TvmContext.cellRefsLengthField, sizeSort)
+        val symbolicData = scope.preloadDataBitsFromCellWithoutChecks(ref, zeroSizeExpr, value.data.length)
+            ?: return@with null
+        val symbolicDataLength = scope.calcOnState {
+            memory.readField(ref, TvmContext.cellDataLengthField, sizeSort)
+        }
+        val symbolicRefNumber = scope.calcOnState {
+            memory.readField(ref, TvmContext.cellRefsLengthField, sizeSort)
+        }
 
         val dataCond = if (value.data.isEmpty()) {
             trueExpr
@@ -279,12 +291,12 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
     }
 
     private fun fixateConcreteValueForDictCell(
-        state: TvmState,
+        scope: TvmStepScopeManager,
         ref: UHeapRef,
         value: TvmTestDictCellValue,
         resolver: TvmTestStateResolver,
-    ): UBoolExpr = with(ctx) {
-        val keyLength = state.memory.readField(ref, dictKeyLengthField, int257sort)
+    ): UBoolExpr? = with(ctx) {
+        val keyLength = scope.calcOnState { memory.readField(ref, dictKeyLengthField, int257sort) }
         var result = keyLength eq value.keyLength.toBv257()
 
         val model = resolver.model
@@ -292,19 +304,26 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
 
         val dictId = DictId(value.keyLength)
         val keySort = mkBvSort(value.keyLength.toUInt())
-        val entries = dictKeyEntries(model, state.memory, modelRef, dictId, keySort)
+        val entries = scope.calcOnState {
+            dictKeyEntries(model, memory, modelRef, dictId, keySort)
+        }
 
         entries.forEach { entry ->
             val key = entry.setElement
-            val keyContains = state.dictContainsKey(ref, dictId, key)
-            val entryValue = state.dictGetValue(ref, dictId, key)
+            val keyContains = scope.calcOnState {
+                dictContainsKey(ref, dictId, key)
+            }
+            val entryValue = scope.calcOnState {
+                dictGetValue(ref, dictId, key)
+            }
 
             val concreteKey = TvmTestIntegerValue(model.eval(key).bigIntValue())
             val concreteValue = value.entries[concreteKey]
             if (concreteValue == null) {
                 result = result and keyContains.not()
             } else {
-                val valueConstraint = fixateConcreteValue(state, entryValue, concreteValue, resolver)
+                val valueConstraint = fixateConcreteValue(scope, entryValue, concreteValue, resolver)
+                    ?: return@with null
                 result = result and keyContains and valueConstraint
             }
         }

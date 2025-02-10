@@ -8,7 +8,9 @@ import org.usvm.machine.TvmStepScopeManager
 fun checkOutOfRange(notOutOfRangeExpr: UBoolExpr, scope: TvmStepScopeManager): Unit? = scope.fork(
     condition = notOutOfRangeExpr,
     falseStateIsExceptional = true,
-    blockOnFalseState = { ctx.throwIntegerOutOfRangeError(this) }
+    blockOnFalseState = {
+        ctx.throwIntegerOutOfRangeError(this)
+    }
 )
 
 fun checkOutOfRange(expr: UExpr<TvmInt257Sort>, scope: TvmStepScopeManager, min: Int, max: Int) = scope.doWithCtx {

@@ -1,5 +1,6 @@
 package org.usvm.machine.state
 
+import io.ksmt.sort.KBvSort
 import io.ksmt.utils.powerOfTwo
 import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TvmCellValue
@@ -191,23 +192,28 @@ fun TvmContext.unsignedIntegerFitsBits(value: UExpr<TvmInt257Sort>, bits: UExpr<
 /**
  * 0 <= [sizeBits] <= 257
  */
-fun TvmContext.bvMinValueSignedExtended(sizeBits: UExpr<TvmInt257Sort>): UExpr<TvmInt257Sort> =
-    mkIte(
-        condition = sizeBits eq zeroValue,
-        trueBranch = zeroValue,
-        falseBranch = mkBvNegationExpr(mkBvShiftLeftExpr(oneValue, mkBvSubExpr(sizeBits, oneValue)))
+fun <Sort : KBvSort> TvmContext.bvMinValueSignedExtended(sizeBits: UExpr<Sort>): UExpr<Sort> {
+    val zero = mkBv(0, sizeBits.sort)
+    val one = mkBv(1, sizeBits.sort)
+    return mkIte(
+        condition = sizeBits eq zero,
+        trueBranch = zero,
+        falseBranch = mkBvNegationExpr(mkBvShiftLeftExpr(one, mkBvSubExpr(sizeBits, one)))
     )
-
+}
 
 /**
  * 0 <= [sizeBits] <= 257
  */
-fun TvmContext.bvMaxValueSignedExtended(sizeBits: UExpr<TvmInt257Sort>): UExpr<TvmInt257Sort> =
-    mkIte(
-        condition = sizeBits eq zeroValue,
-        trueBranch = zeroValue,
-        falseBranch = mkBvSubExpr(mkBvShiftLeftExpr(oneValue, mkBvSubExpr(sizeBits, oneValue)), oneValue)
+fun <Sort : KBvSort> TvmContext.bvMaxValueSignedExtended(sizeBits: UExpr<Sort>): UExpr<Sort> {
+    val zero = mkBv(0, sizeBits.sort)
+    val one = mkBv(1, sizeBits.sort)
+    return mkIte(
+        condition = sizeBits eq zero,
+        trueBranch = zero,
+        falseBranch = mkBvSubExpr(mkBvShiftLeftExpr(one, mkBvSubExpr(sizeBits, one)), one)
     )
+}
 
 /**
  * 0 <= [sizeBits] <= 256
@@ -298,5 +304,6 @@ fun TvmState.contractEpilogue() {
         ?: return
 
     contractIdToC4Register = contractIdToC4Register.put(currentContract, commitedState.c4)
+    // last commited state is cleared, as [currentContract] can be visited multiple times
     lastCommitedStateOfContracts = lastCommitedStateOfContracts.remove(currentContract)
 }

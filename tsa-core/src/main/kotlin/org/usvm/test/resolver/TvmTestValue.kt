@@ -66,35 +66,22 @@ data class TvmTestTupleValue(
 ) : TvmTestValue
 
 @Serializable
-sealed interface TvmTestCellDataTypeRead {
-    val bitSize: Int
-}
+sealed interface TvmTestCellDataTypeRead
 
 @Serializable
-data class TvmTestCellDataIntegerRead(override val bitSize: Int, val isSigned: Boolean, val endian: Endian): TvmTestCellDataTypeRead
+data class TvmTestCellDataIntegerRead(val bitSize: Int, val isSigned: Boolean, val endian: Endian): TvmTestCellDataTypeRead
 
 @Serializable
-data object TvmTestCellDataMaybeConstructorBitRead: TvmTestCellDataTypeRead {
-    override val bitSize: Int = 1
-}
-
-// TODO: only stdAddr is supported now
-@Serializable
-data object TvmTestCellDataMsgAddrRead: TvmTestCellDataTypeRead {
-    override val bitSize: Int = stdMsgAddrSize
-}
+data object TvmTestCellDataMaybeConstructorBitRead: TvmTestCellDataTypeRead
 
 @Serializable
-data class TvmTestCellDataBitArrayRead(override val bitSize: Int): TvmTestCellDataTypeRead
+data object TvmTestCellDataMsgAddrRead : TvmTestCellDataTypeRead
 
 @Serializable
-data class TvmTestCellDataCoinsRead(val coinPrefix: Int): TvmTestCellDataTypeRead {
-    override val bitSize: Int = 4 + coinPrefix * 8
+data class TvmTestCellDataBitArrayRead(val bitSize: Int): TvmTestCellDataTypeRead
 
-    init {
-        require(coinPrefix in 0..15)
-    }
-}
+@Serializable
+data object TvmTestCellDataCoinsRead : TvmTestCellDataTypeRead
 
 @Serializable
 data class TvmCellDataTypeLoad(

@@ -42,6 +42,8 @@ import org.usvm.machine.types.TvmDictCellType
 import org.usvm.machine.types.TvmSliceType
 import org.usvm.machine.types.TvmType
 import org.usvm.machine.types.dp.AbstractGuard
+import org.usvm.machine.types.dp.AbstractionForUExpr
+import org.usvm.machine.types.dp.AbstractionForUExprWithCellDataPrefix
 import org.usvm.mkSizeExpr
 import org.usvm.sizeSort
 
@@ -82,8 +84,11 @@ class TvmContext(
     val masterchain: KBitVecValue<TvmInt257Sort> = minusOneValue
     val baseChain: KBitVecValue<TvmInt257Sort> = zeroValue
 
-    val abstractTrue = AbstractGuard { trueExpr }
-    val abstractFalse = AbstractGuard { falseExpr }
+    fun <Abstraction : AbstractionForUExpr<Abstraction>> abstractTrue(): AbstractGuard<Abstraction> =
+        AbstractGuard { trueExpr }
+
+    fun <Abstraction : AbstractionForUExpr<Abstraction>> abstractFalse(): AbstractGuard<Abstraction> =
+        AbstractGuard { falseExpr }
 
     val zeroSizeExpr: UExpr<TvmSizeSort> = mkSizeExpr(0)
     val oneSizeExpr: UExpr<TvmSizeSort> = mkSizeExpr(1)
@@ -234,7 +239,6 @@ class TvmContext(
 
         const val OP_BITS: UInt = 32u
 
-        val cellDataField: TvmField = TvmFieldImpl(TvmCellType, "data")
         val cellDataLengthField: TvmField = TvmFieldImpl(TvmCellType, "dataLength")
         val cellRefsLengthField: TvmField = TvmFieldImpl(TvmCellType, "refsLength")
 

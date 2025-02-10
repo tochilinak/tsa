@@ -3,15 +3,20 @@ package org.usvm.checkers
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo
 import org.ton.bytecode.TsaContractCode
-import org.ton.bytecode.TvmContractCode
 import org.ton.tlb.readFromJson
 import org.usvm.FIFT_STDLIB_PATH
 import org.usvm.FUNC_STDLIB_PATH
 import org.usvm.getFuncContract
+import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
 import org.usvm.resolveResourcePath
 import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSymbolicTest
+import org.usvm.test.resolver.TvmTestCellDataBitArrayRead
+import org.usvm.test.resolver.TvmTestCellDataCoinsRead
+import org.usvm.test.resolver.TvmTestCellDataIntegerRead
+import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
 import org.usvm.test.resolver.TvmTestCellDataMsgAddrRead
+import org.usvm.test.resolver.TvmTestCellDataTypeRead
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestSliceValue
 import java.nio.file.Path
@@ -57,9 +62,12 @@ data class BlacklistAddressChecker(private val resourcesDir: Path?) : TvmChecker
                 ?: return@mapNotNullTo null
             val firstAddressTypeLoad = msgBody.knownTypes.firstOrNull { it.type is TvmTestCellDataMsgAddrRead }
                 ?: return@mapNotNullTo null
+            @Suppress("CAST_NEVER_SUCCEEDS")
+            firstAddressTypeLoad as TvmTestCellDataMsgAddrRead
+
             val firstAddress = msgBody.data.substring(
                 firstAddressTypeLoad.offset,
-                firstAddressTypeLoad.offset + firstAddressTypeLoad.type.bitSize
+                firstAddressTypeLoad.offset + stdMsgAddrSize
             )
 
             firstAddress.takeLast(MSG_ADDR_MAIN_PART_LENGTH)

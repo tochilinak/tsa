@@ -6,9 +6,7 @@ import io.ksmt.utils.BvUtils.bvMinValueSigned
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentMap
 import mu.KLogging
-import org.ton.TvmContractHandlers
 import org.ton.TvmInputInfo
-import org.ton.bytecode.BALANCE_PARAMETER_IDX
 import org.ton.bytecode.TvmAppActionsInst
 import org.ton.bytecode.TvmAppAddrInst
 import org.ton.bytecode.TvmAppConfigInst
@@ -202,12 +200,12 @@ import org.usvm.api.writeField
 import org.usvm.collections.immutable.internal.MutabilityOwnership
 import org.usvm.constraints.UPathConstraints
 import org.usvm.forkblacklists.UForkBlackList
+import org.usvm.machine.TvmCellDataFieldManager
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
 import org.usvm.machine.TvmContext.Companion.MAX_DATA_LENGTH
 import org.usvm.machine.TvmContext.Companion.RECEIVE_INTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
-import org.usvm.machine.TvmContext.Companion.cellDataField
 import org.usvm.machine.TvmContext.Companion.cellDataLengthField
 import org.usvm.machine.TvmContext.Companion.cellRefsLengthField
 import org.usvm.machine.TvmContext.Companion.sliceCellField
@@ -229,7 +227,6 @@ import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmInitialStateData
 import org.usvm.machine.state.TvmMethodResult
 import org.usvm.machine.state.TvmRefEmptyValue
-import org.usvm.machine.state.TvmRegisters
 import org.usvm.machine.state.TvmStack
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmState
@@ -251,7 +248,6 @@ import org.usvm.machine.state.checkOverflow
 import org.usvm.machine.state.checkUnderflow
 import org.usvm.machine.state.consumeDefaultGas
 import org.usvm.machine.state.consumeGas
-import org.usvm.machine.state.contractEpilogue
 import org.usvm.machine.state.defineC0
 import org.usvm.machine.state.defineC1
 import org.usvm.machine.state.defineC2
@@ -264,12 +260,12 @@ import org.usvm.machine.state.doPop
 import org.usvm.machine.state.doPush
 import org.usvm.machine.state.doPuxc
 import org.usvm.machine.state.doSwap
+import org.usvm.machine.state.doWithCtx
 import org.usvm.machine.state.doWithStateCtx
 import org.usvm.machine.state.doXchg
 import org.usvm.machine.state.doXchg2
 import org.usvm.machine.state.doXchg3
 import org.usvm.machine.state.generateSymbolicCell
-import org.usvm.machine.state.getBalance
 import org.usvm.machine.state.getSliceRemainingBitsCount
 import org.usvm.machine.state.getSliceRemainingRefsCount
 import org.usvm.machine.state.initContractInfo
@@ -309,6 +305,8 @@ import java.math.BigInteger
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaArtificialExecuteContInst
 import org.ton.bytecode.TsaContractCode
+import org.usvm.machine.state.contractEpilogue
+import org.usvm.machine.state.getBalance
 
 // TODO there are a lot of `scope.calcOnState` and `scope.doWithState` invocations that are not inline - optimize it
 class TvmInterpreter(
@@ -317,7 +315,6 @@ class TvmInterpreter(
     val typeSystem: TvmTypeSystem,
     private val inputInfo: TvmInputInfo,
     var forkBlackList: UForkBlackList<TvmState, TvmInst> = UForkBlackList.createDefault(),
-    communicationScheme: Map<ContractId, TvmContractHandlers> = mapOf(),
 ) : UInterpreter<TvmState>() {
     companion object {
         val logger = object : KLogging() {}.logger
@@ -337,7 +334,7 @@ class TvmInterpreter(
     private val gasInterpreter = TvmGasInterpreter(ctx)
     private val globalsInterpreter = TvmGlobalsInterpreter(ctx)
     private val contStackInterpreter = TvmContinuationStackInterpreter(ctx)
-    private val transactionInterpreter = TvmTransactionInterpreter(ctx, communicationScheme)
+    private val transactionInterpreter = TvmTransactionInterpreter(ctx)
     private val tsaCheckerFunctionsInterpreter = TsaCheckerFunctionsInterpreter(contractsCode)
     private val artificialInstInterpreter = TvmArtificialInstInterpreter()
 
@@ -377,7 +374,8 @@ class TvmInterpreter(
         val initOwnership = MutabilityOwnership()
         val pathConstraints = UPathConstraints<TvmType>(ctx, initOwnership)
         val memory = UMemory<TvmType, TvmCodeBlock>(ctx, initOwnership, pathConstraints.typeConstraints)
-        val refEmptyValue = memory.initializeEmptyRefValues()
+        val cellDataFieldManager = TvmCellDataFieldManager(ctx)
+        val refEmptyValue = memory.initializeEmptyRefValues(cellDataFieldManager)
 
         val state = TvmState(
             ctx = ctx,
@@ -390,6 +388,7 @@ class TvmInterpreter(
             targets = UTargetsSet.from(targets),
             typeSystem = typeSystem,
             currentContract = startContractId,
+            cellDataFieldManager = cellDataFieldManager,
             intercontractPath = persistentListOf(startContractId),
         )
 
@@ -415,19 +414,16 @@ class TvmInterpreter(
         state.stack = executionMemory.stack
         state.registersOfCurrentContract = executionMemory.registers
 
-        val excludeInputsThatDoNotMatchGivenScheme = ctx.tvmOptions.excludeInputsThatDoNotMatchGivenScheme
-
         val dataCellInfoStorage = TvmDataCellInfoStorage.build(
-            excludeInputsThatDoNotMatchGivenScheme,
             state,
             inputInfo
         )
         state.dataCellInfoStorage = dataCellInfoStorage
 
-        if (excludeInputsThatDoNotMatchGivenScheme) {
-            val structuralConstraints = dataCellInfoStorage.mapper.getInitialStructuralConstraints(state)
-            state.pathConstraints += structuralConstraints
-        }
+        cellDataFieldManager.addressToLabelMapper = dataCellInfoStorage.mapper
+
+        val structuralConstraints = dataCellInfoStorage.mapper.getInitialStructuralConstraints(state)
+        state.pathConstraints += structuralConstraints
 
         val solver = ctx.solver<TvmType>()
 
@@ -443,14 +439,16 @@ class TvmInterpreter(
         return state
     }
 
-    private fun UWritableMemory<TvmType>.initializeEmptyRefValues(): TvmRefEmptyValue = with(ctx) {
+    private fun UWritableMemory<TvmType>.initializeEmptyRefValues(
+        cellDataFieldManager: TvmCellDataFieldManager
+    ): TvmRefEmptyValue = with(ctx) {
         val emptyCell = allocStatic(TvmCellType)
-        writeField(emptyCell, cellDataField, cellDataSort, mkBv(0, cellDataSort), guard = trueExpr)
+        cellDataFieldManager.writeCellData(this@initializeEmptyRefValues, emptyCell, mkBv(0, cellDataSort))
         writeField(emptyCell, cellRefsLengthField, sizeSort, mkSizeExpr(0), guard = trueExpr)
         writeField(emptyCell, cellDataLengthField, sizeSort, mkSizeExpr(0), guard = trueExpr)
 
         val emptyBuilder = allocStatic(TvmBuilderType)
-        writeField(emptyBuilder, cellDataField, cellDataSort, mkBv(0, cellDataSort), guard = trueExpr)
+        cellDataFieldManager.writeCellData(this@initializeEmptyRefValues, emptyBuilder, mkBv(0, cellDataSort))
         writeField(emptyBuilder, cellRefsLengthField, sizeSort, mkSizeExpr(0), guard = trueExpr)
         writeField(emptyBuilder, cellDataLengthField, sizeSort, mkSizeExpr(0), guard = trueExpr)
 
@@ -465,9 +463,12 @@ class TvmInterpreter(
     fun postProcessStates(states: Collection<TvmState>): List<TvmState> {
         return states.filter { state ->
             val scope = TvmStepScopeManager(state, UForkBlackList.createDefault(), allowFailuresOnCurrentStep = true)
-            val hashConstraint: UBoolExpr = scope.calcOnStateCtx {
+            val hashConstraint: UBoolExpr = scope.doWithCtx {
+                val addressToHash = calcOnState { addressToHash }
                 addressToHash.entries.fold(trueExpr as UBoolExpr) { acc, (ref, hash) ->
-                    acc and cryptoInterpreter.fixateValueAndHash(state, ref, hash)
+                    val curConstraint = cryptoInterpreter.fixateValueAndHash(scope, ref, hash)
+                        ?: falseExpr
+                    acc and curConstraint
                 }
             }
             scope.assert(hashConstraint)
@@ -527,7 +528,7 @@ class TvmInterpreter(
     }
 
     private fun processExitFromContract(scope: TvmStepScopeManager) {
-        if (ctx.tvmOptions.enableIntercontract) {
+        if (ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
             processIntercontractExit(scope)
         } else {
             processCheckerExit(scope)
@@ -592,6 +593,7 @@ class TvmInterpreter(
         val prevResult = methodResult
         methodResult = TvmMethodResult.NoCall
         val messageDestinations = transactionInterpreter.parseActionsToDestinations(scope)
+            // [methodResult] is set to the corresponding parsing failure
             ?: return@calcOnState null
         methodResult = prevResult
 
@@ -637,7 +639,7 @@ class TvmInterpreter(
     }
 
     private fun saveRecvInternalMsgBody(scope: TvmStepScopeManager) {
-        if (!ctx.tvmOptions.enableIntercontract) {
+        if (!ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
             return
         }
 
@@ -650,22 +652,32 @@ class TvmInterpreter(
         }
     }
 
+    // TODO: assert these constraints with TL-B optimizations
     private fun addRecvInternalConstraints(scope: TvmStepScopeManager): Unit? {
         if (!ctx.tvmOptions.enableInternalArgsConstraints) {
             return Unit
         }
 
+        val (msgBody, fullMsg) = scope.calcOnState {
+            stack.takeLastSlice() to takeLastCell()
+        }
+
+        require(msgBody != null && fullMsg != null) {
+            "Unexpected incorrect stack entry type"
+        }
+
+        val cellDataFieldManager = scope.calcOnState { cellDataFieldManager }
+        val fullMsgData: UExpr<TvmContext.TvmCellDataSort> = cellDataFieldManager.readCellData(scope, fullMsg)
+            ?: return null
+
         val constraints = scope.calcOnStateCtx {
-            val msgBody = stack.takeLastSlice()
-            val fullMsg = takeLastCell()
             val msgValue = takeLastIntOrNull()
             val balance = takeLastIntOrNull()
 
-            require(msgBody != null && fullMsg != null && msgValue != null && balance != null) {
+            require(msgValue != null && balance != null) {
                 "Unexpected incorrect stack entry type"
             }
 
-            val fullMsgData = memory.readField(fullMsg, cellDataField, cellDataSort)
             val fullMsgLength = memory.readField(fullMsg, cellDataLengthField, sizeSort)
             val fullMsgTag = mkBvExtractExpr(MAX_DATA_LENGTH - 1, MAX_DATA_LENGTH - 1, fullMsgData)
             val srcAddressTag = mkBvExtractExpr(MAX_DATA_LENGTH - 5, MAX_DATA_LENGTH - 6, fullMsgData)
@@ -1671,7 +1683,8 @@ class TvmInterpreter(
             return
         }
 
-        val constraint = scope.calcOnState { slicesAreEqual(slice1, slice2) }
+        val constraint = scope.slicesAreEqual(slice1, slice2)
+            ?: return
         val result = constraint.toBv257Bool()
 
         scope.doWithState {

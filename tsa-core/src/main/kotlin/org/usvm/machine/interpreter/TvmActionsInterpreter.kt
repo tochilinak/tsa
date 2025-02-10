@@ -1,6 +1,5 @@
 package org.usvm.machine.interpreter
 
-import io.ksmt.utils.powerOfTwo
 import org.ton.bytecode.TvmAppActionsInst
 import org.ton.bytecode.TvmAppActionsRawreserveInst
 import org.ton.bytecode.TvmAppActionsSendmsgInst

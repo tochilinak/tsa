@@ -1,6 +1,5 @@
 package org.usvm.machine.interpreter
 
-import org.ton.TvmContractHandlers
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.usvm.UBoolExpr
 import org.usvm.UExpr
@@ -14,17 +13,17 @@ import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.allocCellFromData
 import org.usvm.machine.state.allocEmptyBuilder
 import org.usvm.machine.state.allocSliceFromCell
-import org.usvm.machine.state.builderStoreGramsTlb
-import org.usvm.machine.state.builderStoreIntTlb
+import org.usvm.machine.state.builderStoreGramsTransaction
+import org.usvm.machine.state.builderStoreIntTransaction
 import org.usvm.machine.state.builderStoreSlice
-import org.usvm.machine.state.builderStoreSliceTlb
+import org.usvm.machine.state.builderStoreSliceTransaction
 import org.usvm.machine.state.builderToCell
 import org.usvm.machine.state.getCellContractInfoParam
 import org.usvm.machine.state.getSliceRemainingRefsCount
-import org.usvm.machine.state.sliceLoadAddrTlb
-import org.usvm.machine.state.sliceLoadGramsTlb
-import org.usvm.machine.state.sliceLoadIntTlb
-import org.usvm.machine.state.sliceLoadRefTlb
+import org.usvm.machine.state.sliceLoadAddrTransaction
+import org.usvm.machine.state.sliceLoadGramsTransaction
+import org.usvm.machine.state.sliceLoadIntTransaction
+import org.usvm.machine.state.sliceLoadRefTransaction
 import org.usvm.machine.state.sliceMoveDataPtr
 import org.usvm.machine.state.sliceMoveRefPtr
 import org.usvm.machine.state.slicePreloadAddrLength
@@ -35,11 +34,11 @@ import org.usvm.mkSizeAddExpr
 import org.usvm.mkSizeExpr
 import org.usvm.sizeSort
 
-class TvmTransactionInterpreter(
-    val ctx: TvmContext,
-    private val communicationScheme: Map<ContractId, TvmContractHandlers> = mapOf(),
-) {
+class TvmTransactionInterpreter(val ctx: TvmContext) {
     fun parseActionsToDestinations(scope: TvmStepScopeManager): List<Pair<ContractId, OutMessage>>? = with(ctx) {
+        val scheme = ctx.tvmOptions.intercontractOptions.communicationScheme
+            ?: error("Communication scheme is not found")
+
         val actions = parseActions(scope)
             ?: return null
 
@@ -48,14 +47,14 @@ class TvmTransactionInterpreter(
         }
 
         val contractId = scope.calcOnState { currentContract }
-        val handlers = communicationScheme[contractId]
+        val handlers = scheme[contractId]
             ?: error("Contract handlers are not found")
 
         val msgBody = scope.calcOnState { lastMsgBody }
             ?: error("Unexpected null msg_body")
 
         // TODO possible underflow
-        val op = sliceLoadIntTlb(scope, msgBody, OP_BITS.toInt())?.second
+        val op = sliceLoadIntTransaction(scope, msgBody, OP_BITS.toInt())?.second
             ?: return null
 
         val handler = handlers.handlers.firstOrNull { handler ->
@@ -87,7 +86,7 @@ class TvmTransactionInterpreter(
         val outMessages = mutableListOf<OutMessage>()
 
         for (action in actions) {
-            val (actionBody, tag) = sliceLoadIntTlb(scope, action, 32)
+            val (actionBody, tag) = sliceLoadIntTransaction(scope, action, 32)
                 ?: return null
 
             val isSendMsgAction = scope.checkSat(tag eq sendMsgActionTag.unsignedExtendToInteger())
@@ -127,7 +126,7 @@ class TvmTransactionInterpreter(
                 break
             }
 
-            val action = sliceLoadRefTlb(scope, slice)?.let { cur = it.second; it.first }
+            val action = sliceLoadRefTransaction(scope, slice)?.let { cur = it.second; it.first }
                 ?: return null
             actionList.add(action)
 
@@ -162,7 +161,7 @@ class TvmTransactionInterpreter(
     ): Pair<UHeapRef, UExpr<TvmInt257Sort>>? = with(ctx) {
         val msgFull = scope.calcOnState { allocEmptyBuilder() }
 
-        val tag = sliceLoadIntTlb(scope, ptr.slice, 1)?.second
+        val tag = sliceLoadIntTransaction(scope, ptr.slice, 1)?.second
             ?: return@with null
 
         val isInternalCond = tag eq zeroValue
@@ -171,15 +170,15 @@ class TvmTransactionInterpreter(
 
         if (isInternal) {
             // int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
-            val flags = sliceLoadIntTlb(scope, ptr.slice, 4)?.unwrap(ptr)
+            val flags = sliceLoadIntTransaction(scope, ptr.slice, 4)?.unwrap(ptr)
                 ?: return@with null
 
-            builderStoreIntTlb(scope, msgFull, flags, mkSizeExpr(4))
+            builderStoreIntTransaction(scope, msgFull, flags, mkSizeExpr(4))
                 ?: return@with null
 
             // src:MsgAddress
             // TODO support std addresses
-            val src = sliceLoadIntTlb(scope, ptr.slice, 2)?.unwrap(ptr)
+            val src = sliceLoadIntTransaction(scope, ptr.slice, 2)?.unwrap(ptr)
                 ?: return@with null
 
             val isSrcNone = scope.checkCondition(src eq zeroValue)
@@ -192,49 +191,49 @@ class TvmTransactionInterpreter(
             val addrCell = scope.getCellContractInfoParam(ADDRESS_PARAMETER_IDX)
                 ?: return null
             val addrSlice = scope.calcOnState { allocSliceFromCell(addrCell) }
-            builderStoreSliceTlb(scope, msgFull, addrSlice)
+            builderStoreSliceTransaction(scope, msgFull, addrSlice)
                 ?: return null
 
             // dest:MsgAddressInt
-            val destSlice = sliceLoadAddrTlb(scope, ptr.slice)?.unwrap(ptr)
+            val destSlice = sliceLoadAddrTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return@with null
-            builderStoreSliceTlb(scope, msgFull, destSlice)
+            builderStoreSliceTransaction(scope, msgFull, destSlice)
                 ?: return null
 
             // value:CurrencyCollection
-            sliceLoadGramsTlb(scope, ptr.slice)?.unwrap(ptr)
+            sliceLoadGramsTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return@with null
 
             // TODO send correct msg_value
             val symbolicMsgValue = scope.calcOnState { makeSymbolicPrimitive(int257sort) }
-            builderStoreGramsTlb(scope, msgFull, symbolicMsgValue)
+            builderStoreGramsTransaction(scope, msgFull, symbolicMsgValue)
                 ?: return null
 
             // TODO possible cell overflow
-            builderStoreSliceTlb(scope, msgFull, ptr.slice)
+            builderStoreSliceTransaction(scope, msgFull, ptr.slice)
                 ?: return null
 
-            val extraCurrenciesBit = sliceLoadIntTlb(scope, ptr.slice, 1)?.unwrap(ptr)
+            val extraCurrenciesBit = sliceLoadIntTransaction(scope, ptr.slice, 1)?.unwrap(ptr)
                 ?: return@with null
 
             val extraCurrenciesEmptyConstraint = extraCurrenciesBit eq zeroValue
             val isExtraCurrenciesEmpty = scope.checkCondition(extraCurrenciesEmptyConstraint)
                 ?: return null
             if (!isExtraCurrenciesEmpty) {
-                sliceLoadRefTlb(scope, ptr.slice)?.unwrap(ptr)
+                sliceLoadRefTransaction(scope, ptr.slice)?.unwrap(ptr)
                     ?: return@with null
             }
 
             // ihr_fee:Grams fwd_fee:Grams
-            sliceLoadGramsTlb(scope, ptr.slice)?.unwrap(ptr)
+            sliceLoadGramsTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return@with null
-            sliceLoadGramsTlb(scope, ptr.slice)?.unwrap(ptr)
+            sliceLoadGramsTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return@with null
 
             // created_lt:uint64 created_at:uint32
-            sliceLoadIntTlb(scope, ptr.slice, 64)?.unwrap(ptr)
+            sliceLoadIntTransaction(scope, ptr.slice, 64)?.unwrap(ptr)
                 ?: return@with null
-            sliceLoadIntTlb(scope, ptr.slice, 32)?.unwrap(ptr)
+            sliceLoadIntTransaction(scope, ptr.slice, 32)?.unwrap(ptr)
                 ?: return@with null
 
             return scope.builderToCell(msgFull) to symbolicMsgValue
@@ -280,7 +279,7 @@ class TvmTransactionInterpreter(
 
     private fun parseStateInit(scope: TvmStepScopeManager, ptr: ParsingState): Unit? = with(ctx) {
         // init:(Maybe (Either StateInit ^StateInit))
-        val initMaybeBit = sliceLoadIntTlb(scope, ptr.slice, 1)?.unwrap(ptr)
+        val initMaybeBit = sliceLoadIntTransaction(scope, ptr.slice, 1)?.unwrap(ptr)
             ?: return null
         val noStateInitConstraint = initMaybeBit eq zeroValue
         val noStateInit = scope.checkCondition(noStateInitConstraint)
@@ -290,14 +289,14 @@ class TvmTransactionInterpreter(
             return Unit
         }
 
-        val eitherBit = sliceLoadIntTlb(scope, ptr.slice, 1)?.unwrap(ptr)
+        val eitherBit = sliceLoadIntTransaction(scope, ptr.slice, 1)?.unwrap(ptr)
             ?: return null
         val isEitherRightCond = eitherBit eq oneValue
         val isEitherRight = scope.checkCondition(isEitherRightCond)
             ?: return null
 
         if (isEitherRight) {
-            sliceLoadRefTlb(scope, ptr.slice)?.unwrap(ptr)
+            sliceLoadRefTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return null
             return Unit
         }
@@ -350,18 +349,18 @@ class TvmTransactionInterpreter(
 
     private fun parseBody(scope: TvmStepScopeManager, ptr: ParsingState): UHeapRef? = with(ctx) {
         //  body:(Either X ^X)
-        val bodyEitherBit = sliceLoadIntTlb(scope, ptr.slice, 1)?.unwrap(ptr)
+        val bodyEitherBit = sliceLoadIntTransaction(scope, ptr.slice, 1)?.unwrap(ptr)
             ?: return null
         val isBodyLeft = scope.checkCondition(bodyEitherBit eq zeroValue)
             ?: return null
 
         val body = if (isBodyLeft) {
             val bodyBuilder = scope.calcOnState { allocEmptyBuilder() }
-            builderStoreSliceTlb(scope, bodyBuilder, ptr.slice)
+            builderStoreSliceTransaction(scope, bodyBuilder, ptr.slice)
                 ?: return null
             scope.builderToCell(bodyBuilder)
         } else {
-            sliceLoadRefTlb(scope, ptr.slice)?.unwrap(ptr)
+            sliceLoadRefTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return null
         }
 

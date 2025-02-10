@@ -18,7 +18,6 @@ import org.usvm.isTrue
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
 import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
-import org.usvm.machine.TvmContext.Companion.cellDataField
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.TvmStack.TvmConcreteStackEntry

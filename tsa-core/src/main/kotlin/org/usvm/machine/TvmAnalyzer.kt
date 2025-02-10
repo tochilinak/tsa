@@ -24,7 +24,6 @@ import org.usvm.utils.toText
 import java.math.BigInteger
 import java.nio.file.Path
 import java.nio.file.Paths
-import org.ton.TvmContractHandlers
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.copyTo
@@ -438,7 +437,6 @@ fun analyzeInterContract(
     startContractId: ContractId,
     methodId: MethodId,
     inputInfo: TvmInputInfo = TvmInputInfo(),
-    communicationScheme: Map<ContractId, TvmContractHandlers> = mapOf(),
     additionalStopStrategy: StopStrategy = StopStrategy { false },
     additionalObserver: UMachineObserver<TvmState>? = null,
     options: TvmOptions = TvmOptions(),
@@ -464,7 +462,6 @@ fun analyzeInterContract(
             additionalStopStrategy = additionalStopStrategy,
             additionalObserver = additionalObserver,
             manualStatePostProcess = manualStatePostProcess,
-            communicationScheme = communicationScheme,
         )
     }
 
@@ -481,7 +478,10 @@ fun analyzeAllMethods(
     tvmOptions: TvmOptions = TvmOptions(),
 ): TvmContractSymbolicTestResult {
     val contractData = Cell.Companion.of(contractDataHex ?: DEFAULT_CONTRACT_DATA_HEX)
-    val machineOptions = TvmMachine.defaultOptions.copy(timeout = tvmOptions.timeout)
+    val machineOptions = TvmMachine.defaultOptions.copy(
+        timeout = tvmOptions.timeout,
+        loopIterationLimit = tvmOptions.loopIterationLimit,
+    )
     val machine = TvmMachine(tvmOptions = tvmOptions, options = machineOptions)
     val methodsExceptDictPushConst = contract.methods.filterKeys { it !in methodsBlackList }
     val methodStates = methodsExceptDictPushConst.values.associateWith { method ->

@@ -21,6 +21,7 @@ import org.usvm.UState
 import org.usvm.collections.immutable.internal.MutabilityOwnership
 import org.usvm.constraints.UPathConstraints
 import org.usvm.isStaticHeapRef
+import org.usvm.machine.TvmCellDataFieldManager
 import org.usvm.machine.TvmContext
 import org.usvm.machine.interpreter.OutMessage
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
@@ -58,6 +59,7 @@ class TvmState(
     val dataCellLoadedTypeInfo: TvmDataCellLoadedTypeInfo = TvmDataCellLoadedTypeInfo.empty(),
     var stateInitialized: Boolean = false,
     val globalStructuralConstraintsHolder: GlobalStructuralConstraintsHolder = GlobalStructuralConstraintsHolder(),
+    val cellDataFieldManager: TvmCellDataFieldManager = TvmCellDataFieldManager(ctx),
     var allowFailures: Boolean = true,  // new value starts being active only from the next step
     var contractStack: PersistentList<TvmContractPosition> = persistentListOf(),
     var currentContract: ContractId,
@@ -165,6 +167,7 @@ class TvmState(
             addressToHash = addressToHash,
             fetchedValues = fetchedValues,
             additionalFlags = additionalFlags,
+            cellDataFieldManager = cellDataFieldManager.clone(),
             messageQueue = messageQueue,
             lastMsgBody = lastMsgBody,
             intercontractPath = intercontractPath,

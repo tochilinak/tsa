@@ -149,7 +149,7 @@ import org.usvm.machine.state.allocSliceFromCell
 import org.usvm.machine.state.allocSliceFromData
 import org.usvm.machine.state.assertIfSat
 import org.usvm.machine.state.assertType
-import org.usvm.machine.state.builderCopy
+import org.usvm.machine.state.builderCopyFromBuilder
 import org.usvm.machine.state.builderStoreDataBits
 import org.usvm.machine.state.builderStoreNextRef
 import org.usvm.machine.state.calcOnStateCtx
@@ -360,16 +360,17 @@ class TvmDictOperationInterpreter(
         }
 
         val updatedSlice = scope.calcOnState { memory.allocConcrete(TvmSliceType) }
-        scope.makeSliceTypeLoad(slice, TvmCellMaybeConstructorBitRead(ctx), updatedSlice) {
+        scope.makeSliceTypeLoad(slice, TvmCellMaybeConstructorBitRead(ctx), updatedSlice) { isNotEmptyValueFromTlb ->
 
             // hide the original [scope] from this closure
             @Suppress("NAME_SHADOWING", "UNUSED_VARIABLE")
             val scope = Unit
 
-            val maybeConstructorTypeBit = slicePreloadDataBits(slice, bits = 1)
-                ?: return@makeSliceTypeLoad
-
-            val isNotEmpty = calcOnStateCtx { mkEq(maybeConstructorTypeBit, mkBv(value = 1, sizeBits = 1u)) }
+            val isNotEmpty = isNotEmptyValueFromTlb?.expr ?: let {
+                val maybeConstructorTypeBit = slicePreloadDataBits(slice, bits = 1)
+                    ?: return@makeSliceTypeLoad
+                calcOnStateCtx { mkEq(maybeConstructorTypeBit, mkBv(value = 1, sizeBits = 1u)) }
+            }
 
             fork(
                 isNotEmpty,
@@ -414,7 +415,7 @@ class TvmDictOperationInterpreter(
         val dictCellRef = loadDict(scope, assertType = false)
 
         val resultBuilder = scope.calcOnStateCtx { memory.allocConcrete(TvmBuilderType) }
-        scope.doWithStateCtx { builderCopy(builder, resultBuilder) }
+        scope.doWithStateCtx { builderCopyFromBuilder(builder, resultBuilder) }
 
         scope.doWithStateCtx {
             if (dictCellRef == null) {
@@ -974,7 +975,7 @@ class TvmDictOperationInterpreter(
             }
             DictValueType.BUILDER -> {
                 val builder = stack.takeLastBuilder() ?: return@calcOnState null
-                val cell = memory.allocConcrete(TvmDataCellType).also { builderCopy(builder, it) }
+                val cell = memory.allocConcrete(TvmDataCellType).also { builderCopyFromBuilder(builder, it) }
 
                 scope.calcOnState { allocSliceFromCell(cell) }
             }

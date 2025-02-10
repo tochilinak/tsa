@@ -10,5 +10,6 @@
     slice cs = some_cell.begin_parse();
     cs~load_int(10);
     int grams = cs~load_coins();
-    grams~impure_touch();
+
+    throw_if(1000, grams != value);
 }

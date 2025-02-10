@@ -1,6 +1,7 @@
 package org.usvm.machine.types
 
 import io.ksmt.expr.KInterpretedValue
+import org.ton.TlbStructure
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo
 import org.ton.cell.Cell
@@ -53,6 +54,7 @@ class CalculatedTlbLabelInfoTest {
     )
     private val dummyContractData = Cell.Companion.of(DEFAULT_CONTRACT_DATA_HEX)
     private val dummyState = dummyInterpreter.getInitialState(startContractId = 0, dummyContractData, BigInteger.ZERO)
+    val cellDataFieldManager = dummyState.cellDataFieldManager
 
     val info = CalculatedTlbLabelInfo(
         ctx,
@@ -96,6 +98,8 @@ class CalculatedTlbLabelInfoTest {
 
         val cell = info.getDefaultCell(maybeStructure)
         assertTrue(cell?.data == "0" && cell.refs.isEmpty())
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -115,11 +119,15 @@ class CalculatedTlbLabelInfoTest {
         val child = info.getLabelChildStructure(dummyState, address, intSwitchStructure,  childIdx = 0)!!
         assertEquals(0, child.size)
 
+        val cell = info.getDefaultCell(intSwitchStructure)
+        require(cell != null && cell.data.length == 34 && cell.data.startsWith("01") && cell.refs.isEmpty())
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
+
         val switchConstraint = info.getDataConstraints(dummyState, address, intSwitchStructure)
         assertTrue(switchConstraint !is KInterpretedValue)
 
-        val cell = info.getDefaultCell(intSwitchStructure)
-        require(cell != null && cell.data.length == 34 && cell.data.startsWith("01") && cell.refs.isEmpty())
+        assertTrue { address.address in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -132,11 +140,15 @@ class CalculatedTlbLabelInfoTest {
             null,
             info.getDataCellSize(dummyState, address, prefixInt64Structure)
         )
-        // no switch constraints here
-        assertEquals(ctx.trueExpr, info.getDataConstraints(dummyState, address, prefixInt64Structure))
 
         val cell = info.getDefaultCell(prefixInt64Structure)
         assertTrue(cell != null && cell.data.length == 64 && cell.refs.isEmpty())
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
+
+        val dataConstraints = info.getDataConstraints(dummyState, address, prefixInt64Structure)
+
+        assertTrue { dataConstraints !is KInterpretedValue }
     }
 
     @Test
@@ -156,6 +168,8 @@ class CalculatedTlbLabelInfoTest {
 
         val child = info.getLabelChildStructure(dummyState, address, structureX,  childIdx = 0)!!
         assertEquals(0, child.size)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -175,6 +189,8 @@ class CalculatedTlbLabelInfoTest {
 
         val child = info.getLabelChildStructure(dummyState, address, structureY,  childIdx = 0)!!
         assertEquals(0, child.size)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -184,6 +200,8 @@ class CalculatedTlbLabelInfoTest {
         assertEquals(0, info.maxRefSize(recursiveStructure))
         assertEquals(maxTlbDepth, info.getIndividualTlbDepthBound(recursiveStructure))
 
+        val switchStructure = recursiveStructure.internalStructure as TlbStructure.SwitchPrefix
+
         val cell = info.getDefaultCell(recursiveStructure)
         assertTrue(cell != null && cell.data == "1" && cell.refs.isEmpty())
 
@@ -192,11 +210,15 @@ class CalculatedTlbLabelInfoTest {
 
         val size0 = info.getDataCellSize(dummyState, address, recursiveStructure, maxDepth = 0)
         assertEquals(1, size0?.intValue())
+        val switchVariants1 = info.getPossibleSwitchVariants(switchStructure, maxDepth = 0)
+        assertTrue { switchVariants1.single().key == "1" }
 
         val size1 = info.getDataCellSize(dummyState, address, recursiveStructure, maxDepth = 1)
         assertTrue(size1 !is KInterpretedValue)
         val evaluated1 = dummyState.models.first().eval(size1 as UExpr<TvmSizeSort>).intValue()
         assertEquals(10, evaluated1)
+        val switchVariants2 = info.getPossibleSwitchVariants(switchStructure, maxDepth = 1)
+        assertTrue { switchVariants2.size == 2 }
 
         val size3 = info.getDataCellSize(dummyState, address, recursiveStructure, maxDepth = 3)
         assertTrue(size3 !is KInterpretedValue)
@@ -205,6 +227,8 @@ class CalculatedTlbLabelInfoTest {
 
         val child = info.getLabelChildStructure(dummyState, address, recursiveStructure,  childIdx = 0)!!
         assertEquals(0, child.size)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -249,6 +273,8 @@ class CalculatedTlbLabelInfoTest {
         val numberOfChildrenExceeded =
             info.getConditionForNumberOfChildrenExceeded(dummyState, address, recursiveWithRefStructure)
         assertTrue(numberOfChildrenExceeded !is KInterpretedValue)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -275,6 +301,8 @@ class CalculatedTlbLabelInfoTest {
         val numberOfChildrenExceeded =
             info.getConditionForNumberOfChildrenExceeded(dummyState, address, refAfterRecursiveStructure)!!
         assertTrue(numberOfChildrenExceeded !is KInterpretedValue)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -287,6 +315,8 @@ class CalculatedTlbLabelInfoTest {
         val address = dummyState.generateSymbolicCell()
         val size = info.getDataCellSize(dummyState, address, longDataStructure)
         assertTrue(size !is KInterpretedValue)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
     }
 
     @Test
@@ -307,6 +337,8 @@ class CalculatedTlbLabelInfoTest {
         val size = info.getDataCellSize(dummyState, address, customVarInteger)
         assertTrue(size !is KInterpretedValue)
 
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
+
         val dataConstraint = info.getDataConstraints(dummyState, address, customVarInteger)
         assertTrue(dataConstraint !is KInterpretedValue)
     }
@@ -320,6 +352,8 @@ class CalculatedTlbLabelInfoTest {
         val address = dummyState.generateSymbolicCell()
         val size = info.getDataCellSize(dummyState, address, doubleCustomVarInteger)
         assertTrue(size !is KInterpretedValue)
+
+        assertTrue { address.address !in cellDataFieldManager.getCellsWithRequestedCellDataField() }
 
         val dataConstraint = info.getDataConstraints(dummyState, address, doubleCustomVarInteger)
         assertTrue(dataConstraint !is KInterpretedValue)

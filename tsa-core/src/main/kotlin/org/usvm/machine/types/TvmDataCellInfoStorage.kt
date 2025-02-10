@@ -127,7 +127,6 @@ class TvmDataCellInfoStorage private constructor(
 
     companion object {
         fun build(
-            excludeInputsThatDoNotMatchGivenScheme: Boolean,
             state: TvmState,
             info: TvmInputInfo,
         ): TvmDataCellInfoStorage {
@@ -136,7 +135,7 @@ class TvmDataCellInfoStorage private constructor(
                 (it as? TvmParameterInfo.DataCellInfo)?.dataCellStructure as? TlbCompositeLabel
             }
             val calculatedTlbLabelInfo = CalculatedTlbLabelInfo(state.ctx, labels)
-            val mapper = TvmAddressToLabelMapper(state, inputAddresses, calculatedTlbLabelInfo, excludeInputsThatDoNotMatchGivenScheme)
+            val mapper = TvmAddressToLabelMapper(state, inputAddresses, calculatedTlbLabelInfo)
             val sliceMapper = TvmSliceToTlbStackMapper.constructInitialSliceMapper(state.ctx, inputAddresses)
 
             return TvmDataCellInfoStorage(state.ctx, mapper, sliceMapper)

@@ -42,6 +42,10 @@ fun main() {
         () tsa_assert_not(int condition) impure method_id(4) {
             ;; do nothing
         }
+
+        forall A -> () tsa_fetch_value(A value, int value_id) impure method_id(5) {
+            ;; do nothing
+        }
     """.trimIndent()
 
     val callFunctions = List(MAX_PARAMETERS + 1) { retParams ->
