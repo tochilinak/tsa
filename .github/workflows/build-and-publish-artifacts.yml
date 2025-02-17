@@ -46,9 +46,10 @@ jobs:
         run: |
           ./gradlew --no-daemon tsa-cli:shadowJar
 
-      - name: Build safety properties checker
-        run: |
-          ./gradlew --no-daemon tsa-safety-properties:shadowJar
+        # Don't build jettons checker as it is more an example than a real tool
+#      - name: Build jettons checker
+#        run: |
+#          ./gradlew --no-daemon tsa-safety-properties:shadowJar
 
       - name: Upload JAR executables
         uses: actions/upload-artifact@v4
