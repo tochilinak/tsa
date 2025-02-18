@@ -159,7 +159,6 @@ class TvmStepScopeManager(
         val paramForDoForAllBlock: T,
     )
 
-
     /**
      * Modified version of usvm [StepScope] that distinguishes between UNSAT and UNKNOWN solver results at [assert].
      * UNSAT is an unexpected result, while UNKNOWN is not.
@@ -199,15 +198,15 @@ class TvmStepScopeManager(
             return StepResult(forkedStates.asSequence(), alive)
         }
 
-        val isDead: Boolean get() = stepScopeState === DEAD
-        val canBeProcessed: Boolean get() = stepScopeState == CAN_BE_PROCESSED
+        inline val isDead: Boolean get() = stepScopeState === DEAD
+        inline val canBeProcessed: Boolean get() = stepScopeState == CAN_BE_PROCESSED
 
         /**
          * Executes [block] on a state.
          *
          * @return `null` if the underlying state is `null`.
          */
-        fun doWithState(block: TvmState.() -> Unit) {
+        inline fun doWithState(block: TvmState.() -> Unit) {
             return originalState.block()
         }
 
@@ -216,7 +215,7 @@ class TvmStepScopeManager(
          *
          * @return `null` if the underlying state is `null`, otherwise returns result of calling [block].
          */
-        fun <R> calcOnState(block: TvmState.() -> R): R {
+        inline fun <R> calcOnState(block: TvmState.() -> R): R {
             check(canProcessFurtherOnCurrentStep) { "Caller should check before processing the current hop further" }
             return originalState.block()
         }
@@ -229,7 +228,7 @@ class TvmStepScopeManager(
          *
          * @return `null` if the [condition] is unsatisfiable or unknown.
          */
-        fun fork(
+        inline fun fork(
             condition: UBoolExpr,
             blockOnTrueState: TvmState.() -> Unit = {},
             blockOnFalseState: TvmState.() -> Unit = {},
@@ -240,7 +239,7 @@ class TvmStepScopeManager(
         }
 
         // TODO: I don't like this implementation, but that was the fastest way to do it without patching usvm
-        fun forkWithCheckerStatusKnowledge(
+        inline fun forkWithCheckerStatusKnowledge(
             condition: UBoolExpr,
             blockOnUnknownTrueState: TvmState.() -> Unit = {},
             blockOnUnsatTrueState: TvmState.() -> Unit = {},
@@ -359,7 +358,7 @@ class TvmStepScopeManager(
             forkedStates.forEach { it.forkPoints += possibleForkPoint }
         }
 
-        fun assert(
+        inline fun assert(
             constraint: UBoolExpr,
             satBlock: TvmState.() -> Unit = {},
             unsatBlock: TvmState.() -> Unit = {},
@@ -376,7 +375,7 @@ class TvmStepScopeManager(
          * @param registerForkPoint register a fork point if assert was successful.
          * */
         @Suppress("MoveVariableDeclarationIntoWhen")
-        private fun assert(
+        private inline fun assert(
             constraint: UBoolExpr,
             registerForkPoint: Boolean,
             satBlock: TvmState.() -> Unit = {},
@@ -456,7 +455,7 @@ class TvmStepScopeManager(
          * @param trueStmt statement to fork on [condition].
          * @param falseStmt statement to fork on ![condition].
          */
-        fun forkWithBlackList(
+        inline fun forkWithBlackList(
             condition: UBoolExpr,
             trueStmt: TvmInst,
             falseStmt: TvmInst,
@@ -513,8 +512,6 @@ class TvmStepScopeManager(
             return forkMulti(filteredConditionsWithBlockOnStates, skipForkPoint)
         }
 
-        private val UBoolExpr.isConcrete get() = isTrue || isFalse
-
         /**
          * @return [Unit] if this [condition] is satisfiable, and returns `null` otherwise.
          */
@@ -560,6 +557,7 @@ class TvmStepScopeManager(
              */
             CAN_BE_PROCESSED;
         }
-    }
 
+        private inline val UBoolExpr.isConcrete get() = isTrue || isFalse
+    }
 }
