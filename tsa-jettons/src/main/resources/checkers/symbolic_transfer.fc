@@ -1,7 +1,7 @@
 #include "../imports/stdlib.fc";
 #include "../imports/tsa_functions.fc";
 
-;; constants and format from here: https://github.com/ston-fi/sdk/blob/main/src/contracts/dex/v2_1/router/BaseRouterV2_1.ts
+;; constants and format from here: https://github.com/ston-fi/sdk/blob/3e7d6a0f4de317f43d06ef7bafb320ec4297f617/packages/sdk/src/contracts/dex/v2_1/router/BaseRouterV2_1.ts
 
 const int GAS_AMOUNT = 300000000;
 const int FWD_GAS_AMOUNT = 240000000;
