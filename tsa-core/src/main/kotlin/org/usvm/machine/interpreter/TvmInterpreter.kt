@@ -341,6 +341,7 @@ class TvmInterpreter(
     private val transactionInterpreter = TvmTransactionInterpreter(ctx)
     private val tsaCheckerFunctionsInterpreter = TsaCheckerFunctionsInterpreter(contractsCode)
     private val artificialInstInterpreter = TvmArtificialInstInterpreter(ctx, contractsCode, transactionInterpreter)
+    private val postProcessor = TvmPostProcessor(ctx)
 
     fun getInitialState(
         startContractId: ContractId,
@@ -467,15 +468,8 @@ class TvmInterpreter(
     fun postProcessStates(states: Collection<TvmState>): List<TvmState> {
         return states.filter { state ->
             val scope = TvmStepScopeManager(state, UForkBlackList.createDefault(), allowFailuresOnCurrentStep = true)
-            val hashConstraint: UBoolExpr = scope.doWithCtx {
-                val addressToHash = calcOnState { addressToHash }
-                addressToHash.entries.fold(trueExpr as UBoolExpr) { acc, (ref, hash) ->
-                    val curConstraint = cryptoInterpreter.fixateValueAndHash(scope, ref, hash)
-                        ?: falseExpr
-                    acc and curConstraint
-                }
-            }
-            scope.assert(hashConstraint)
+
+            postProcessor.postProcessState(scope)
                 ?: return@filter false
 
             val globalStructuralConstraintsHolder = state.globalStructuralConstraintsHolder
@@ -584,7 +578,18 @@ class TvmInterpreter(
             val fullMsgLength = memory.readField(fullMsg, cellDataLengthField, sizeSort)
             val fullMsgTag = mkBvExtractExpr(MAX_DATA_LENGTH - 1, MAX_DATA_LENGTH - 1, fullMsgData)
             val srcAddressTag = mkBvExtractExpr(MAX_DATA_LENGTH - 5, MAX_DATA_LENGTH - 6, fullMsgData)
-            val minFullMsgLength = 4 + stdMsgAddrSize * 2 + 4 + 4 + 4 + 64 + 32 + 1 + 1
+
+            /*
+            int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
+              src:MsgAddress dest:MsgAddressInt
+              value:CurrencyCollection ihr_fee:Grams fwd_fee:Grams
+              created_lt:uint64 created_at:uint32 = CommonMsgInfoRelaxed;
+
+            message$_ {X:Type} info:CommonMsgInfoRelaxed
+              init:(Maybe (Either StateInit ^StateInit))
+              body:(Either X ^X) = MessageRelaxed X;
+             */
+            val minFullMsgLength = 4 + stdMsgAddrSize * 2 + 4 + 1 + 4 + 4 + 64 + 32 + 1 + 1
             val fullMsgConstraints = mkAnd(
                 fullMsgTag eq zeroBit,
                 srcAddressTag eq mkBv(STD_ADDRESS_TAG, ADDRESS_TAG_BITS),

@@ -73,6 +73,7 @@ import org.usvm.sizeSort
 import java.math.BigInteger
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
 import org.ton.bytecode.BALANCE_PARAMETER_IDX
+import org.ton.bytecode.CONFIG_PARAMETER_IDX
 import org.ton.bytecode.TIME_PARAMETER_IDX
 import org.ton.bytecode.TvmArtificialInst
 import org.usvm.machine.state.ContractId
@@ -102,6 +103,13 @@ class TvmTestStateResolver(
     }
 
     fun resolveRootData(): TvmTestCellValue = resolveCell(state.rootInitialData.persistentData)
+
+    fun resolveConfig(): TvmTestDictCellValue {
+        val config = getContractParam(CONFIG_PARAMETER_IDX)
+
+        return (resolveStackValue(config) as? TvmTestDictCellValue)
+            ?: error("Unexpected config type")
+    }
 
     fun resolveContractAddress(): TvmTestDataCellValue {
         val address = getContractParam(ADDRESS_PARAMETER_IDX)

@@ -56,7 +56,7 @@ class FuncOptions : OptionGroup("FunC options") {
     val funcStdlibPath by option("--func-std")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
         .required()
-        .help("The path to the dir containing FunC standard library file (stdlib.fc)")
+        .help("The path to the FunC standard library file (stdlib.fc)")
 }
 
 class TlbOptions : OptionGroup("TlB scheme options") {

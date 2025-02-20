@@ -24,9 +24,12 @@ import org.usvm.machine.state.TvmStack.TvmStackNullValue
 import org.usvm.machine.state.TvmStack.TvmStackTupleValue
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmStack.TvmStackValue
-import org.usvm.machine.types.TvmDataCellType
 import org.usvm.machine.types.TvmDictCellType
 import java.math.BigInteger
+import org.usvm.UConcreteHeapRef
+import org.usvm.api.writeField
+import org.usvm.machine.TvmContext.Companion.HASH_BITS
+import org.usvm.machine.TvmContext.Companion.dictKeyLengthField
 
 
 fun TvmState.getContractInfoParam(idx: Int): TvmStackValue {
@@ -188,7 +191,7 @@ fun TvmState.initContractInfo(
     val workchain = makeSymbolicPrimitive(mkBv8Sort())
     val extendedWorkchain = workchain.signedExtendToInteger()
     val addr = TvmStackCellValue(
-        allocCellFromData(
+        allocDataCellFromData(
             mkBvConcatExpr(
                 mkBvConcatExpr(
                     // addr_std$10 anycast:(Maybe Anycast)
@@ -251,11 +254,13 @@ fun TvmState.initContractInfo(
 }
 
 private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
-    val configDict = memory.allocConcrete(TvmDictCellType)
+    val configDict = allocDict(keyLength = CONFIG_KEY_LENGTH)
 
-    val hexAddressBits = ADDRESS_BITS / 4
+    val hexBits = 4u
+    val hexAddressBits = ADDRESS_BITS / hexBits.toInt()
     val addressBits = ADDRESS_BITS.toUInt()
-    val tagBits = 8u
+    val tagBits = hexBits * 2u
+    val uint8Bits = 8u
     val uint16Bits = 16u
     val uint32Bits = 32u
     val uint64Bits = 64u
@@ -268,13 +273,39 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
      * Index: 0
      */
     val configAddr = mkBvHex("5".repeat(hexAddressBits), addressBits)
-    setConfigParam(configDict, 0, allocCellFromData(configAddr))
+    addDictEntry(configDict, 0, allocDataCellFromData(configAddr))
 
     /**
      * Index: 1
      */
     val electorAddr = mkBvHex("3".repeat(hexAddressBits), addressBits)
-    setConfigParam(configDict, 1, allocCellFromData(electorAddr))
+    addDictEntry(configDict, 1, allocDataCellFromData(electorAddr))
+
+    /**
+     * Index: 12
+     */
+    val workchainDescr = allocCellFromFields(
+        mkBvHex("a6", tagBits),                                                                 // workchain tag
+        mkBv(1573821854, uint32Bits),                                                           // enabled_since
+        mkBv(0, uint8Bits),                                                                     // actual_min_split
+        mkBv(2, uint8Bits),                                                                     // min_split
+        mkBv(8, uint8Bits),                                                                     // max_split
+        mkBv(7, sizeBits = 3u),                                                                 // basic active accept_msgs
+        mkBv(0, sizeBits = 13u),                                                                // flags
+        mkBvHex("55b13f6d0e1d0c34c9c2160f6f918e92d82bf9ddcf8de2e4c94a3fdf39d15446", HASH_BITS), // zerostate_root_hash
+        mkBvHex("ee0bedfe4b32761fb35e9e1d8818ea720cad1a0e7b4d2ed673c488e72e910342", HASH_BITS), // zerostate_file_hash
+        mkBv(0, sizeBits = 32u),                                                                // version
+        mkBvHex("1", hexBits),                                                                  // wfmt_basic tag
+        mkBv(-1, uint32Bits),                                                                   // vm_version
+        mkBv(0, uint64Bits),                                                                    // vm_mode
+    )
+    val workchainsDict = allocDict(keyLength = 32)
+    addDictEntry(workchainsDict, 0, allocSliceFromCell(workchainDescr), isCellValue = false)
+
+    val workchainsMaybeDict = allocDataCellFromData(oneBit)
+    builderStoreNextRef(workchainsMaybeDict, workchainsDict)
+
+    addDictEntry(configDict, 12, workchainsMaybeDict)
 
     /**
      * Index: 15
@@ -285,9 +316,24 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(8192, uint32Bits),    // elections_end_before
         mkBv(32768, uint32Bits),   // stake_held_for
     )
-    setConfigParam(configDict, 15, elections)
+    addDictEntry(configDict, 15, elections)
 
-    // TODO: set index 18 properly
+    /**
+     * Index: 18
+     */
+    val storagePrices = allocCellFromFields(
+        mkBvHex(value = "cc", tagBits),     // gas_prices tag
+        mkBv(value = 0, uint32Bits),        // utime_since
+        mkBv(bitPricePs, uint64Bits),       // bit_price_ps
+        mkBv(cellPricePs, uint64Bits),      // cell_price_ps
+        mkBv(mcBitPricePs, uint64Bits),     // mc_bit_price_ps
+        mkBv(mcCellPricePs, uint64Bits),    // mc_cell_price_ps
+    )
+    val storagePricesSlice = allocSliceFromCell(storagePrices)
+    val storagePricesDict = allocDict(keyLength = 32)
+
+    addDictEntry(storagePricesDict, 0, storagePricesSlice, isCellValue = false)
+    addDictEntry(configDict, 18, storagePricesDict)
 
     /**
      * Index: 20
@@ -305,7 +351,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(100000000, uint64Bits),          // freeze_due_limit
         mkBv(1000000000, uint64Bits),         // delete_due_limit
     )
-    setConfigParam(configDict, 20, masterchainGasPrices)
+    addDictEntry(configDict, 20, masterchainGasPrices)
 
     /**
      * Index: 21
@@ -323,7 +369,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(100000000, uint64Bits),    // freeze_due_limit
         mkBv(1000000000, uint64Bits),   // delete_due_limit
     )
-    setConfigParam(configDict, 21, gasPrices)
+    addDictEntry(configDict, 21, gasPrices)
 
     /**
      * Index: 24
@@ -337,7 +383,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(firstFracMasterchain, uint16Bits),   // first_frac
         mkBv(21845, uint16Bits),            // next_frac
     )
-    setConfigParam(configDict, 24, masterchainMsgPrices)
+    addDictEntry(configDict, 24, masterchainMsgPrices)
 
     /**
      * Index: 25
@@ -351,7 +397,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(firstFrac, uint16Bits),          // first_frac
         mkBv(21845, uint16Bits),        // next_frac
     )
-    setConfigParam(configDict, 25, msgPrices)
+    addDictEntry(configDict, 25, msgPrices)
 
     /**
      * Index: 34
@@ -366,7 +412,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         // TODO real dict
         mkBv(0, sizeBits = 1u),                 // list
     )
-    setConfigParam(configDict, 34, validatorSet)
+    addDictEntry(configDict, 34, validatorSet)
 
     /**
      * Index: 40
@@ -384,7 +430,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         defaultFlatFine,                // default_flat_fine
         punishmentSuffix                // default_proportional_fine, severity_flat_mult, ...
     )
-    setConfigParam(configDict, 40, misbehaviourPunishment)
+    addDictEntry(configDict, 40, misbehaviourPunishment)
 
     /**
      * Index: 71
@@ -396,7 +442,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(0, sizeBits = 1u),                                                                     // oracles
         mkBvHex("000000000000000000000000582d872a1b094fc48f5de31d3b73f2d9be47def1", addressBits), // external_chain_address
     )
-    setConfigParam(configDict, 71, ethereumBridge)
+    addDictEntry(configDict, 71, ethereumBridge)
 
     /**
      * Index: 80
@@ -406,7 +452,7 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         // TODO real dict
         mkBv(0, sizeBits = 1u),     // ???
     )
-    setConfigParam(configDict, 80, dns)
+    addDictEntry(configDict, 80, dns)
 
     configDict
 }
@@ -416,19 +462,32 @@ private fun TvmState.allocCellFromFields(vararg fields: KExpr<KBvSort>): UHeapRe
         mkBvConcatExpr(acc, field)
     }
 
-    allocCellFromData(data)
+    allocDataCellFromData(data)
 }
 
-private fun TvmState.setConfigParam(dict: UHeapRef, idx: Int, cellValue: UHeapRef) = with(ctx) {
-    assertType(cellValue, TvmDataCellType)
+private fun TvmState.allocDict(keyLength: Int): UConcreteHeapRef = with(ctx) {
+    memory.allocConcrete(TvmDictCellType).also {
+        memory.writeField(it, dictKeyLengthField, int257sort, keyLength.toBv257(), guard = trueExpr)
+    }
+}
 
-    val builder = allocEmptyCell().also { builderStoreNextRef(it, cellValue) }
-    val sliceValue = allocSliceFromCell(builder)
+private fun TvmState.addDictEntry(
+    dict: UHeapRef,
+    key: Int,
+    value: UHeapRef,
+    isCellValue: Boolean = true
+) = with(ctx) {
+    val sliceValue = if (isCellValue) {
+        val builder = allocEmptyCell().also { builderStoreNextRef(it, value) }
+        allocSliceFromCell(builder)
+    } else {
+        value
+    }
 
     dictAddKeyValue(
         dict,
         DictId(CONFIG_KEY_LENGTH),
-        mkBv(idx, CONFIG_KEY_LENGTH.toUInt()),
+        mkBv(key, CONFIG_KEY_LENGTH.toUInt()),
         sliceValue,
     )
 }

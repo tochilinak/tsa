@@ -139,6 +139,7 @@ import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.dictKeyLengthField
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.intValue
+import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
 import org.usvm.machine.state.DictId
 import org.usvm.machine.state.DictKeyInfo
 import org.usvm.machine.state.TvmState
@@ -473,6 +474,9 @@ class TvmDictOperationInterpreter(
         if (dictCellRef != null) {
             assertDictKeyLength(scope, dictCellRef, keyLength)
                 ?: return
+            assertDictIsNotEmpty(scope, dictCellRef, dictId)
+                ?: return
+
             scope.doWithState { copyDict(dictCellRef, resultDict, dictId, key.sort) }
         } else {
             scope.doWithStateCtx {
@@ -562,10 +566,12 @@ class TvmDictOperationInterpreter(
             return
         }
 
+        val dictId = DictId(keyLength)
+
         assertDictKeyLength(scope, dictCellRef, keyLength)
             ?: return
-
-        val dictId = DictId(keyLength)
+        assertDictIsNotEmpty(scope, dictCellRef, dictId)
+            ?: return
 
         val dictContainsKey = scope.calcOnState {
             dictContainsKey(dictCellRef, dictId, key)
@@ -612,10 +618,12 @@ class TvmDictOperationInterpreter(
             return
         }
 
+        val dictId = DictId(keyLength)
+
         assertDictKeyLength(scope, dictCellRef, keyLength)
             ?: return
-
-        val dictId = DictId(keyLength)
+        assertDictIsNotEmpty(scope, dictCellRef, dictId)
+            ?: return
 
         val dictContainsKey = scope.calcOnState { dictContainsKey(dictCellRef, dictId, key) }
 
@@ -773,18 +781,21 @@ class TvmDictOperationInterpreter(
             return
         }
 
+        val dictId = DictId(keyLength)
+
         assertDictKeyLength(scope, dictCellRef, keyLength)
             ?: return
+        assertDictIsNotEmpty(scope, dictCellRef, dictId)
+            ?: return
 
-        val dictId = DictId(keyLength)
         val keySort = ctx.mkBvSort(keyLength.toUInt())
-
         val resultElement = scope.calcOnStateCtx { makeSymbolicPrimitive(keySort) }
 
         val allSetEntries = scope.calcOnStateCtx {
             memory.setEntries(dictCellRef, dictId, keySort, DictKeyInfo)
         }
 
+        // TODO input keys are not considered
         val storedKeys = scope.calcOnStateCtx {
             allSetEntries.entries.map { entry ->
                 val setContainsEntry = dictContainsKey(dictCellRef, dictId, entry.setElement)
@@ -801,6 +812,7 @@ class TvmDictOperationInterpreter(
                 DictNextPrevMode.NEXT -> false
                 DictNextPrevMode.PREV -> true
             }
+            // TODO keys should be extended to 1023 bits?
             compareKeys(keyType, compareLessThan, allowEq, resultElement, key)
         }
 
@@ -868,6 +880,7 @@ class TvmDictOperationInterpreter(
         }
         DictKeyType.SLICE, // todo: check slice comparison
         DictKeyType.UNSIGNED_INT -> when {
+            // TODO right can be signed
             compareLessThan && allowEq -> mkBvUnsignedLessOrEqualExpr(left, right)
             compareLessThan && !allowEq -> mkBvUnsignedLessExpr(left, right)
             !compareLessThan && allowEq -> mkBvUnsignedGreaterOrEqualExpr(left, right)
@@ -929,6 +942,20 @@ class TvmDictOperationInterpreter(
                 }
             }
         }
+
+    private fun assertDictIsNotEmpty(scope: TvmStepScopeManager, dict: UHeapRef, dictId: DictId): Unit? {
+        val constraint = scope.calcOnStateCtx {
+            val symbolicKey = makeSymbolicPrimitive(mkBvSort(dictId.keyLength.toUInt()))
+
+            dictContainsKey(dict, dictId, symbolicKey)
+        }
+
+        return scope.assert(constraint)
+            ?: run {
+                logger.debug { "Cannot assert non-empty dict" }
+                null
+            }
+    }
 
     private fun loadKey(
         scope: TvmStepScopeManager,

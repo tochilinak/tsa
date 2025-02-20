@@ -1230,27 +1230,31 @@ class TvmCellInterpreter(
         }
     }
 
-    private fun visitCellDepthInst(scope: TvmStepScopeManager, stmt: TvmCellParseCdepthInst) {
+    private fun visitCellDepthInst(scope: TvmStepScopeManager, stmt: TvmCellParseCdepthInst) = with(ctx) {
         scope.consumeDefaultGas(stmt)
 
         val cell = scope.takeLastCell()
 
         scope.doWithStateCtx {
-            val result = if (cell != null) {
-                // TODO make correct implementation
-                makeSymbolicPrimitive(int257sort).also { cellDepth ->
+            if (cell == null) {
+                stack.addInt(zeroValue)
+                newStmt(stmt.nextStmt())
+                return@doWithStateCtx
+            }
+
+            val depth = addressToDepth[cell] ?: run {
+                makeSymbolicPrimitive(ctx.int257sort).also {
+                    addressToDepth = addressToDepth.put(cell, it)
                     scope.assert(
-                        mkBvSignedLessOrEqualExpr(zeroValue, cellDepth),
+                        mkBvSignedLessOrEqualExpr(zeroValue, it),
                         unsatBlock = {
                             error("Cannot make the cell depth not negative")
                         }
                     ) ?: return@doWithStateCtx
                 }
-            } else {
-                zeroValue
             }
 
-            stack.addInt(result)
+            stack.addInt(depth)
             newStmt(stmt.nextStmt())
         }
     }

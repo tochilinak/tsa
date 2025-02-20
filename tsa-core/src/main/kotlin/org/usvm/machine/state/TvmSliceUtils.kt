@@ -863,11 +863,14 @@ fun TvmStepScopeManager.builderStoreSlice(
     return cellData
 }
 
-fun TvmState.allocCellFromData(data: UExpr<UBvSort>): UConcreteHeapRef = with(ctx) {
+fun TvmState.allocDataCellFromData(data: UExpr<UBvSort>): UConcreteHeapRef = with(ctx) {
     check(data.sort.sizeBits <= CELL_DATA_BITS) { "Unexpected data: $data" }
 
     val cell = allocEmptyCell()
+
+    assertType(cell, TvmDataCellType)
     builderStoreDataBits(cell, data)
+
     cell
 }
 
@@ -897,7 +900,7 @@ fun TvmState.allocSliceFromCell(data: TvmCell): UHeapRef {
 }
 
 fun TvmState.allocSliceFromData(data: UExpr<UBvSort>): UHeapRef = with(ctx) {
-    val sliceCell = allocCellFromData(data)
+    val sliceCell = allocDataCellFromData(data)
 
     return allocSliceFromCell(sliceCell)
 }

@@ -69,13 +69,15 @@ class TvmState(
     var allowFailures: Boolean = true,  // new value starts being active only from the next step
     var contractStack: PersistentList<TvmContractPosition> = persistentListOf(),
     var currentContract: ContractId,
-    var addressToHash: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
     var fetchedValues: PersistentMap<Int, TvmStack.TvmStackEntry> = persistentMapOf(),
     var additionalFlags: PersistentSet<String> = persistentHashSetOf(),
     // inter-contract fields
     var messageQueue: PersistentList<Pair<ContractId, OutMessage>> = persistentListOf(),
     var lastMsgBody: UHeapRef? = null,
     var intercontractPath: PersistentList<ContractId> = persistentListOf(),
+    // post-process fields
+    var addressToHash: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
+    var addressToDepth: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
 ) : UState<TvmType, TvmCodeBlock, TvmInst, TvmContext, TvmTarget, TvmState>(
     ctx,
     ownership,
@@ -214,6 +216,7 @@ class TvmState(
         val refs = symbolicRefs.add(ref.address)
         if (refs === symbolicRefs) return
 
+        symbolicRefs = refs
         memory.types.allocate(ref.address, referenceType)
         initializer(ref)
     }

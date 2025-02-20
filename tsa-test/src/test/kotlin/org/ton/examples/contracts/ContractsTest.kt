@@ -88,7 +88,7 @@ class ContractsTest {
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun nftItem() {
-        // TODO export config to sandbox
+        // TODO correct full_msg length constraints
         analyzeFuncContract(nftItemPath, methodsNumber = 15, enableTestGeneration = false)
     }
 
@@ -137,7 +137,6 @@ class ContractsTest {
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun nominatorPool() {
-        // TODO export config to sandbox
         // long test execution (4 min)
         analyzeFuncContract(nominatorPoolPath, methodsNumber = 10, enableTestGeneration = false)
     }
@@ -212,21 +211,12 @@ class ContractsTest {
         logger.info("Generated tests executed")
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun executeGeneratedTests(generateTestsBlock: (Path) -> String?) {
         val project = extractResource(SANDBOX_PROJECT_PATH)
 
-        try {
-            val generatedTests = generateTestsBlock(project)
-                ?: return
-            executeTests(project, generatedTests)
-        } finally {
-            val testsDir = project.resolve(TsRenderer.TESTS_DIR_NAME)
-            val wrappersDir = project.resolve(TsRenderer.WRAPPERS_DIR_NAME)
-
-            testsDir.deleteRecursively()
-            wrappersDir.deleteRecursively()
-        }
+        val generatedTests = generateTestsBlock(project)
+            ?: return
+        executeTests(project, generatedTests)
     }
 
     private fun executeGeneratedTests(

@@ -5,5 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(":tsa-core"))
+
+    implementation(group = Packages.tonKotlin, name = "ton-kotlin-hashmap-tlb", version = Versions.tonKotlin)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:${Versions.kotlinx_serialization}")
 }

@@ -38,10 +38,10 @@ import org.usvm.types.USingleTypeStream
 import java.math.BigInteger
 import org.ton.bytecode.TsaArtificialActionPhaseInst
 import org.ton.bytecode.TsaArtificialExitInst
+import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
 import org.usvm.machine.state.TmvPhase.ACTION_PHASE
 import org.usvm.machine.state.TmvPhase.COMPUTE_PHASE
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
-import org.usvm.memory.with
 
 val TvmState.lastStmt get() = pathNode.statement
 fun TvmState.newStmt(stmt: TvmInst) {
@@ -264,7 +264,11 @@ fun TvmState.assertType(value: UHeapRef, type: TvmType) {
         if (typeSystem.isSupertype(oldType, type)) {
             memory.types.allocate(ref.address, type)
         } else if (!typeSystem.isSupertype(type, oldType)) {
-            throw TypeCastException(oldType, type)
+            // TODO implement guard types
+            logger.debug {
+                "Type mismatch of $value ($ref) ref. Old type: $oldType, new type: $type"
+            }
+//            throw TypeCastException(oldType, type)
         }
     }
 }

@@ -28,6 +28,8 @@ import org.ton.test.gen.dsl.models.TsNum
 import org.ton.test.gen.dsl.models.TsNumAdd
 import org.ton.test.gen.dsl.models.TsNumDiv
 import org.ton.test.gen.dsl.models.TsNumSub
+import org.ton.test.gen.dsl.models.TsObject
+import org.ton.test.gen.dsl.models.TsObjectInit
 import org.ton.test.gen.dsl.models.TsSandboxContract
 import org.ton.test.gen.dsl.models.TsSendMessageResult
 import org.ton.test.gen.dsl.models.TsSlice
@@ -57,6 +59,7 @@ interface TsVisitor<R> {
     fun visit(element: TsInt): R
     fun visit(element: TsBigint): R
     fun visit(element: TsWrapper): R
+    fun visit(element: TsObject): R
     fun <T : TsWrapper> visit(element: TsSandboxContract<T>): R
 
     /* blocks */
@@ -92,6 +95,7 @@ interface TsVisitor<R> {
     fun visit(element: TsSliceValue): R
     fun visit(element: TsBuilderValue): R
     fun <T : TsType> visit(element: TsEquals<T>): R
+    fun <T : TsObject> visit(element: TsObjectInit<T>): R
 
     /* arithmetic */
     fun <T : TsNum> visit(element: TsNumAdd<T>): R

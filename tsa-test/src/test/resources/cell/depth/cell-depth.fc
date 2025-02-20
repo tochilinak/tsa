@@ -1,0 +1,12 @@
+#include "stdlib.fc";
+#include "utils.fc";
+
+(int, int, int, int, int) main() impure method_id (0) {
+    int d0 = null_cell().cell_depth();
+    int d1 = zero_depth_cell().cell_depth();
+    int d2 = one_depth_cell().cell_depth();
+    int d3 = two_depth_cell().cell_depth();
+    int d4 = dict_cell().cell_depth();
+
+    return (d0, d1, d2, d3, d4);
+}

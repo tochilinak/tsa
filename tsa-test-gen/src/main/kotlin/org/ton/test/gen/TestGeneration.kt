@@ -38,6 +38,7 @@ import org.usvm.test.resolver.TvmTestSliceValue
 import java.math.BigInteger
 import java.nio.file.Path
 import java.util.Locale
+import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
 import kotlin.io.path.nameWithoutExtension
 
 /**
@@ -108,10 +109,6 @@ private fun TsContext.constructTests(
 
         emptyLine()
 
-        beforeEach {
-            blockchain assign blockchainCreate()
-        }
-
         registerRecvInternalTests(wrapperDescriptor, recvInternalTests, code, blockchain)
 
         registerRecvExternalTests(wrapperDescriptor, recvExternalTests, code, blockchain)
@@ -161,6 +158,7 @@ private fun TsTestFileBuilder.registerRecvInternalTests(
         val input = resolveReceiveInternalInput(ctx.test)
 
         it(ctx.testName) {
+            ctx.blockchain assign blockchainCreate(input.configHex)
             ctx.blockchain.now() assign ctx.test.time.toTsValue().toInt()
 
             emptyLine()
@@ -184,12 +182,14 @@ private fun TsTestFileBuilder.registerRecvInternalTests(
             val msgCurrency = newVar("msgCurrency", input.msgCurrency.toTsValue())
             val bounce = newVar("bounce", input.bounce.toTsValue())
             val bounced = newVar("bounced", input.bounced.toTsValue())
+            val ihrFee = newVar("ihrFee", input.ihrFee.toTsValue())
+            val fwdFee = newVar("fwdFee", input.fwdFee.toTsValue())
 
             emptyLine()
 
             val sendMessageResult = newVar(
                 "sendMessageResult",
-                contract.internal(ctx.blockchain, srcAddr, msgBody, msgCurrency, bounce, bounced)
+                contract.internal(ctx.blockchain, srcAddr, msgBody, msgCurrency, bounce, bounced, ihrFee, fwdFee)
             )
             sendMessageResult.expectToHaveTransaction {
                 from = srcAddr
@@ -214,7 +214,8 @@ private fun TsTestFileBuilder.registerRecvExternalTests(
     ) { ctx ->
         val input = resolveReceiveExternalInput(ctx.test)
 
-        it(name) {
+        it(ctx.testName) {
+            ctx.blockchain assign blockchainCreate(input.configHex)
             ctx.blockchain.now() assign ctx.test.time.toTsValue().toInt()
 
             emptyLine()
@@ -271,18 +272,44 @@ private fun resolveReceiveInternalInput(test: TvmSymbolicTest): TvmReceiveIntern
         "Unexpected recv_internal arg at index 2: $msgCurrency"
     }
 
+    val configHex = transformTestConfigIntoHex(test.config)
+
     // TODO: this is not really correct, because part of msgCurrency is used for paying for gas
     val balance = test.contractBalance
     val initialBalance = TvmTestIntegerValue(balance.value - msgCurrency.value)
 
-    val msgBits = fullMsg.data
     val contractAddress = extractAddress(test.contractAddress.data)
         ?: error("Unexpected incorrect contract address")
-    val srcAddress = extractAddress(msgBits.drop(4))
-        ?: ("0:" + "0".repeat(64))
 
+    // if the result of parsing is null, then
+    // bits haven't been read during the interpretation,
+    // so, we can assign any value to them
+
+    var msgBits = fullMsg.data
+
+    // int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
     val bounce = msgBits.getOrNull(2) == '1'
     val bounced = msgBits.getOrNull(3) == '1'
+    msgBits = msgBits.drop(4)
+
+    // src:MsgAddress
+    val srcAddress = extractAddress(msgBits).also {
+        msgBits = skipStdAddress(msgBits) ?: ""
+    } ?: ("0:" + "0".repeat(64))
+
+    // dest:MsgAddressInt
+    msgBits = skipStdAddress(msgBits) ?: ""
+
+    // value:CurrencyCollection
+    msgBits = skipGrams(msgBits) ?: ""
+    msgBits = msgBits.drop(1)
+
+    // ihr_fee:Grams
+    val ihrFee = loadGrams(msgBits).also {
+        msgBits = skipGrams(msgBits) ?: ""
+    } ?: ""
+    // fwd_fee:Grams
+    val fwdFee = loadGrams(msgBits) ?: ""
 
     val result = test.result
     require(result is TvmTerminalMethodSymbolicResult) {
@@ -290,20 +317,24 @@ private fun resolveReceiveInternalInput(test: TvmSymbolicTest): TvmReceiveIntern
     }
 
     return TvmReceiveInternalInput(
-        truncateSliceCell(msgBody),
-        fullMsg,
-        msgCurrency,
-        initialBalance,
-        test.time,
-        contractAddress,
-        srcAddress,
-        bounce,
-        bounced,
-        result.exitCode.toInt()
+        configHex = configHex,
+        msgBody = truncateSliceCell(msgBody),
+        fullMsg = fullMsg,
+        msgCurrency = msgCurrency,
+        initialBalance = initialBalance,
+        time = test.time,
+        address = contractAddress,
+        srcAddress = srcAddress,
+        bounce = bounce,
+        bounced = bounced,
+        exitCode = result.exitCode.toInt(),
+        ihrFee = TvmTestIntegerValue(ihrFee.binaryToUnsignedBigInteger()),
+        fwdFee = TvmTestIntegerValue(fwdFee.binaryToUnsignedBigInteger()),
     )
 }
 
 private data class TvmReceiveInternalInput(
+    val configHex: String,
     val msgBody: TvmTestDataCellValue,
     val fullMsg: TvmTestDataCellValue,
     val msgCurrency: TvmTestIntegerValue,
@@ -314,6 +345,8 @@ private data class TvmReceiveInternalInput(
     val bounce: Boolean,
     val bounced: Boolean,
     val exitCode: Int,
+    val ihrFee: TvmTestIntegerValue,
+    val fwdFee: TvmTestIntegerValue
 )
 
 private fun resolveReceiveExternalInput(test: TvmSymbolicTest): TvmReceiveExternalInput {
@@ -327,6 +360,8 @@ private fun resolveReceiveExternalInput(test: TvmSymbolicTest): TvmReceiveExtern
         "Unexpected recv_external arg at index 0: $msgBody"
     }
 
+    val configHex = transformTestConfigIntoHex(test.config)
+
     // TODO: this is probably balance at the end of execution. But since we don't take into account gas for now, that's the same thing
     val balance = test.contractBalance
 
@@ -339,6 +374,7 @@ private fun resolveReceiveExternalInput(test: TvmSymbolicTest): TvmReceiveExtern
     }
 
     return TvmReceiveExternalInput(
+        configHex,
         truncateSliceCell(msgBody),
         contractAddress,
         balance,
@@ -348,6 +384,7 @@ private fun resolveReceiveExternalInput(test: TvmSymbolicTest): TvmReceiveExtern
 }
 
 private data class TvmReceiveExternalInput(
+    val configHex: String,
     val msgBody: TvmTestDataCellValue,
     val address: String,
     val initialBalance: TvmTestIntegerValue,
@@ -395,6 +432,33 @@ private fun extractContractName(sourceRelativePath: Path): String {
             it
         }
     }
+}
+
+private fun loadGrams(bits: String): String? {
+    val len = bits.take(4).binaryToUnsignedBigInteger().toInt()
+
+    if (bits.length < 4 + len * 8) {
+        return null
+    }
+
+    return bits.drop(4).take(len * 8)
+}
+
+private fun skipGrams(bits: String): String? {
+    val gramsStr = loadGrams(bits)
+        ?: return null
+
+    return bits.drop(4 + gramsStr.length)
+}
+
+private fun skipStdAddress(bits: String): String? {
+    val tag = bits.take(ADDRESS_TAG_LENGTH)
+
+    if (bits.length < stdMsgAddrSize || tag != STD_ADDRESS_TAG) {
+        return null
+    }
+
+    return bits.drop(stdMsgAddrSize)
 }
 
 private fun extractAddress(bits: String): String? {

@@ -33,11 +33,13 @@ fun TsExpression<TsSandboxContract<TsBasicWrapper>>.internal(
     body: TsExpression<TsCell>,
     value: TsExpression<TsBigint>,
     bounce: TsExpression<TsBoolean>,
-    bounced: TsExpression<TsBoolean>
+    bounced: TsExpression<TsBoolean>,
+    ihrFee: TsExpression<TsBigint>,
+    fwdFee: TsExpression<TsBigint>
 ): TsExpression<TsSendMessageResult> = TsMethodCall(
     caller = this,
     executableName = "internal",
-    arguments = listOf(blockchain, sender, body, value, bounce, bounced),
+    arguments = listOf(blockchain, sender, body, value, bounce, bounced, ihrFee, fwdFee),
     async = true,
     type = TsSendMessageResult
 )

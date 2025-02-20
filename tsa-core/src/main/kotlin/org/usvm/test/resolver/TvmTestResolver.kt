@@ -22,6 +22,7 @@ data object TvmTestResolver {
         val stateResolver = TvmTestStateResolver(ctx, model, state, ctx.tvmOptions.performAdditionalChecksWhileResolving)
 
         val usedParameters = stateResolver.resolveParameters()
+        val config = stateResolver.resolveConfig()
         val contractAddress = stateResolver.resolveContractAddress()
         val contractBalance = stateResolver.resolveContractBalance()
         val time = stateResolver.resolveTime()
@@ -33,6 +34,7 @@ data object TvmTestResolver {
 
         return TvmSymbolicTest(
             methodId = methodId,
+            config = config,
             contractAddress = contractAddress,
             initialData = initialData,
             rootInitialData = rootInitialData,
@@ -98,6 +100,7 @@ data class TvmMethodCoverage(
 
 data class TvmSymbolicTest(
     val methodId: MethodId,
+    val config: TvmTestDictCellValue,
     val contractAddress: TvmTestDataCellValue,
     val contractBalance: TvmTestIntegerValue,
     val time: TvmTestIntegerValue,

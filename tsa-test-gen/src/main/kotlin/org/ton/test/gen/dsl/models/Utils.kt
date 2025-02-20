@@ -44,6 +44,15 @@ fun blockchainCreate(): TsExpression<TsBlockchain> =
         TsBlockchain
     )
 
+fun blockchainCreate(configHex: String): TsExpression<TsBlockchain> =
+    TsMethodCall(
+        caller = null,
+        executableName = "Blockchain.create",
+        arguments = listOf(TsObjectInit(listOf(cellFromHex(configHex)), TsBlockchainOpts)),
+        async = true,
+        TsBlockchain
+    )
+
 fun compileContract(target: String): TsExpression<TsCell> =
     TsMethodCall(
         caller = null,

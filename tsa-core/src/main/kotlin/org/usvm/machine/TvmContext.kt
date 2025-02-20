@@ -43,7 +43,6 @@ import org.usvm.machine.types.TvmSliceType
 import org.usvm.machine.types.TvmType
 import org.usvm.machine.types.dp.AbstractGuard
 import org.usvm.machine.types.dp.AbstractionForUExpr
-import org.usvm.machine.types.dp.AbstractionForUExprWithCellDataPrefix
 import org.usvm.mkSizeExpr
 import org.usvm.sizeSort
 
@@ -217,8 +216,10 @@ class TvmContext(
 
         const val CONFIG_KEY_LENGTH: Int = 32
 
+        const val HASH_BITS: UInt = 256u
+
         const val STD_WORKCHAIN_BITS: Int = 8
-        const val ADDRESS_BITS: Int = 256
+        val ADDRESS_BITS: Int = HASH_BITS.toInt()
 
         const val ADDRESS_TAG_LENGTH: Int = 2
         val ADDRESS_TAG_BITS: UInt = ADDRESS_TAG_LENGTH.toUInt()
@@ -234,7 +235,7 @@ class TvmContext(
         val INT_EXT256_BITS: UInt = INT_BITS + 256u
 
         // Minimum incoming message value/balance in nanotons
-        const val MIN_MESSAGE_CURRENCY: Long = 10_000_000
+        const val MIN_MESSAGE_CURRENCY: Long = 100_000_000
         // Maximum incoming message value/balance in nanotons
         val MAX_MESSAGE_CURRENCY: BigInteger = BigInteger.TEN.pow(20)
 
@@ -252,7 +253,7 @@ class TvmContext(
 
         val dictKeyLengthField: TvmField = TvmFieldImpl(TvmDictCellType, "keyLength")
 
-        const val stdMsgAddrSize = 2 + 1 + 8 + 256
+        val stdMsgAddrSize = ADDRESS_TAG_LENGTH + 1 + STD_WORKCHAIN_BITS + ADDRESS_BITS
     }
 
     class TvmInt257Sort(ctx: KContext) : KBvCustomSizeSort(ctx, INT_BITS)

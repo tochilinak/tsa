@@ -33,6 +33,8 @@ import org.ton.test.gen.dsl.models.TsNum
 import org.ton.test.gen.dsl.models.TsNumAdd
 import org.ton.test.gen.dsl.models.TsNumDiv
 import org.ton.test.gen.dsl.models.TsNumSub
+import org.ton.test.gen.dsl.models.TsObject
+import org.ton.test.gen.dsl.models.TsObjectInit
 import org.ton.test.gen.dsl.models.TsSandboxContract
 import org.ton.test.gen.dsl.models.TsSendMessageResult
 import org.ton.test.gen.dsl.models.TsSlice
@@ -135,6 +137,18 @@ class TsRenderer(
 
     override fun visit(element: TsBigint) {
         printer.print("bigint")
+    }
+
+    override fun visit(element: TsObject) {
+        printer.print("{ ")
+
+        element.properties.forEach {
+            printer.print("${it.first}: ")
+            it.second.accept(this)
+            printer.print("; ")
+        }
+
+        printer.print("}")
     }
 
     override fun visit(element: TsWrapper) {
@@ -386,6 +400,18 @@ class TsRenderer(
         precedencePrint(element.rhs, element)
     }
 
+    override fun <T : TsObject> visit(element: TsObjectInit<T>) {
+        printer.print("{ ")
+
+        element.type.properties.zip(element.args).forEach { (propertyDescription, arg) ->
+            printer.print("${propertyDescription.first}: ")
+            arg.accept(this)
+            printer.print(", ")
+        }
+
+        printer.print("}")
+    }
+
     private fun precedencePrint(element: TsExpression<*>, parent: TsExpression<*>) {
         // TODO support associativity
 
@@ -410,6 +436,7 @@ class TsRenderer(
             is TsSliceValue -> maxPrecedence
             is TsDictValue -> maxPrecedence
             is TsVariable -> maxPrecedence
+            is TsObjectInit<*> -> maxPrecedence
 
             is TsFieldAccess<*, *> -> 17
             is TsConstructorCall<*> -> if (element.arguments.isEmpty()) 16 else 17

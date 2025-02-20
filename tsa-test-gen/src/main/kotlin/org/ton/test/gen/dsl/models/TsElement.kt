@@ -32,6 +32,7 @@ sealed interface TsElement {
             is TsInt -> visit(element)
             is TsBigint -> visit(element)
             is TsWrapper -> visit(element)
+            is TsObject -> visit(element)
             is TsSandboxContract<*> -> visit(element)
         }
 
@@ -68,6 +69,7 @@ sealed interface TsElement {
             is TsFieldAccess<*, *> -> visit(element)
             is TsConstructorCall<*> -> visit(element)
             is TsEquals<*> -> visit(element)
+            is TsObjectInit<*> -> visit(element)
         }
 }
 
@@ -156,6 +158,22 @@ data class TsBuilderValue(val value: TvmTestBuilderValue) : TsExpression<TsBuild
 data class TsEquals<T : TsType>(val lhs: TsExpression<T>, val rhs: TsExpression<T>) : TsExpression<T> {
     override val type: T
         get() = lhs.type
+}
+data class TsObjectInit<T : TsObject>(
+    val args: List<TsExpression<*>>,
+    override val type: T
+) : TsExpression<T> {
+    init {
+        require(args.size == type.properties.size) {
+            "Less arguments provided than the type requires: ${args.size} out of ${type.properties.size}"
+        }
+
+        type.properties.zip(args).forEach { (propertyDescription, arg) ->
+            require(arg.type == propertyDescription.second) {
+                "Expected ${propertyDescription.second} type but got ${arg.type}"
+            }
+        }
+    }
 }
 
 /* arithmetic */
