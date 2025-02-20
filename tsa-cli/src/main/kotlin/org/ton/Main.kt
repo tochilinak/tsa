@@ -303,6 +303,7 @@ class SafetyPropertiesAnalysis : CliktCommand(
     }
 }
 
+// TODO support safety properties mode for inter contract analysis
 class InterContractAnalysis : CliktCommand(
     name = "inter-contract",
     help = "Options for analyzing inter-contract communication of smart contracts",
