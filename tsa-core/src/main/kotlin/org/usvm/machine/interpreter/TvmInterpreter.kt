@@ -6,7 +6,12 @@ import io.ksmt.utils.BvUtils.bvMinValueSigned
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentMap
 import mu.KLogging
+import org.ton.TlbFullMsgAddrLabel
 import org.ton.TvmInputInfo
+import org.ton.TvmParameterInfo.CellInfo
+import org.ton.TvmParameterInfo.DataCellInfo
+import org.ton.TvmParameterInfo.SliceInfo
+import org.ton.TvmParameterInfo.UnknownCellInfo
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaArtificialExecuteContInst
 import org.ton.bytecode.TsaContractCode
@@ -198,6 +203,7 @@ import org.ton.cell.Cell
 import org.ton.targets.TvmTarget
 import org.usvm.StepResult
 import org.usvm.UBoolExpr
+import org.usvm.UConcreteHeapRef
 import org.usvm.UExpr
 import org.usvm.UInterpreter
 import org.usvm.api.makeSymbolicPrimitive
@@ -208,17 +214,13 @@ import org.usvm.constraints.UPathConstraints
 import org.usvm.forkblacklists.UForkBlackList
 import org.usvm.machine.TvmCellDataFieldManager
 import org.usvm.machine.TvmContext
-import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
-import org.usvm.machine.TvmContext.Companion.MAX_DATA_LENGTH
 import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.RECEIVE_INTERNAL_ID
-import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
 import org.usvm.machine.TvmContext.Companion.cellDataLengthField
 import org.usvm.machine.TvmContext.Companion.cellRefsLengthField
 import org.usvm.machine.TvmContext.Companion.sliceCellField
 import org.usvm.machine.TvmContext.Companion.sliceDataPosField
 import org.usvm.machine.TvmContext.Companion.sliceRefPosField
-import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.bigIntValue
@@ -233,7 +235,9 @@ import org.usvm.machine.state.C7Register
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmInitialStateData
 import org.usvm.machine.state.TvmRefEmptyValue
-import org.usvm.machine.state.TvmStack
+import org.usvm.machine.state.TvmStack.TvmConcreteStackEntry
+import org.usvm.machine.state.TvmStack.TvmStackCellValue
+import org.usvm.machine.state.TvmStack.TvmStackSliceValue
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.addContinuation
@@ -245,7 +249,6 @@ import org.usvm.machine.state.allocateCell
 import org.usvm.machine.state.bvMaxValueSignedExtended
 import org.usvm.machine.state.bvMaxValueUnsignedExtended
 import org.usvm.machine.state.bvMinValueSignedExtended
-import org.usvm.machine.state.calcOnStateCtx
 import org.usvm.machine.state.callContinuation
 import org.usvm.machine.state.callContinuationComplex
 import org.usvm.machine.state.callMethod
@@ -277,6 +280,8 @@ import org.usvm.machine.state.getSliceRemainingBitsCount
 import org.usvm.machine.state.getSliceRemainingRefsCount
 import org.usvm.machine.state.initContractInfo
 import org.usvm.machine.state.initializeContractExecutionMemory
+import org.usvm.machine.state.input.RecvInternalInput
+import org.usvm.machine.state.input.TvmStateStackInput
 import org.usvm.machine.state.jumpToContinuation
 import org.usvm.machine.state.killCurrentState
 import org.usvm.machine.state.lastStmt
@@ -289,7 +294,6 @@ import org.usvm.machine.state.slicesAreEqual
 import org.usvm.machine.state.switchToFirstMethodInContract
 import org.usvm.machine.state.takeLastCell
 import org.usvm.machine.state.takeLastContinuation
-import org.usvm.machine.state.takeLastIntOrNull
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
 import org.usvm.machine.state.takeLastSlice
 import org.usvm.machine.state.takeLastTuple
@@ -349,29 +353,6 @@ class TvmInterpreter(
         methodId: MethodId,
         targets: List<TvmTarget> = emptyList()
     ): TvmState {
-        /*val contract = contractCode.methods[0]!!
-        val registers = TvmRegisters()
-        val currentContinuation = TvmContinuationValue(
-            contract,
-            TvmStack(ctx),
-            TvmRegisters()
-        )
-        registers.c3 = C3Register(currentContinuation)
-
-        val stack = TvmStack(ctx)
-        stack += ctx.mkBv(BigInteger.valueOf(methodId.toLong()), int257sort)
-        val state = TvmState(ctx, contract, *//*registers, *//*currentContinuation, stack, TvmCellValue(contractData), targets = UTargetsSet.from(targets))
-
-        val solver = ctx.solver<TvmType>()
-
-        val model = (solver.check(state.pathConstraints) as USatResult).model
-        state.models = listOf(model)
-
-        state.callStack.push(contract, returnSite = null)
-        state.newStmt(contract.instList.first())
-
-        return state*/
-
         val contractCode = contractsCode.getOrNull(startContractId)
             ?: error("Contract $startContractId not found.")
 
@@ -410,24 +391,99 @@ class TvmInterpreter(
                 ?: error("First element of c7 for contract $it not found")
             TvmInitialStateData(c4.value.value, c7)
         }
+        prepareMemoryForInitialState(state, startContractId, methodId)
+
+        state.callStack.push(contractCode.mainMethod, returnSite = null)
+        state.switchToFirstMethodInContract(contractCode, methodId)
+
+        state.stateInitialized = true
+        return state
+    }
+
+    private fun prepareMemoryForInitialState(
+        state: TvmState,
+        startContractId: ContractId,
+        methodId: MethodId,
+    ) {
+        val useRecvInternalInput = methodId == RECEIVE_INTERNAL_ID && ctx.tvmOptions.useRecvInternalInput
+        val allowInputStackValues = ctx.tvmOptions.enableInputValues && !useRecvInternalInput
         val executionMemory = initializeContractExecutionMemory(
             contractsCode,
             state,
             startContractId,
-            allowInputStackValues = ctx.tvmOptions.enableInputValues
+            allowInputStackValues,
         )
+
         state.stack = executionMemory.stack
         state.registersOfCurrentContract = executionMemory.registers
 
-        val dataCellInfoStorage = TvmDataCellInfoStorage.build(
-            state,
-            inputInfo
-        )
+        if (useRecvInternalInput) {
+            val input = RecvInternalInput(state)
+            state.input = input
+
+            val configBalance = state.getBalance()
+                ?: error("Unexpected incorrect config balance value")
+
+            val newInputInfo = hashMapOf<UConcreteHeapRef, CellInfo>()
+
+            // take input info only for the last parameter (msg_body)
+            if ((inputInfo.parameterInfos.keys - setOf(0)).isNotEmpty()) {
+                error("Can take into account input info only for msg_body in case of recv_internal but got $inputInfo")
+            }
+
+            val lastInputInfo = inputInfo.parameterInfos[0]?.let {
+                (it as? SliceInfo)
+                    ?: error("Incorrect input info for message body")
+            }
+            val msgBodyCell = state.memory.readField(input.msgBodySlice, sliceCellField, ctx.addressSort) as UConcreteHeapRef
+
+            if (lastInputInfo != null) {
+                newInputInfo[msgBodyCell] = lastInputInfo.cellInfo
+            } else {
+                newInputInfo[msgBodyCell] = UnknownCellInfo
+            }
+
+            val srcAddressCell = input.getSrcAddressCell(state)
+            newInputInfo[srcAddressCell] = DataCellInfo(TlbFullMsgAddrLabel)
+
+            val dataCellInfoStorage = TvmDataCellInfoStorage.build(
+                state = state,
+                info = TvmInputInfo(),
+                additionalCellLabels = newInputInfo,
+                additionalSliceToCell = mapOf(input.msgBodySlice to msgBodyCell),
+            )
+            setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
+
+            input.getAddressSlices().forEach {
+                dataCellInfoStorage.mapper.addAddressSlice(it)
+            }
+
+            // prepare stack
+            executionMemory.stack.addInt(configBalance)
+            executionMemory.stack.addInt(input.msgValue)
+            executionMemory.stack.addStackEntry(TvmConcreteStackEntry(TvmStackCellValue(input.constructFullMessage(state))))
+            executionMemory.stack.addStackEntry(TvmConcreteStackEntry(TvmStackSliceValue(input.msgBodySlice)))
+
+            // Save msgBody for inter-contract
+            if (ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
+                state.lastMsgBody = input.msgBodySlice
+            }
+        } else {
+            state.input = TvmStateStackInput
+
+            val dataCellInfoStorage = TvmDataCellInfoStorage.build(
+                state,
+                inputInfo
+            )
+            setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
+        }
+    }
+
+    private fun setDataCellInfoStorageAndSetModel(state: TvmState, dataCellInfoStorage: TvmDataCellInfoStorage) {
         state.dataCellInfoStorage = dataCellInfoStorage
+        state.cellDataFieldManager.addressToLabelMapper = dataCellInfoStorage.mapper
 
-        cellDataFieldManager.addressToLabelMapper = dataCellInfoStorage.mapper
-
-        val structuralConstraints = dataCellInfoStorage.mapper.getInitialStructuralConstraints(state)
+        val structuralConstraints = state.dataCellInfoStorage.mapper.getInitialStructuralConstraints(state)
         state.pathConstraints += structuralConstraints
 
         val solver = ctx.solver<TvmType>()
@@ -436,12 +492,6 @@ class TvmInterpreter(
             ?: error("Cannot construct model for initial state")
         val model = kModel.model
         state.models = listOf(model)
-
-        state.callStack.push(contractCode.mainMethod, returnSite = null)
-        state.switchToFirstMethodInContract(contractCode, methodId)
-
-        state.stateInitialized = true
-        return state
     }
 
     private fun UWritableMemory<TvmType>.initializeEmptyRefValues(
@@ -488,18 +538,9 @@ class TvmInterpreter(
         val allowFailures = state.allowFailures && !ctx.tvmOptions.excludeExecutionsWithFailures
         var scope = TvmStepScopeManager(state, forkBlackList, allowFailures)
 
-        // handle exception firstly
-//        val result = state.methodResult
-//        if (result is JcMethodResult.JcException) {
-//            handleException(scope, result, stmt)
-//            return scope.stepResult()
-//        }
-
         tryCatchIf(
             condition = ctx.tvmOptions.quietMode,
             body = {
-                recvInternalPreprocessing(scope, stmt)
-                    ?: return@tryCatchIf
                 visit(scope, stmt)
 
                 globalStructuralConstraintsHolder.applyTo(scope)
@@ -521,117 +562,6 @@ class TvmInterpreter(
                 TODO("Gas usage was not updated after: $stmt")
             }
         }
-    }
-
-    private fun recvInternalPreprocessing(scope: TvmStepScopeManager, stmt: TvmInst): Unit? {
-        val location = stmt.location as? TvmInstMethodLocation
-        val isFirstRecvInternalInst = location?.methodId == RECEIVE_INTERNAL_ID && location.index == 0
-
-        if (!isFirstRecvInternalInst) {
-            return Unit
-        }
-
-        saveRecvInternalMsgBody(scope)
-        return addRecvInternalConstraints(scope)
-    }
-
-    private fun saveRecvInternalMsgBody(scope: TvmStepScopeManager) {
-        if (!ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
-            return
-        }
-
-        scope.doWithState {
-            val msgBody = stack.takeLastSlice()
-                ?: error("Unexpected null msg_body")
-
-            lastMsgBody = msgBody
-            addOnStack(msgBody, TvmSliceType)
-        }
-    }
-
-    // TODO: assert these constraints with TL-B optimizations
-    private fun addRecvInternalConstraints(scope: TvmStepScopeManager): Unit? {
-        if (!ctx.tvmOptions.enableInternalArgsConstraints) {
-            return Unit
-        }
-
-        val (msgBody, fullMsg) = scope.calcOnState {
-            stack.takeLastSlice() to takeLastCell()
-        }
-
-        require(msgBody != null && fullMsg != null) {
-            "Unexpected incorrect stack entry type"
-        }
-
-        val cellDataFieldManager = scope.calcOnState { cellDataFieldManager }
-        val fullMsgData: UExpr<TvmContext.TvmCellDataSort> = cellDataFieldManager.readCellData(scope, fullMsg)
-            ?: return null
-
-        val constraints = scope.calcOnStateCtx {
-            val msgValue = takeLastIntOrNull()
-            val balance = takeLastIntOrNull()
-
-            require(msgValue != null && balance != null) {
-                "Unexpected incorrect stack entry type"
-            }
-
-            val fullMsgLength = memory.readField(fullMsg, cellDataLengthField, sizeSort)
-            val fullMsgTag = mkBvExtractExpr(MAX_DATA_LENGTH - 1, MAX_DATA_LENGTH - 1, fullMsgData)
-            val srcAddressTag = mkBvExtractExpr(MAX_DATA_LENGTH - 5, MAX_DATA_LENGTH - 6, fullMsgData)
-
-            /*
-            int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
-              src:MsgAddress dest:MsgAddressInt
-              value:CurrencyCollection ihr_fee:Grams fwd_fee:Grams
-              created_lt:uint64 created_at:uint32 = CommonMsgInfoRelaxed;
-
-            message$_ {X:Type} info:CommonMsgInfoRelaxed
-              init:(Maybe (Either StateInit ^StateInit))
-              body:(Either X ^X) = MessageRelaxed X;
-             */
-            val minFullMsgLength = 4 + stdMsgAddrSize * 2 + 4 + 1 + 4 + 4 + 64 + 32 + 1 + 1
-            val fullMsgConstraints = mkAnd(
-                fullMsgTag eq zeroBit,
-                srcAddressTag eq mkBv(STD_ADDRESS_TAG, ADDRESS_TAG_BITS),
-                mkBvSignedGreaterOrEqualExpr(fullMsgLength, mkSizeExpr(minFullMsgLength))
-            )
-
-            val msgValueConstraints = mkAnd(
-                mkBvSignedLessOrEqualExpr(minMessageCurrencyValue, msgValue),
-                mkBvSignedLessOrEqualExpr(msgValue, maxMessageCurrencyValue)
-            )
-
-            val configBalance = getBalance()
-                ?: error("Unexpected incorrect config balance value")
-            val initialBalance = mkBvSubExpr(balance, msgValue)
-            val balanceConstraints = mkAnd(
-                mkBvSignedLessOrEqualExpr(minMessageCurrencyValue, balance),
-                mkBvSignedLessOrEqualExpr(balance, maxMessageCurrencyValue),
-                mkBvSignedLessOrEqualExpr(minMessageCurrencyValue, initialBalance),
-                balance eq configBalance,
-            )
-
-            // if the original stack does not allow input values,
-            // new stack initialization is unnecessary
-            if (stack.allowInputValues) {
-                // to disable input values
-                val newStack = TvmStack(ctx, allowInputValues = false)
-                newStack.copyInputValues(stack)
-                stack = newStack
-            }
-
-            stack.addInt(balance)
-            stack.addInt(msgValue)
-            addOnStack(fullMsg, TvmCellType)
-            addOnStack(msgBody, TvmSliceType)
-
-            fullMsgConstraints and msgValueConstraints and balanceConstraints
-        }
-
-        return scope.assert(
-            constraint = constraints,
-            unsatBlock = { error("Cannot assert recv_internal constraints") }
-        )
     }
 
     private fun visit(scope: TvmStepScopeManager, stmt: TvmInst) {

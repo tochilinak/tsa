@@ -3,11 +3,12 @@ package org.ton.examples.types
 import org.ton.Endian
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.examples.propertiesFound
-import org.usvm.test.resolver.TvmTestCellDataBitArrayRead
-import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
-import org.usvm.test.resolver.TvmTestCellDataIntegerRead
+import org.ton.examples.testOptionsToAnalyzeSpecificMethod
 import org.usvm.test.resolver.TvmCellDataTypeLoad
 import org.usvm.test.resolver.TvmSymbolicTest
+import org.usvm.test.resolver.TvmTestCellDataBitArrayRead
+import org.usvm.test.resolver.TvmTestCellDataIntegerRead
+import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
 import org.usvm.test.resolver.TvmTestSliceValue
 import kotlin.io.path.Path
 import kotlin.test.Test
@@ -21,7 +22,10 @@ class TypeVariantsExample {
         val resourcePath = this::class.java.getResource(path)?.path?.let { Path(it) }
             ?: error("Cannot find resource $path")
 
-        val result = funcCompileAndAnalyzeAllMethods(resourcePath)
+        val result = funcCompileAndAnalyzeAllMethods(
+            resourcePath,
+            tvmOptions = testOptionsToAnalyzeSpecificMethod
+        )
         assertEquals(1, result.testSuites.size)
         val testSuite = result.testSuites.first()
 
@@ -82,7 +86,7 @@ class TypeVariantsExample {
 
     private fun generatePredicate(variants: List<List<TvmCellDataTypeLoad>>): (TvmSymbolicTest) -> Boolean =
         result@{ test ->
-            val casted = (test.usedParameters.last() as? TvmTestSliceValue)?.cell ?: return@result false
+            val casted = (test.input.usedParameters.last() as? TvmTestSliceValue)?.cell ?: return@result false
             variants.any { variant ->
                 casted.knownTypes == variant
             }

@@ -106,7 +106,7 @@ fun TvmState.generateSymbolicCell(): UConcreteHeapRef = generateSymbolicRef(TvmC
 fun TvmState.ensureSymbolicCellInitialized(ref: UHeapRef) =
     ensureSymbolicRefInitialized(ref, TvmCellType) { initializeSymbolicCell(it) }
 
-fun TvmState.generateSymbolicSlice(): UHeapRef =
+fun TvmState.generateSymbolicSlice(): UConcreteHeapRef =
     generateSymbolicRef(TvmSliceType).also { initializeSymbolicSlice(it) }
 
 fun TvmState.ensureSymbolicSliceInitialized(ref: UHeapRef) =
@@ -313,7 +313,6 @@ fun TvmState.contractEpilogue() {
         currentContract,
         registersOfCurrentContract.c7.value[0, stack].cell(stack) as TvmStackTupleValueConcreteNew
     )
-    lastMsgBody = null
 
     val commitedState = lastCommitedStateOfContracts[currentContract]
         ?: return

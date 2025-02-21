@@ -76,8 +76,11 @@ import org.ton.bytecode.BALANCE_PARAMETER_IDX
 import org.ton.bytecode.CONFIG_PARAMETER_IDX
 import org.ton.bytecode.TIME_PARAMETER_IDX
 import org.ton.bytecode.TvmArtificialInst
+import org.usvm.UBoolExpr
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmStack.TvmStackValue
+import org.usvm.machine.state.input.RecvInternalInput
+import org.usvm.machine.state.input.TvmStateStackInput
 
 class TvmTestStateResolver(
     private val ctx: TvmContext,
@@ -96,7 +99,29 @@ class TvmTestStateResolver(
     private val labelMapper
         get() = state.dataCellInfoStorage.mapper
 
-    fun resolveParameters(): List<TvmTestValue> = stack.inputValues.filterNotNull().map { resolveStackValue(it) }.reversed()
+    fun resolveInput(): TvmTestInput = when (val input = state.input) {
+        is TvmStateStackInput -> {
+            TvmTestInput.StackInput(resolveStackInput())
+        }
+        is RecvInternalInput -> {
+            TvmTestInput.RecvInternalInput(
+                srcAddress = resolveSlice(input.srcAddress),
+                msgValue = resolveInt257(input.msgValue),
+                msgBody = resolveSlice(input.msgBodySlice),
+                bounce = resolveBool(input.bounce),
+                bounced = resolveBool(input.bounced),
+                ihrDisabled = resolveBool(input.ihrDisabled),
+                ihrFee = resolveInt257(input.ihrFee),
+                fwdFee = resolveInt257(input.fwdFee),
+                createdLt = resolveInt257(input.createdLt),
+                createdAt = resolveInt257(input.createdAt),
+            )
+        }
+    }
+
+    private fun resolveBool(boolExpr: UBoolExpr): Boolean = model.eval(boolExpr).isTrue
+
+    private fun resolveStackInput(): List<TvmTestValue> = stack.inputValues.filterNotNull().map { resolveStackValue(it) }.reversed()
 
     fun resolveInitialData(): Map<ContractId, TvmTestCellValue> = state.contractIdToInitialData.entries.associate { (key, value) ->
         key to resolveCell(value.persistentData)
@@ -378,7 +403,9 @@ class TvmTestStateResolver(
         // If typeVariants has more than one type, we can choose any of them.
         val type = typeVariants.first()
 
-        require(type is TvmDictCellType || type is TvmDataCellType)
+        require(type is TvmDictCellType || type is TvmDataCellType) {
+            "Unexpected type: $type"
+        }
 
         if (type is TvmDictCellType) {
             return resolveDictCell(modelRef, cell)

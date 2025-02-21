@@ -23,6 +23,7 @@ import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSuccessfulExecution
 import org.usvm.test.resolver.TvmSymbolicTest
 import org.usvm.test.resolver.TvmSymbolicTestSuite
+import org.usvm.test.resolver.TvmTestInput
 
 fun TvmContractSymbolicTestResult.toSarifReport(methodsMapping: Map<MethodId, String>): String = SarifSchema210(
     schema = TsaSarifSchema.SCHEMA,
@@ -83,7 +84,7 @@ private fun List<TvmSymbolicTest>.toSarifResult(
     val properties = PropertyBag(
         mapOf(
             "gasUsage" to it.gasUsage,
-            "usedParameters" to TvmContractCode.json.encodeToJsonElement(it.usedParameters),
+            "usedParameters" to TvmContractCode.json.encodeToJsonElement(it.input.usedParameters),
             "resultStack" to TvmContractCode.json.encodeToJsonElement(it.result.stack),
         )
     )

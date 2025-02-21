@@ -3,7 +3,6 @@ package org.usvm.test.resolver
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import org.ton.Endian
-import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
 import java.math.BigInteger
 
 @Serializable
@@ -13,6 +12,13 @@ sealed interface TvmTestValue
 @Serializable
 value class TvmTestIntegerValue(
     val value: @Contextual BigInteger
+): TvmTestValue
+
+// Artificial entity to represent one-bit integer test values
+@JvmInline
+@Serializable
+value class TvmTestBooleanValue(
+    val value: Boolean
 ): TvmTestValue
 
 sealed interface TvmTestReferenceValue

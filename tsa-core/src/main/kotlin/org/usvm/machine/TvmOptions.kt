@@ -12,7 +12,7 @@ data class TvmOptions(
     val quietMode: Boolean = false,
     val enableVarAddress: Boolean = false,
     val enableExternalAddress: Boolean = false,
-    val enableInternalArgsConstraints: Boolean = true,
+    val useRecvInternalInput: Boolean = true,
     val enableInputValues: Boolean = true,
     val turnOnTLBParsingChecks: Boolean = true,
     val performAdditionalChecksWhileResolving: Boolean = false,

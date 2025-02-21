@@ -181,6 +181,7 @@ fun TsExpression<TsBlockchain>.now(): TsFieldAccess<TsBlockchain, TsInt> =
 
 fun Boolean.toTsValue(): TsBooleanValue = TsBooleanValue(this)
 fun Int.toTsValue(): TsIntValue = TsIntValue(BigInteger.valueOf(this.toLong()))
+fun Long.toTsValue(): TsIntValue = TsIntValue(BigInteger.valueOf(this))
 fun BigInteger.toTsValue(): TsBigintValue = TsBigintValue(TvmTestIntegerValue(this))
 fun TvmTestIntegerValue.toTsValue(): TsBigintValue = TsBigintValue(this)
 fun String.toTsValue(): TsStringValue = TsStringValue(this)

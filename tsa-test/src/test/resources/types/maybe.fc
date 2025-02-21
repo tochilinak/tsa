@@ -1,7 +1,7 @@
 #include "../imports/stdlib.fc";
 
 
-() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+() recv_internal(slice in_msg) impure {
     cell some_cell = in_msg~load_maybe_ref();
     if (some_cell.null?()) {
         return ();

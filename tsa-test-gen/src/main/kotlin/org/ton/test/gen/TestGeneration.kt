@@ -33,9 +33,10 @@ import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSymbolicTest
 import org.usvm.test.resolver.TvmTerminalMethodSymbolicResult
 import org.usvm.test.resolver.TvmTestDataCellValue
+import org.usvm.test.resolver.TvmTestInput
+import org.usvm.test.resolver.TvmTestInput.RecvInternalInput
 import org.usvm.test.resolver.TvmTestIntegerValue
 import org.usvm.test.resolver.TvmTestSliceValue
-import java.math.BigInteger
 import java.nio.file.Path
 import java.util.Locale
 import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
@@ -178,18 +179,33 @@ private fun TsTestFileBuilder.registerRecvInternalTests(
             emptyLine()
 
             val srcAddr = newVar("srcAddr", parseAddress(input.srcAddress))
-            val msgBody = newVar("msgBody", input.msgBody.toTsValue())
-            val msgCurrency = newVar("msgCurrency", input.msgCurrency.toTsValue())
-            val bounce = newVar("bounce", input.bounce.toTsValue())
-            val bounced = newVar("bounced", input.bounced.toTsValue())
-            val ihrFee = newVar("ihrFee", input.ihrFee.toTsValue())
-            val fwdFee = newVar("fwdFee", input.fwdFee.toTsValue())
+            val msgBody = newVar("msgBody", input.msgBodyCell.toTsValue())
+            val msgCurrency = newVar("msgCurrency", input.input.msgValue.toTsValue())
+            val bounce = newVar("bounce", input.input.bounce.toTsValue())
+            val bounced = newVar("bounced", input.input.bounced.toTsValue())
+            val ihrDisabled = newVar("ihrDisabled", input.input.ihrDisabled.toTsValue())
+            val ihrFee = newVar("ihrFee", input.input.ihrFee.toTsValue())
+            val forwardFee = newVar("forwardFee", input.input.fwdFee.toTsValue())
+            val createdLt = newVar("createdLt", input.input.createdLt.toTsValue())
+            val createdAt = newVar("createdAt", input.input.createdAt.value.toLong().toTsValue()) // createdAt is a number, not a bigint
 
             emptyLine()
 
             val sendMessageResult = newVar(
                 "sendMessageResult",
-                contract.internal(ctx.blockchain, srcAddr, msgBody, msgCurrency, bounce, bounced, ihrFee, fwdFee)
+                contract.internal(
+                    ctx.blockchain,
+                    srcAddr,
+                    msgBody,
+                    msgCurrency,
+                    bounce,
+                    bounced,
+                    ihrDisabled,
+                    ihrFee,
+                    forwardFee,
+                    createdLt,
+                    createdAt,
+                )
             )
             sendMessageResult.expectToHaveTransaction {
                 from = srcAddr
@@ -251,65 +267,19 @@ private fun TsTestFileBuilder.registerRecvExternalTests(
 }
 
 private fun resolveReceiveInternalInput(test: TvmSymbolicTest): TvmReceiveInternalInput {
-    // assume that recv_internal args have specified order:
-    // recv_internal(int balance, int msg_value, cell full_msg, slice msg_body)
-    val args = test.usedParameters.reversed()
-    val msgBody = args.getOrNull(0)
-        ?: TvmTestSliceValue()
-    val fullMsg = args.getOrNull(1)
-        ?: TvmTestDataCellValue()
-    val defaultCurrency = BigInteger.valueOf(TvmContext.MIN_MESSAGE_CURRENCY)
-    val msgCurrency = args.getOrNull(2)
-        ?: TvmTestIntegerValue(defaultCurrency)
-
-    require(msgBody is TvmTestSliceValue) {
-        "Unexpected recv_internal arg at index 0: $msgBody"
-    }
-    require(fullMsg is TvmTestDataCellValue) {
-        "Unexpected recv_internal arg at index 1: $fullMsg"
-    }
-    require(msgCurrency is TvmTestIntegerValue) {
-        "Unexpected recv_internal arg at index 2: $msgCurrency"
-    }
+    val input = test.input as? RecvInternalInput
+        ?: error("Unexpected general input ${test.input} for recv_internal")
 
     val configHex = transformTestConfigIntoHex(test.config)
 
-    // TODO: this is not really correct, because part of msgCurrency is used for paying for gas
+    // TODO: this is not really correct, because part of msgValue is used for paying for gas
     val balance = test.contractBalance
-    val initialBalance = TvmTestIntegerValue(balance.value - msgCurrency.value)
+    val initialBalance = TvmTestIntegerValue(balance.value - input.msgValue.value)
 
     val contractAddress = extractAddress(test.contractAddress.data)
-        ?: error("Unexpected incorrect contract address")
-
-    // if the result of parsing is null, then
-    // bits haven't been read during the interpretation,
-    // so, we can assign any value to them
-
-    var msgBits = fullMsg.data
-
-    // int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
-    val bounce = msgBits.getOrNull(2) == '1'
-    val bounced = msgBits.getOrNull(3) == '1'
-    msgBits = msgBits.drop(4)
-
-    // src:MsgAddress
-    val srcAddress = extractAddress(msgBits).also {
-        msgBits = skipStdAddress(msgBits) ?: ""
-    } ?: ("0:" + "0".repeat(64))
-
-    // dest:MsgAddressInt
-    msgBits = skipStdAddress(msgBits) ?: ""
-
-    // value:CurrencyCollection
-    msgBits = skipGrams(msgBits) ?: ""
-    msgBits = msgBits.drop(1)
-
-    // ihr_fee:Grams
-    val ihrFee = loadGrams(msgBits).also {
-        msgBits = skipGrams(msgBits) ?: ""
-    } ?: ""
-    // fwd_fee:Grams
-    val fwdFee = loadGrams(msgBits) ?: ""
+        ?: error("Unexpected incorrect contract address ${test.contractAddress.data}")
+    val srcAddress = extractAddress(input.srcAddress.cell.data)
+        ?: error("Incorrect srcAddress ${input.srcAddress.cell.data}")
 
     val result = test.result
     require(result is TvmTerminalMethodSymbolicResult) {
@@ -318,41 +288,35 @@ private fun resolveReceiveInternalInput(test: TvmSymbolicTest): TvmReceiveIntern
 
     return TvmReceiveInternalInput(
         configHex = configHex,
-        msgBody = truncateSliceCell(msgBody),
-        fullMsg = fullMsg,
-        msgCurrency = msgCurrency,
+        msgBodyCell = truncateSliceCell(input.msgBody),
         initialBalance = initialBalance,
         time = test.time,
         address = contractAddress,
         srcAddress = srcAddress,
-        bounce = bounce,
-        bounced = bounced,
+        input = input,
         exitCode = result.exitCode.toInt(),
-        ihrFee = TvmTestIntegerValue(ihrFee.binaryToUnsignedBigInteger()),
-        fwdFee = TvmTestIntegerValue(fwdFee.binaryToUnsignedBigInteger()),
     )
 }
 
 private data class TvmReceiveInternalInput(
     val configHex: String,
-    val msgBody: TvmTestDataCellValue,
-    val fullMsg: TvmTestDataCellValue,
-    val msgCurrency: TvmTestIntegerValue,
+    val msgBodyCell: TvmTestDataCellValue,
     val initialBalance: TvmTestIntegerValue,
     val time: TvmTestIntegerValue,
     val address: String,
     val srcAddress: String,
-    val bounce: Boolean,
-    val bounced: Boolean,
+    val input: RecvInternalInput,
     val exitCode: Int,
-    val ihrFee: TvmTestIntegerValue,
-    val fwdFee: TvmTestIntegerValue
 )
 
 private fun resolveReceiveExternalInput(test: TvmSymbolicTest): TvmReceiveExternalInput {
     // TODO: for now, take into account only in_message
     // in theory, up to 4 arguments can be used (same as for receive_internal)
-    val args = test.usedParameters.reversed()
+    val usedParameters = (test.input as? TvmTestInput.StackInput)?.usedParameters
+        // TODO support recv_external input
+        ?: error("Unexpected input ${test.input} for recv_external")
+
+    val args = usedParameters.reversed()
     val msgBody = args.getOrNull(0)
         ?: TvmTestSliceValue()
 

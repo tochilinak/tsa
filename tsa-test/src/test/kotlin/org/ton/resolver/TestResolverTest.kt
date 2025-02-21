@@ -29,10 +29,10 @@ class TestResolverTest {
         val (_, test) = findMethodTest(symbolicResult) { test ->
             (test.result as? TvmMethodFailure)?.let {
                 it.failure.exit is TvmIntegerOverflowError && it.lastStmt is TvmArithmDivInst
-            } ?: false
+            } == true
         }
 
-        val usedParameters = test.usedParameters
+        val usedParameters = test.input.usedParameters
         assertTrue(usedParameters.size == 2)
 
         val arg0 = (usedParameters[0] as TvmTestIntegerValue).value
@@ -47,10 +47,10 @@ class TestResolverTest {
         val (_, test) = findMethodTest(symbolicResult) { test ->
             (test.result as? TvmMethodFailure)?.let {
                 it.failure.exit is TvmIntegerOverflowError && it.lastStmt is TvmArithmDivInst
-            } ?: false
+            } == true
         }
 
-        val usedParameters = test.usedParameters
+        val usedParameters = test.input.usedParameters
         assertTrue(usedParameters.size == 1)
 
         val arg = (usedParameters.first() as TvmTestDataCellValue).refs.first() as TvmTestDataCellValue
@@ -65,10 +65,10 @@ class TestResolverTest {
         val (_, test) = findMethodTest(symbolicResult) { test ->
             (test.result as? TvmMethodFailure)?.let {
                 it.failure.exit is TvmIntegerOverflowError && it.lastStmt is TvmArithmDivInst
-            } ?: false
+            } == true
         }
 
-        val usedParameters = test.usedParameters
+        val usedParameters = test.input.usedParameters
         assertTrue(usedParameters.size == 1)
 
         val arg = (usedParameters.first() as TvmTestSliceValue).cell.refs.first() as TvmTestDataCellValue
@@ -83,10 +83,10 @@ class TestResolverTest {
         val (_, test) = findMethodTest(symbolicResult) { test ->
             (test.result as? TvmMethodFailure)?.let {
                 it.failure.exit is TvmIntegerOverflowError && it.lastStmt is TvmArithmDivInst
-            } ?: false
+            } == true
         }
 
-        val usedParameters = test.usedParameters
+        val usedParameters = test.input.usedParameters
         assertTrue(usedParameters.size == 1)
 
         val arg = (usedParameters.first() as TvmTestBuilderValue).refs.first() as TvmTestDataCellValue

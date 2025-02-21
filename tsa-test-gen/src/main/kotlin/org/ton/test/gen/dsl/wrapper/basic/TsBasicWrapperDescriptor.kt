@@ -17,26 +17,32 @@ class TsBasicWrapperDescriptor(override val name: String) : TsWrapperDescriptor<
             }
 
             async internal(
-            blockchain: Blockchain,
-            sender: Address,
-            body: Cell,
-            value: bigint,
-            bounce: boolean,
-            bounced: boolean,
-            ihrFee: bigint,
-            fwdFee: bigint,
-        ) {
-            return await blockchain.sendMessage(internal({
-                from: sender,
-                to: this.address,
-                body: body,
-                value: value ,
-                bounce: bounce,
-                bounced: bounced,
-                ihrFee: ihrFee,
-                forwardFee: fwdFee,
-            }))
-        }
+                blockchain: Blockchain,
+                sender: Address,
+                body: Cell,
+                value: bigint,
+                bounce: boolean,
+                bounced: boolean,
+                ihrDisabled: boolean,
+                ihrFee: bigint,
+                forwardFee: bigint,
+                createdLt: bigint,
+                createdAt: number,
+            ) {
+                return await blockchain.sendMessage(internal({
+                    from: sender,
+                    to: this.address,
+                    body: body,
+                    value: value ,
+                    bounce: bounce,
+                    bounced: bounced,
+                    ihrDisabled: ihrDisabled,
+                    ihrFee: ihrFee,
+                    forwardFee: forwardFee,
+                    createdLt: createdLt,
+                    createdAt: createdAt,
+                }))
+            }
 
             async external(
                 blockchain: Blockchain,

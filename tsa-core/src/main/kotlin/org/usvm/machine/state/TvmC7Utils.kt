@@ -282,6 +282,16 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
     addDictEntry(configDict, 1, allocDataCellFromData(electorAddr))
 
     /**
+     * Index: 8
+     */
+    val networkVersion = allocCellFromFields(
+        mkBvHex("c4", tagBits),                                                                 // capabilities tag
+        mkBv(9, uint32Bits),                                                                    // version
+        mkBv(494, uint64Bits),                                                                  // capabilities
+    )
+    addDictEntry(configDict, 8, networkVersion)
+
+    /**
      * Index: 12
      */
     val workchainDescr = allocCellFromFields(

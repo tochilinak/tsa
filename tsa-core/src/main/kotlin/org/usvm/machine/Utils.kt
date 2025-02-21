@@ -11,8 +11,10 @@ import org.ton.bytecode.TvmInstLambdaLocation
 import org.ton.bytecode.TvmInstLocation
 import org.ton.bytecode.TvmMethod
 import org.ton.cell.Cell
+import org.usvm.UBoolSort
 import org.usvm.UBvSort
 import org.usvm.UExpr
+import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestSliceValue
 import java.nio.file.Path
@@ -64,3 +66,6 @@ fun Cell.toTvmCell(): TvmCell {
     val data = TvmCellData(bits.toBinary())
     return TvmCell(data, children)
 }
+
+context(TvmContext)
+fun UExpr<UBoolSort>.asIntValue(): UExpr<TvmInt257Sort> = mkIte(this, oneValue, zeroValue)

@@ -7,6 +7,7 @@ import org.ton.test.gen.dsl.models.TsBoolean
 import org.ton.test.gen.dsl.models.TsCell
 import org.ton.test.gen.dsl.models.TsConstructorCall
 import org.ton.test.gen.dsl.models.TsExpression
+import org.ton.test.gen.dsl.models.TsInt
 import org.ton.test.gen.dsl.models.TsMethodCall
 import org.ton.test.gen.dsl.models.TsSandboxContract
 import org.ton.test.gen.dsl.models.TsSendMessageResult
@@ -34,12 +35,15 @@ fun TsExpression<TsSandboxContract<TsBasicWrapper>>.internal(
     value: TsExpression<TsBigint>,
     bounce: TsExpression<TsBoolean>,
     bounced: TsExpression<TsBoolean>,
+    ihrDisabled: TsExpression<TsBoolean>,
     ihrFee: TsExpression<TsBigint>,
-    fwdFee: TsExpression<TsBigint>
+    forwardFee: TsExpression<TsBigint>,
+    createdLt: TsExpression<TsBigint>,
+    createdAt: TsExpression<TsInt>,
 ): TsExpression<TsSendMessageResult> = TsMethodCall(
     caller = this,
     executableName = "internal",
-    arguments = listOf(blockchain, sender, body, value, bounce, bounced, ihrFee, fwdFee),
+    arguments = listOf(blockchain, sender, body, value, bounce, bounced, ihrDisabled, ihrFee, forwardFee, createdLt, createdAt),
     async = true,
     type = TsSendMessageResult
 )

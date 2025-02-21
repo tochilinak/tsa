@@ -21,7 +21,7 @@ data object TvmTestResolver {
         val ctx = state.ctx
         val stateResolver = TvmTestStateResolver(ctx, model, state, ctx.tvmOptions.performAdditionalChecksWhileResolving)
 
-        val usedParameters = stateResolver.resolveParameters()
+        val input = stateResolver.resolveInput()
         val config = stateResolver.resolveConfig()
         val contractAddress = stateResolver.resolveContractAddress()
         val contractBalance = stateResolver.resolveContractBalance()
@@ -40,7 +40,7 @@ data object TvmTestResolver {
             rootInitialData = rootInitialData,
             contractBalance = contractBalance,
             time = time,
-            usedParameters = usedParameters,
+            input = input,
             result = result,
             stackTrace = state.continuationStack,
             gasUsage = gasUsage,
@@ -106,7 +106,7 @@ data class TvmSymbolicTest(
     val time: TvmTestIntegerValue,
     val rootInitialData: TvmTestCellValue,
     val initialData: Map<ContractId, TvmTestCellValue>,
-    val usedParameters: List<TvmTestValue>,
+    val input: TvmTestInput,
     val result: TvmMethodSymbolicResult,
     val externalMessageWasAccepted: Boolean,
     val stackTrace: List<TvmInst>,

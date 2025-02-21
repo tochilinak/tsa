@@ -6,7 +6,7 @@ import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.propertiesFound
 import org.ton.examples.runFiftMethod
 import org.ton.examples.testFiftOptions
-import org.usvm.machine.TvmOptions
+import org.ton.examples.testOptionsToAnalyzeSpecificMethod
 import org.usvm.test.resolver.TvmSuccessfulExecution
 import org.usvm.test.resolver.TvmTestIntegerValue
 import java.math.BigInteger
@@ -56,7 +56,7 @@ class ContinuationTest {
         val symbolicResult = compileAndAnalyzeFift(
             fiftResourcePath,
             methodsBlackList = setOf(BigInteger.ZERO, someThrowingMethodId),
-            tvmOptions = TvmOptions(enableInternalArgsConstraints = false)
+            tvmOptions = testOptionsToAnalyzeSpecificMethod
         )
 
         // We have analyzed just one method, retrieve its executions
@@ -72,21 +72,21 @@ class ContinuationTest {
             listOf(
                 // op == 1 -> nothing is thrown, simple return -> successful try -> [1337] is a resulting stack
                 { execution ->
-                    val op = (execution.usedParameters.single() as TvmTestIntegerValue).value
+                    val op = (execution.input.usedParameters.single() as TvmTestIntegerValue).value
                     val stackResultValues = ((execution.result as TvmSuccessfulExecution).stack.map { (it as TvmTestIntegerValue).value })
 
                     op == BigInteger.ONE && stackResultValues.size == 1 && stackResultValues.single() == BigInteger.valueOf(1337)
                 },
                 // op == 2 -> nothing is thrown but alternative return -> successful try -> [1337] is a resulting stack
                 { execution ->
-                    val op = (execution.usedParameters.single() as TvmTestIntegerValue).value
+                    val op = (execution.input.usedParameters.single() as TvmTestIntegerValue).value
                     val stackResultValues = ((execution.result as TvmSuccessfulExecution).stack.map { (it as TvmTestIntegerValue).value })
 
                     op == BigInteger.valueOf(2) && stackResultValues.size == 1 && stackResultValues.single() == BigInteger.valueOf(1337)
                 },
                 // op != 1 && op != 2 -> 1 is thrown -> going to the catch block -> [42] is a resulting stack
                 { execution ->
-                    val op = (execution.usedParameters.single() as TvmTestIntegerValue).value
+                    val op = (execution.input.usedParameters.single() as TvmTestIntegerValue).value
                     val stackResultValues = ((execution.result as TvmSuccessfulExecution).stack.map { (it as TvmTestIntegerValue).value })
 
                     op != BigInteger.ONE && op != BigInteger.valueOf(2) && stackResultValues.size == 1 && stackResultValues.single() == BigInteger.valueOf(42)

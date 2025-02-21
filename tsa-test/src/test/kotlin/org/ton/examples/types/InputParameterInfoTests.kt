@@ -1,6 +1,5 @@
 package org.ton.examples.types
 
-import java.math.BigInteger
 import org.ton.Endian
 import org.ton.TlbCoinsLabel
 import org.ton.TlbEmptyLabel
@@ -29,7 +28,8 @@ import org.usvm.test.resolver.TvmTestCellDataCoinsRead
 import org.usvm.test.resolver.TvmTestCellDataIntegerRead
 import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
 import org.usvm.test.resolver.TvmTestDataCellValue
-import org.usvm.test.resolver.TvmTestSliceValue
+import org.usvm.test.resolver.TvmTestInput.RecvInternalInput
+import java.math.BigInteger
 import kotlin.io.path.Path
 import kotlin.test.Ignore
 import kotlin.test.Test
@@ -351,8 +351,7 @@ class InputParameterInfoTests {
                     error.actualType is TvmTestCellDataCoinsRead && error.expectedLabel is TlbMsgAddrLabel
                 },
                 { test ->
-                    val param = test.usedParameters.lastOrNull() as? TvmTestSliceValue
-                        ?: return@listOf false
+                    val param = (test.input as RecvInternalInput).msgBody
                     val cell = param.cell
                     cell.data.startsWith("100")
                 }
@@ -614,15 +613,15 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test ->
-                    val depth = (test.usedParameters.last() as TvmTestSliceValue).cell.dataCellDepth()
+                    val depth = (test.input as RecvInternalInput).msgBody.cell.dataCellDepth()
                     depth == 3
                 },
                 { test ->
-                    val cell = (test.usedParameters.last() as TvmTestSliceValue).cell
+                    val cell = (test.input as RecvInternalInput).msgBody.cell
                     cell.data.isEmpty() && cell.refs.size == 1
                 },
                 { test ->
-                    var cell = (test.usedParameters.last() as TvmTestSliceValue).cell
+                    var cell = (test.input as RecvInternalInput).msgBody.cell
                     while (cell.refs.isNotEmpty())
                         cell = cell.refs.first() as TvmTestDataCellValue
                     cell.data == "11011"
@@ -659,15 +658,15 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test ->
-                    val depth = (test.usedParameters.last() as TvmTestSliceValue).cell.dataCellDepth()
+                    val depth = (test.input as RecvInternalInput).msgBody.cell.dataCellDepth()
                     depth == 3
                 },
                 { test ->
-                    val cell = (test.usedParameters.last() as TvmTestSliceValue).cell
+                    val cell = (test.input as RecvInternalInput).msgBody.cell
                     cell.data.isEmpty() && cell.refs.size == 1
                 },
                 { test ->
-                    var cell = (test.usedParameters.last() as TvmTestSliceValue).cell
+                    var cell = (test.input as RecvInternalInput).msgBody.cell
                     while (cell.refs.isNotEmpty())
                         cell = cell.refs.first() as TvmTestDataCellValue
                     cell.data == "11011"
@@ -994,7 +993,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1042,7 +1041,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1090,7 +1089,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = false),
             )
@@ -1106,7 +1105,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1134,7 +1133,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1153,7 +1152,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1172,7 +1171,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1196,7 +1195,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1218,7 +1217,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )
@@ -1234,7 +1233,7 @@ class InputParameterInfoTests {
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
             tvmOptions = TvmOptions(
-                enableInternalArgsConstraints = false,
+                useRecvInternalInput = false,
                 performAdditionalChecksWhileResolving = true,
                 tlbOptions = TlbOptions(performTlbChecksOnAllocatedCells = true),
             )

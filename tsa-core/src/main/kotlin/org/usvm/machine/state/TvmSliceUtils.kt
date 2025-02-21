@@ -1005,10 +1005,14 @@ fun TvmStepScopeManager.slicesAreEqual(slice1: UHeapRef, slice2: UHeapRef): UBoo
     mkAnd(dataLeft1 eq dataLeft2, shiftedData1 eq shiftedData2)
 }
 
-fun TvmStepScopeManager.builderToCell(builder: UConcreteHeapRef): UHeapRef = calcOnState {
-    memory.allocConcrete(TvmDataCellType).also {
+fun TvmStepScopeManager.builderToCell(builder: UConcreteHeapRef): UConcreteHeapRef = calcOnState {
+    builderToCell(builder)
+}
+
+fun TvmState.builderToCell(builder: UConcreteHeapRef): UConcreteHeapRef {
+    return memory.allocConcrete(TvmDataCellType).also {
         builderCopyFromBuilder(builder, it)
-        dataCellInfoStorage.mapper.setCellInfoFromBuilder(builder, it, calcOnState { this })
+        dataCellInfoStorage.mapper.setCellInfoFromBuilder(builder, it, this)
     }
 }
 

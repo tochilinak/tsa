@@ -3,6 +3,7 @@ package org.ton.examples.exceptions
 import org.ton.examples.checkInvariants
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.examples.propertiesFound
+import org.ton.examples.testOptionsToAnalyzeSpecificMethod
 import org.usvm.machine.state.TvmFailureType
 import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSuccessfulExecution
@@ -50,7 +51,10 @@ class ExceptionTypesTest {
         val resourcePath = this::class.java.getResource(cellSizeConflict2Path)?.path?.let { Path(it) }
             ?: error("Cannot find resource $cellSizeConflict2Path")
 
-        val results = funcCompileAndAnalyzeAllMethods(resourcePath)
+        val results = funcCompileAndAnalyzeAllMethods(
+            resourcePath,
+            tvmOptions = testOptionsToAnalyzeSpecificMethod,
+        )
         assertEquals(1, results.testSuites.size)
         val testSuite = results.testSuites.first()
 
@@ -58,7 +62,7 @@ class ExceptionTypesTest {
             testSuite,
             listOf(
                 { test ->
-                    val param = (test.usedParameters.lastOrNull() as? TvmTestSliceValue)?.cell
+                    val param = (test.input.usedParameters.lastOrNull() as? TvmTestSliceValue)?.cell
                             ?: return@listOf false
                     val isEmpty = param.data.isEmpty() && param.refs.isEmpty()
                     !isEmpty || (test.result as? TvmMethodFailure)?.failure?.type != TvmFailureType.FixedStructuralError

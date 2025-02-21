@@ -1,12 +1,12 @@
 package org.ton.examples.types
 
-import java.math.BigInteger
 import org.junit.jupiter.api.Test
 import org.ton.examples.compareSymbolicAndConcreteResults
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.runFiftMethod
 import org.ton.examples.testFiftOptions
-import org.usvm.machine.TvmOptions
+import org.ton.examples.testOptionsToAnalyzeSpecificMethod
+import java.math.BigInteger
 import kotlin.io.path.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -23,7 +23,7 @@ class BadTypesTests {
         val symbolicResult = compileAndAnalyzeFift(
             fiftResourcePath,
             methodsBlackList = setOf(BigInteger.ZERO),
-            tvmOptions = TvmOptions(enableInternalArgsConstraints = false)
+            tvmOptions = testOptionsToAnalyzeSpecificMethod
         )
 
         assertEquals(1, symbolicResult.testSuites.size)

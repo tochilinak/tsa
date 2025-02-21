@@ -1,7 +1,7 @@
 package org.ton.examples.dict
 
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
-import org.usvm.machine.TvmOptions
+import org.ton.examples.testOptionsToAnalyzeSpecificMethod
 import org.usvm.machine.getResourcePath
 import org.usvm.test.resolver.TvmSuccessfulExecution
 import kotlin.test.Test
@@ -25,7 +25,7 @@ class DictExampleTest {
 
         val symbolicResult = funcCompileAndAnalyzeAllMethods(
             resourcePath,
-            tvmOptions = TvmOptions(enableInternalArgsConstraints = false),
+            tvmOptions = testOptionsToAnalyzeSpecificMethod,
         )
         val tests = symbolicResult.testSuites.single()
         assertTrue { tests.all { it.result !is TvmSuccessfulExecution } }

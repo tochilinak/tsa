@@ -3,9 +3,10 @@ package org.ton.examples.types
 import org.ton.Endian
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.examples.propertiesFound
-import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
-import org.usvm.test.resolver.TvmTestCellDataIntegerRead
+import org.ton.examples.testOptionsToAnalyzeSpecificMethod
 import org.usvm.test.resolver.TvmCellDataTypeLoad
+import org.usvm.test.resolver.TvmTestCellDataIntegerRead
+import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestDictCellValue
 import org.usvm.test.resolver.TvmTestSliceValue
@@ -21,14 +22,17 @@ class IteExample {
         val resourcePath = this::class.java.getResource(path)?.path?.let { Path(it) }
             ?: error("Cannot find resource $path")
 
-        val result = funcCompileAndAnalyzeAllMethods(resourcePath)
+        val result = funcCompileAndAnalyzeAllMethods(
+            resourcePath,
+            tvmOptions = testOptionsToAnalyzeSpecificMethod
+        )
         assertEquals(1, result.testSuites.size)
         val testSuite = result.testSuites.first()
         propertiesFound(
             testSuite,
             listOf(
                 { test ->
-                    val casted = (test.usedParameters.lastOrNull() as? TvmTestSliceValue)?.cell
+                    val casted = (test.input.usedParameters.lastOrNull() as? TvmTestSliceValue)?.cell
                         ?: return@listOf false
                     var predicateResult = casted.knownTypes == listOf(
                         TvmCellDataTypeLoad(TvmTestCellDataMaybeConstructorBitRead, 0),
@@ -48,7 +52,7 @@ class IteExample {
                     predicateResult
                 },
                 { test ->
-                    val casted = (test.usedParameters.lastOrNull() as? TvmTestSliceValue)?.cell
+                    val casted = (test.input.usedParameters.lastOrNull() as? TvmTestSliceValue)?.cell
                         ?: return@listOf false
                     var predicateResult = casted.knownTypes == listOf(
                         TvmCellDataTypeLoad(TvmTestCellDataMaybeConstructorBitRead, 0),

@@ -14,7 +14,7 @@ class RecvInternalConstraintsTest {
         val codeResourcePath = this::class.java.getResource(recvInternalConstraintsPath)?.path?.let { Path(it) }
             ?: error("Cannot find resource bytecode $recvInternalConstraintsPath")
 
-        val options = TvmOptions(enableInternalArgsConstraints = true, turnOnTLBParsingChecks = false)
+        val options = TvmOptions(useRecvInternalInput = true, turnOnTLBParsingChecks = false)
         val methodStates = funcCompileAndAnalyzeAllMethods(codeResourcePath, tvmOptions = options)
         val results = methodStates.testSuites.flatMap { it.tests }
 

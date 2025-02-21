@@ -1,35 +1,25 @@
 package org.ton.examples.contracts
 
-import mu.KLogging
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.ton.bytecode.MethodId
 import org.ton.examples.FIFT_STDLIB_RESOURCE
+import org.ton.examples.TvmTestExecutor
 import org.ton.examples.checkAtLeastOneStateForAllMethods
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.extractResource
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.runHardTestsRegex
 import org.ton.runHardTestsVar
-import org.ton.test.gen.TestStatus
 import org.ton.test.gen.dsl.render.TsRenderer
-import org.ton.test.gen.executeTests
-import org.ton.test.gen.generateTests
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.FiftAnalyzer
+import org.usvm.machine.TvmOptions
 import org.usvm.machine.getResourcePath
-import org.usvm.test.resolver.TvmContractSymbolicTestResult
-import org.usvm.test.resolver.TvmSymbolicTestSuite
-import org.usvm.utils.executeCommandWithTimeout
-import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
-import kotlin.io.path.deleteRecursively
 import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.minutes
-import kotlin.io.path.createTempFile
 
 
 class ContractsTest {
@@ -62,11 +52,9 @@ class ContractsTest {
         analyzeSpecificMethodBoc(pumpersPath, MethodId.ZERO, enableTestGeneration = false)
     }
 
-    @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun testJettonWalletWithConfigInsts() {
-        // TODO: fix test execution
-        analyzeSpecificMethodBoc(jettonWalletWithConfigInstsPath, MethodId.ZERO, enableTestGeneration = false)
+        analyzeSpecificMethodBoc(jettonWalletWithConfigInstsPath, MethodId.ZERO, enableTestGeneration = true)
     }
 
     @Test
@@ -88,8 +76,7 @@ class ContractsTest {
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
     @Test
     fun nftItem() {
-        // TODO correct full_msg length constraints
-        analyzeFuncContract(nftItemPath, methodsNumber = 15, enableTestGeneration = false)
+        analyzeFuncContract(nftItemPath, methodsNumber = 15, enableTestGeneration = true)
     }
 
     @Test
@@ -191,71 +178,7 @@ class ContractsTest {
         checkAtLeastOneStateForAllMethods(methodsNumber = methodsNumber, methodStates)
 
         if (enableTestGeneration) {
-            executeGeneratedTests(methodStates, funcResourcePath, TsRenderer.ContractType.Func)
-        }
-    }
-
-    private fun executeTests(project: Path, generatedTestsPath: String) {
-        val (testResults, successful) = executeTests(
-            projectPath = project,
-            testFileName = generatedTestsPath,
-            testsExecutionTimeout = TEST_EXECUTION_TIMEOUT
-        )
-        val allTests = testResults.flatMap { it.assertionResults }
-        val failedTests = allTests.filter { it.status == TestStatus.FAILED }
-
-        val failMessage = "${failedTests.size} of ${allTests.size} generated tests failed: ${failedTests.joinToString { it.fullName }}"
-
-        assertTrue(successful, failMessage)
-
-        logger.info("Generated tests executed")
-    }
-
-    private fun executeGeneratedTests(generateTestsBlock: (Path) -> String?) {
-        val project = extractResource(SANDBOX_PROJECT_PATH)
-
-        val generatedTests = generateTestsBlock(project)
-            ?: return
-        executeTests(project, generatedTests)
-    }
-
-    private fun executeGeneratedTests(
-        testResult: TvmContractSymbolicTestResult,
-        sources: Path,
-        contractType: TsRenderer.ContractType
-    ) {
-        executeGeneratedTests { project ->
-            generateTests(testResult, project, sources.toAbsolutePath(), contractType)
-        }
-    }
-
-    private fun executeGeneratedTests(
-        testSuite: TvmSymbolicTestSuite,
-        sources: Path,
-        contractType: TsRenderer.ContractType
-    ) {
-        executeGeneratedTests(TvmContractSymbolicTestResult(listOf(testSuite)), sources, contractType)
-    }
-
-    companion object {
-        private const val SANDBOX_PROJECT_PATH: String = "/sandbox"
-
-        private val PROJECT_INIT_TIMEOUT = 5.minutes
-        private val TEST_EXECUTION_TIMEOUT = 5.minutes
-
-        @JvmStatic
-        @BeforeAll
-        fun initProject() {
-            val project = extractResource(SANDBOX_PROJECT_PATH).toFile()
-            val (exitCode, _, _, _) = executeCommandWithTimeout(
-                command = "npm i",
-                timeoutSeconds = PROJECT_INIT_TIMEOUT.inWholeSeconds,
-                processWorkingDirectory = project
-            )
-
-            check(exitCode == 0) {
-                "Couldn't initialize the test sandbox project"
-            }
+            TvmTestExecutor.executeGeneratedTests(methodStates, funcResourcePath, TsRenderer.ContractType.Func)
         }
     }
 
@@ -271,7 +194,7 @@ class ContractsTest {
             val bocFile = createTempFile()
             try {
                 FiftAnalyzer(fiftStdlibPath = FIFT_STDLIB_RESOURCE).compileFiftToBoc(fiftPath, bocFile)
-                executeGeneratedTests(tests, bocFile, TsRenderer.ContractType.Boc)
+                TvmTestExecutor.executeGeneratedTests(tests, bocFile, TsRenderer.ContractType.Boc)
             } finally {
                 bocFile.deleteIfExists()
             }
@@ -291,9 +214,7 @@ class ContractsTest {
         assertTrue { tests.isNotEmpty() }
 
         if (enableTestGeneration) {
-            executeGeneratedTests(tests, bocPath, TsRenderer.ContractType.Boc)
+            TvmTestExecutor.executeGeneratedTests(tests, bocPath, TsRenderer.ContractType.Boc)
         }
     }
-
-    private val logger = object : KLogging() {}.logger
 }

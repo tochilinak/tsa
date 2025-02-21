@@ -147,6 +147,8 @@ class TvmArtificialInstInterpreter(
             addOnStack(message.fullMsgCell, TvmCellType)
             addOnStack(message.msgBodySlice, TvmSliceType)
 
+            lastMsgBody = message.msgBodySlice
+
             phase = COMPUTE_PHASE
             switchToFirstMethodInContract(nextContractCode, RECEIVE_INTERNAL_ID)
         }

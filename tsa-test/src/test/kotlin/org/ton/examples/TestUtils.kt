@@ -46,10 +46,12 @@ val FIFT_STDLIB_RESOURCE: Path = object {}.javaClass.getResource(FIFT_STDLIB_PAT
 // Options for tests with fift concrete execution
 val testFiftOptions = TvmOptions(
     turnOnTLBParsingChecks = false,
-    enableInternalArgsConstraints = false,
+    useRecvInternalInput = false,
     enableInputValues = false,
     useMainMethodForInitialMethodJump = false,
 )
+
+val testOptionsToAnalyzeSpecificMethod = TvmOptions(useRecvInternalInput = false)
 
 fun extractResource(resourcePath: String) =
     object {}.javaClass.getResource(resourcePath)?.path?.let { Path(it) }
