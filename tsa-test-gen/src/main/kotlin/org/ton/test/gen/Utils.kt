@@ -4,13 +4,11 @@ import java.math.BigInteger
 import java.nio.file.Files.createDirectories
 import java.nio.file.Path
 import org.ton.boc.BagOfCells
-import org.ton.hashmap.HashMapE
 import org.ton.test.gen.dsl.render.TsRenderedTest
 import org.ton.test.gen.dsl.render.TsRenderer
 import org.usvm.machine.TvmContext.Companion.CONFIG_KEY_LENGTH
-import org.usvm.test.resolver.HashMapESerializer
 import org.usvm.test.resolver.TvmTestDictCellValue
-import org.usvm.test.resolver.transformTestDictCellIntoHashMapE
+import org.usvm.test.resolver.transformTestDictCellIntoCell
 
 fun String.binaryToHex(): String = BigInteger(this, 2).toString(16)
 
@@ -48,10 +46,7 @@ fun transformTestConfigIntoHex(config: TvmTestDictCellValue): String {
     require(keyLength == CONFIG_KEY_LENGTH) {
         "Unexpected config dict key length: $keyLength"
     }
-
-    val codec = HashMapE.tlbCodec(keyLength, HashMapESerializer)
-    val resultConfig = transformTestDictCellIntoHashMapE(config)
-    val configCell = codec.createCell(resultConfig).refs.first()
+    val configCell = transformTestDictCellIntoCell(config)
     val configBoc = BagOfCells(configCell)
 
     return configBoc.toByteArray().toHexString()

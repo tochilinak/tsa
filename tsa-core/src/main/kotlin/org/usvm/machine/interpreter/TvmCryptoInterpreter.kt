@@ -8,11 +8,13 @@ import org.usvm.UHeapRef
 import org.usvm.api.makeSymbolicPrimitive
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmStepScopeManager
+import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
+import org.usvm.machine.state.TvmSignatureCheck
 import org.usvm.machine.state.TvmStack
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.addInt
+import org.usvm.machine.state.checkOutOfRange
 import org.usvm.machine.state.consumeDefaultGas
-import org.usvm.machine.state.doWithStateCtx
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
 import org.usvm.machine.state.slicePreloadDataBits
@@ -68,43 +70,48 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
         }
     }
 
-    private fun visitCheckSignatureInst(scope: TvmStepScopeManager, stmt: TvmAppCryptoChksignuInst) {
+    private fun visitCheckSignatureInst(scope: TvmStepScopeManager, stmt: TvmAppCryptoChksignuInst) = with(ctx) {
         scope.consumeDefaultGas(stmt)
 
         val key = scope.takeLastIntOrThrowTypeError()
+            ?: return@with
         val signature = scope.calcOnState { stack.takeLastSlice() }
-        if (signature == null) {
-            scope.doWithState(ctx.throwTypeCheckError)
-            return
-        }
-
+            ?: return scope.doWithState(throwTypeCheckError)
         val hash = scope.takeLastIntOrThrowTypeError()
+            ?: return@with
 
         // Check that signature is correct - it contains at least 512 bits
-        val bits = scope.slicePreloadDataBits(signature, bits = 512)
-        if (bits == null) {
-            scope.doWithStateCtx {
-                throwUnknownCellUnderflowError(this)
-            }
+        val signatureBits = scope.slicePreloadDataBits(signature, bits = 512)
+            ?: return@with
 
+        val intArgumentBits = 256u
+
+        checkOutOfRange(
+            mkAnd(
+                unsignedIntegerFitsBits(key, intArgumentBits),
+                unsignedIntegerFitsBits(hash, intArgumentBits)
+            ),
+            scope
+        ) ?: return@with
+
+        val condition = scope.calcOnState { makeSymbolicPrimitive(ctx.boolSort) }
+        scope.fork(
+            condition,
+            falseStateIsExceptional = false,
+            blockOnFalseState = {
+                stack.addInt(falseValue)
+                newStmt(stmt.nextStmt())
+            }
+        ) ?: run {
+            logger.debug { "Cannot fork on dummy constraint" }
             return
         }
 
-        // TODO do real check?
-        val condition = scope.calcOnState { makeSymbolicPrimitive(ctx.boolSort) }
-        with(ctx) {
-            scope.fork(
-                condition,
-                falseStateIsExceptional = false,
-                blockOnTrueState = {
-                    stack.addInt(zeroValue)
-                    newStmt(stmt.nextStmt())
-                },
-                blockOnFalseState = {
-                    stack.addInt(minusOneValue)
-                    newStmt(stmt.nextStmt())
-                }
-            )
+        scope.doWithState {
+            signatureChecks = signatureChecks.add(TvmSignatureCheck(hash, signatureBits, key))
+
+            stack.addInt(trueValue)
+            newStmt(stmt.nextStmt())
         }
     }
 

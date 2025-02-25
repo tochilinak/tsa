@@ -480,7 +480,7 @@ class TvmTestStateResolver(
             is TvmCellDataCoinsRead -> TvmTestCellDataCoinsRead
         }
 
-    private fun resolveInt257(expr: UExpr<out USort>): TvmTestIntegerValue {
+    fun resolveInt257(expr: UExpr<out USort>): TvmTestIntegerValue {
         val value = extractInt257(evaluateInModel(expr))
         return TvmTestIntegerValue(value)
     }

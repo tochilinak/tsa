@@ -79,6 +79,7 @@ class TvmState(
     // post-process fields
     var addressToHash: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
     var addressToDepth: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
+    var signatureChecks: PersistentList<TvmSignatureCheck> = persistentListOf(),
 ) : UState<TvmType, TvmCodeBlock, TvmInst, TvmContext, TvmTarget, TvmState>(
     ctx,
     ownership,
@@ -181,6 +182,8 @@ class TvmState(
             contractStack = contractStack,
             currentContract = currentContract,
             addressToHash = addressToHash,
+            addressToDepth = addressToDepth,
+            signatureChecks = signatureChecks,
             fetchedValues = fetchedValues,
             additionalFlags = additionalFlags,
             cellDataFieldManager = cellDataFieldManager.clone(),
