@@ -6,7 +6,7 @@ import org.ton.examples.compareSymbolicAndConcreteResults
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.compileFuncToFift
 import org.ton.examples.runFiftMethod
-import org.ton.examples.testFiftOptions
+import org.ton.examples.testConcreteOptions
 import kotlin.io.path.Path
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
@@ -66,7 +66,7 @@ class RegistersTest {
             val symbolicResult = compileAndAnalyzeFift(
                 tmpFiftFile,
                 methodsBlackList = methodsBlackList,
-                tvmOptions = testFiftOptions
+                tvmOptions = testConcreteOptions
             )
 
             compareSymbolicAndConcreteResults(setOf(0), symbolicResult) { methodId ->

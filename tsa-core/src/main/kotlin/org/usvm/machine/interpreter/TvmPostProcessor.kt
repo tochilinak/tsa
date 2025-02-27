@@ -43,10 +43,9 @@ import org.usvm.test.resolver.transformTestDictCellIntoCell
 import kotlin.random.Random
 
 class TvmPostProcessor(val ctx: TvmContext) {
-    private val random = Random(0)
     private val signatureKeySize = 32
     private val privateKey by lazy {
-        PrivateKeyEd25519(random.nextBytes(signatureKeySize))
+        PrivateKeyEd25519(Random(0).nextBytes(signatureKeySize))
     }
     private val publicKey by lazy { privateKey.publicKey() }
     private val publicKeyHex by lazy { publicKey.key.encodeHex() }

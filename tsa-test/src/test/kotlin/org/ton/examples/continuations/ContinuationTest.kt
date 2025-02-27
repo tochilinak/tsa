@@ -5,7 +5,7 @@ import org.ton.examples.compareSymbolicAndConcreteResults
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.propertiesFound
 import org.ton.examples.runFiftMethod
-import org.ton.examples.testFiftOptions
+import org.ton.examples.testConcreteOptions
 import org.ton.examples.testOptionsToAnalyzeSpecificMethod
 import org.usvm.test.resolver.TvmSuccessfulExecution
 import org.usvm.test.resolver.TvmTestIntegerValue
@@ -24,7 +24,7 @@ class ContinuationTest {
         val fiftResourcePath = this::class.java.getResource(continuationsFiftPath)?.path?.let { Path(it) }
             ?: error("Cannot find resource fift $continuationsFiftPath")
 
-        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testFiftOptions)
+        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
         val methodIds = (0..3).toSet()
         compareSymbolicAndConcreteResults(methodIds, symbolicResult) { methodId ->

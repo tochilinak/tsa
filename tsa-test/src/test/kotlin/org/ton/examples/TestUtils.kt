@@ -31,7 +31,9 @@ import org.usvm.test.resolver.TvmTestTupleValue
 import org.usvm.test.resolver.TvmTestValue
 import java.math.BigInteger
 import java.nio.file.Path
+import org.usvm.machine.toMethodId
 import kotlin.io.path.Path
+import kotlin.io.path.deleteIfExists
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -43,8 +45,8 @@ private const val FIFT_STDLIB_PATH = "/fiftstdlib"
 val FIFT_STDLIB_RESOURCE: Path = object {}.javaClass.getResource(FIFT_STDLIB_PATH)?.path?.let { Path(it) }
     ?: error("Cannot find fift stdlib in $FIFT_STDLIB_PATH")
 
-// Options for tests with fift concrete execution
-val testFiftOptions = TvmOptions(
+// Options for tests with concrete execution
+val testConcreteOptions = TvmOptions(
     turnOnTLBParsingChecks = false,
     useRecvInternalInput = false,
     enableInputValues = false,
@@ -206,6 +208,30 @@ internal fun compareSymbolicAndConcreteResults(
         result
     }
 )
+
+internal fun compareSymbolicAndConcreteResultsFunc(
+    resourcePath: String,
+    methods: Set<Int>,
+) {
+    val contractPath = extractResource(resourcePath)
+    val tmpFiftFile = kotlin.io.path.createTempFile(suffix = ".boc")
+
+    try {
+        compileFuncToFift(contractPath, tmpFiftFile)
+
+        val symbolicResult = compileAndAnalyzeFift(
+            tmpFiftFile,
+            methodWhiteList = methods.map { it.toMethodId() }.toSet(),
+            tvmOptions = testConcreteOptions,
+        )
+
+        compareSymbolicAndConcreteResults(methods, symbolicResult) { methodId ->
+            runFiftMethod(tmpFiftFile, methodId)
+        }
+    } finally {
+        tmpFiftFile.deleteIfExists()
+    }
+}
 
 private fun parseFiftStack(entries: List<String>, result: MutableList<TvmTestValue>, initialIndex: Int): Int {
     var index = initialIndex

@@ -5,9 +5,8 @@ import java.nio.file.Path
 import org.ton.examples.compileFiftCodeBlocksContract
 import org.ton.examples.executionCode
 import org.ton.examples.runFiftCodeBlock
-import org.ton.examples.testFiftOptions
+import org.ton.examples.testConcreteOptions
 import org.usvm.machine.analyzeAllMethods
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 import kotlin.io.path.extension
@@ -31,7 +30,7 @@ class GasTest {
 
         val symbolicResult = analyzeAllMethods(
             contract,
-            tvmOptions = testFiftOptions
+            tvmOptions = testConcreteOptions
         )
 
         for ((methodId, _, tests) in symbolicResult) {

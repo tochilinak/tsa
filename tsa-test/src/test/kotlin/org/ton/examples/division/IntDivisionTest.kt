@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test
 import org.ton.examples.compareSymbolicAndConcreteResults
 import org.ton.examples.compileAndAnalyzeFift
 import org.ton.examples.runFiftMethod
-import org.ton.examples.testFiftOptions
+import org.ton.examples.testConcreteOptions
 import kotlin.io.path.Path
 
 class IntDivisionTest {
@@ -17,7 +17,7 @@ class IntDivisionTest {
         val fiftResourcePath = this::class.java.getResource(fiftPathBasic)?.path?.let { Path(it) }
             ?: error("Cannot find resource fift $fiftPathBasic")
 
-        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testFiftOptions)
+        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
         val methodIds = (0..30).toSet()
         compareSymbolicAndConcreteResults(methodIds, symbolicResult) { methodId ->
@@ -30,7 +30,7 @@ class IntDivisionTest {
         val fiftResourcePath = this::class.java.getResource(fiftPath)?.path?.let { Path(it) }
             ?: error("Cannot find resource fift $fiftPath")
 
-        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testFiftOptions)
+        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
         val methodIds = (0..190).toSet()
         compareSymbolicAndConcreteResults(methodIds, symbolicResult) { methodId ->
@@ -43,7 +43,7 @@ class IntDivisionTest {
         val fiftResourcePath = this::class.java.getResource(fiftPathFail)?.path?.let { Path(it) }
             ?: error("Cannot find resource fift $fiftPathFail")
 
-        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testFiftOptions)
+        val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
         val methodIds = (0..96).toSet()
         compareSymbolicAndConcreteResults(methodIds, symbolicResult) { methodId ->
