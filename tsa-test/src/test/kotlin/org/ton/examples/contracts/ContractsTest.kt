@@ -41,8 +41,22 @@ class ContractsTest {
     private val singleNominatorPath: String = "/contracts/single-nominator/single-nominator.fc"
     private val nominatorPoolPath: String = "/contracts/nominator-pool/pool.fc"
     private val stocksPath: String = "/contracts/stocks/stock_options.fc"
+    private val configPath: String = "/contracts/config/config-code.fc"
+    private val dnsAutoPath: String = "/contracts/dns/dns-auto-code.fc"
+    private val dnsManualPath: String = "/contracts/dns/dns-manual-code.fc"
+    private val electorPath: String = "/contracts/elector/elector-code.fc"
+    private val highloadWalletPath: String = "/contracts/highload-wallet/highload-wallet-code.fc"
+    private val highloadWalletV2Path: String = "/contracts/highload-wallet/highload-wallet-v2-code.fc"
+    private val paymentChannelPath: String = "/contracts/payment-channel/payment-channel-code.fc"
+    private val powTestgiverPath: String = "/contracts/pow-testgiver/pow-testgiver-code.fc"
+    private val restrictedWalletPath: String = "/contracts/restricted-wallet/restricted-wallet-code.fc"
+    private val restrictedWalletV2Path: String = "/contracts/restricted-wallet/restricted-wallet2-code.fc"
+    private val restrictedWalletV3Path: String = "/contracts/restricted-wallet/restricted-wallet3-code.fc"
+    private val walletV3Path: String = "/contracts/wallet-v3/wallet-v3-code.fc"
+
+    private val walletV3FiftPath: String = "/contracts/wallet-v3/wallet-v3-code.fif"
+
     private val pumpersPath: String = "/contracts/EQCV_FsDSymN83YeKZKj_7sgwQHV0jJhCTvX5SkPHHxVOi0D.boc"
-    private val walletV3Path: String = "/contracts/wallet-v3/wallet-v3-code.fif"
     private val jettonWalletWithConfigInstsPath: String = "/contracts/EQCnKexvdRR56OpxG2jpSUk0Dn6XpcgwHqE5A5plDz3TOQOt.boc"
 
     @EnabledIfEnvironmentVariable(named = runHardTestsVar, matches = runHardTestsRegex)
@@ -157,14 +171,90 @@ class ContractsTest {
     }
 
     @Test
-    fun testWalletV3() {
+    fun testWalletV3Fift() {
         // TODO: make tests for recvExternal pass
-        analyzeSpecificMethodFift(walletV3Path, methodId = MethodId.valueOf(-1), enableTestGeneration = false)
+        analyzeSpecificMethodFift(walletV3FiftPath, methodId = MethodId.valueOf(-1), enableTestGeneration = false)
 
         // no tests will be generated for these two for now
-        analyzeSpecificMethodFift(walletV3Path, methodId = MethodId.valueOf(85143), enableTestGeneration = false)
-        analyzeSpecificMethodFift(walletV3Path, methodId = MethodId.ZERO, enableTestGeneration = false)
+        analyzeSpecificMethodFift(walletV3FiftPath, methodId = MethodId.valueOf(85143), enableTestGeneration = false)
+        analyzeSpecificMethodFift(walletV3FiftPath, methodId = MethodId.ZERO, enableTestGeneration = false)
     }
+
+    @Test
+    fun walletV3() {
+        analyzeFuncContract(walletV3Path, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Ignore
+    @Test
+    fun config() {
+        // TODO support config params 9, 10, 11
+        // TODO support BLESS, RANDU256
+        analyzeFuncContract(configPath, methodsNumber = 3, enableTestGeneration = true)
+    }
+
+    @Ignore
+    @Test
+    fun dnsAuto() {
+        // TODO support CDATASIZE, SHA256U
+        analyzeFuncContract(dnsAutoPath, methodsNumber = 3, enableTestGeneration = true)
+    }
+
+    @Ignore
+    @Test
+    fun dnsManual() {
+        // TODO support PFXDICTSET, PFXDICTDEL, PFXDICTGETQ
+        analyzeFuncContract(dnsManualPath, methodsNumber = 3, enableTestGeneration = true)
+    }
+
+    @Ignore
+    @Test
+    fun elector() {
+        // TODO support config params 36
+        // TODO fix resolver
+        analyzeFuncContract(electorPath, methodsNumber = 3, enableTestGeneration = true)
+    }
+
+    @Test
+    fun highloadWallet() {
+        analyzeFuncContract(highloadWalletPath, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Test
+    fun highloadWalletV2() {
+        analyzeFuncContract(highloadWalletV2Path, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Ignore
+    @Test
+    fun paymentChannel() {
+        // TODO long with_close analysis
+        //  large cells of max depth
+        analyzeFuncContract(paymentChannelPath, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Ignore
+    @Test
+    fun powTestgiver() {
+        // TODO support ADDRAND
+        analyzeFuncContract(powTestgiverPath, methodsNumber = 4, enableTestGeneration = true)
+    }
+
+    @Test
+    fun restrictedWallet() {
+        analyzeFuncContract(restrictedWalletPath, methodsNumber = 5, enableTestGeneration = true)
+    }
+
+    @Test
+    fun restrictedWallet2() {
+        analyzeFuncContract(restrictedWalletV2Path, methodsNumber = 6, enableTestGeneration = true)
+    }
+
+    @Test
+    fun restrictedWallet3() {
+        analyzeFuncContract(restrictedWalletV3Path, methodsNumber = 7, enableTestGeneration = true)
+    }
+
 
     private fun analyzeFuncContract(
         contractPath: String,

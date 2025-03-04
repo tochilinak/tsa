@@ -9,7 +9,7 @@ class CellDepthTest {
 
     @Test
     fun cellDepthValueTest() {
-        compareSymbolicAndConcreteResultsFunc(cellDepthPath, methods = setOf(0))
+        compareSymbolicAndConcreteResultsFunc(cellDepthPath, methods = setOf(0, 1))
     }
 
     @Test

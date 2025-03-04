@@ -210,6 +210,7 @@ class TvmContext(
         // Jan 01 2100 00:00:00 GMT+0000
         const val UNIX_TIME_MAX: Long = 4102444800
 
+        const val GRAMS_LENGTH_BITS: UInt = 4u
         const val MAX_GRAMS_BITS: UInt = 120u
 
         const val MAX_ACTIONS = 255

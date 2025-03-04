@@ -25,6 +25,7 @@ import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
 import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_LENGTH
 import org.usvm.machine.TvmContext.Companion.CELL_DATA_BITS
 import org.usvm.machine.TvmContext.Companion.EXTERN_ADDRESS_TAG
+import org.usvm.machine.TvmContext.Companion.GRAMS_LENGTH_BITS
 import org.usvm.machine.TvmContext.Companion.MAX_DATA_LENGTH
 import org.usvm.machine.TvmContext.Companion.NONE_ADDRESS_TAG
 import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
@@ -756,7 +757,7 @@ fun TvmStepScopeManager.builderStoreGrams(
     quietBlock: (TvmState.() -> Unit)? = null
 ): UExpr<KBvSort>? {
     // var_uint$_ {n:#} len:(#< 16) value:(uint (len * 8))
-    val lenSizeBits = 4
+    val lenSizeBits = GRAMS_LENGTH_BITS.toInt()
     val maxValue = 8 * ((1 shl lenSizeBits) - 1)
 
     val notOutOfRangeValue = unsignedIntegerFitsBits(value, maxValue.toUInt())

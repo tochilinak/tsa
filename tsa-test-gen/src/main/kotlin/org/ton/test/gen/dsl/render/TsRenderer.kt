@@ -50,7 +50,7 @@ import org.ton.test.gen.dsl.models.TsVariable
 import org.ton.test.gen.dsl.models.TsVoid
 import org.ton.test.gen.dsl.models.TsWrapper
 import org.ton.test.gen.dsl.wrapper.TsWrapperDescriptor
-import org.usvm.machine.truncateSliceCell
+import org.usvm.test.resolver.truncateSliceCell
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestDictCellValue
 import org.usvm.test.resolver.TvmTestIntegerValue

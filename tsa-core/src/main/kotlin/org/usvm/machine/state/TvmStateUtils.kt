@@ -8,7 +8,6 @@ import org.ton.bytecode.TvmCellValue
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmExceptionContinuation
 import org.ton.bytecode.TvmInst
-import org.ton.bytecode.TvmLambda
 import org.ton.bytecode.TvmOrdContinuation
 import org.usvm.NULL_ADDRESS
 import org.usvm.UBoolExpr
@@ -39,6 +38,7 @@ import java.math.BigInteger
 import org.ton.bytecode.TsaArtificialActionPhaseInst
 import org.ton.bytecode.TsaArtificialExitInst
 import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
+import org.usvm.machine.maxUnsignedValue
 import org.usvm.machine.state.TmvPhase.ACTION_PHASE
 import org.usvm.machine.state.TmvPhase.COMPUTE_PHASE
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
@@ -175,7 +175,7 @@ fun TvmContext.unsignedIntegerFitsBits(value: UExpr<TvmInt257Sort>, bits: UInt):
         bits == 0u -> value eq zeroValue
         bits >= TvmContext.INT_BITS - 1u -> mkBvSignedGreaterOrEqualExpr(value, zeroValue)
         else -> mkAnd(
-            mkBvSignedLessOrEqualExpr(value, powerOfTwo(bits).minus(BigInteger.ONE).toBv257()),
+            mkBvSignedLessOrEqualExpr(value, maxUnsignedValue(bits).toBv257()),
             mkBvSignedGreaterOrEqualExpr(value, zeroValue),
         )
     }

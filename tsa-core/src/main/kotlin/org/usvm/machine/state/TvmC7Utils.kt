@@ -26,10 +26,14 @@ import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmStack.TvmStackValue
 import org.usvm.machine.types.TvmDictCellType
 import java.math.BigInteger
+import org.usvm.UBvSort
 import org.usvm.UConcreteHeapRef
 import org.usvm.api.writeField
+import org.usvm.machine.TvmContext
+import org.usvm.machine.TvmContext.Companion.GRAMS_LENGTH_BITS
 import org.usvm.machine.TvmContext.Companion.HASH_BITS
 import org.usvm.machine.TvmContext.Companion.dictKeyLengthField
+import org.usvm.machine.maxUnsignedValue
 
 
 fun TvmState.getContractInfoParam(idx: Int): TvmStackValue {
@@ -318,6 +322,17 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
     addDictEntry(configDict, 12, workchainsMaybeDict)
 
     /**
+     * Index: 13
+     */
+    val complaintPrices = allocCellFromFields(
+        mkBvHex(value = "1a", tagBits),     // complaint_prices tag
+        mkBvGrams(value = 1000000000L),     // deposit
+        mkBvGrams(value = 1L),              // bit_price
+        mkBvGrams(value = 500L),            // cell_price
+    )
+    addDictEntry(configDict, 13, complaintPrices)
+
+    /**
      * Index: 15
      */
     val elections = allocCellFromFields(
@@ -327,6 +342,27 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
         mkBv(32768, uint32Bits),   // stake_held_for
     )
     addDictEntry(configDict, 15, elections)
+
+    /**
+     * Index: 16
+     */
+    val validatorsLimits = allocCellFromFields(
+        mkBv(400, uint16Bits),  // max_validators
+        mkBv(100, uint16Bits),  // max_main_validators
+        mkBv(75, uint16Bits),   // min_validators
+    )
+    addDictEntry(configDict, 16, validatorsLimits)
+
+    /**
+     * Index: 17
+     */
+    val stakeLimits = allocCellFromFields(
+        mkBvGrams(value = 300000000000000L),    // min_stake
+        mkBvGrams(value = 10000000000000000L),  // max_stake
+        mkBvGrams(value = 75000000000000000L),  // min_total_stake
+        mkBv(value = 196608, uint32Bits),       // max_stake_factor
+    )
+    addDictEntry(configDict, 17, stakeLimits)
 
     /**
      * Index: 18
@@ -465,6 +501,27 @@ private fun TvmState.initConfigRoot(): UHeapRef = with(ctx) {
     addDictEntry(configDict, 80, dns)
 
     configDict
+}
+
+private fun TvmContext.mkBvGrams(value: Long): UExpr<UBvSort> {
+    if (value == 0L) {
+        return mkBv(value = 0, sizeBits = GRAMS_LENGTH_BITS)
+    }
+
+    val bigIntValue = value.toBigInteger()
+
+    // var_uint$_ {n:#} len:(#< 16) value:(uint (len * 8))
+    val length = (1u..15u).firstOrNull {
+        val prevValueBits = (it - 1u) * 8u
+        val valueBits = it * 8u
+
+        maxUnsignedValue(prevValueBits) < bigIntValue && bigIntValue <= maxUnsignedValue(valueBits)
+    } ?: error("Provided value $value doesn't fit into grams")
+
+    return mkBvConcatExpr(
+        mkBv(length.toInt(), GRAMS_LENGTH_BITS),
+        mkBv(value, length)
+    )
 }
 
 private fun TvmState.allocCellFromFields(vararg fields: KExpr<KBvSort>): UHeapRef = with(ctx) {

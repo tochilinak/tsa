@@ -2,6 +2,8 @@ package org.usvm.machine
 
 import io.ksmt.expr.KBitVecValue
 import io.ksmt.utils.BvUtils.toBigIntegerSigned
+import io.ksmt.utils.powerOfTwo
+import java.math.BigInteger
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmCell
 import org.ton.bytecode.TvmCellData
@@ -15,8 +17,6 @@ import org.usvm.UBoolSort
 import org.usvm.UBvSort
 import org.usvm.UExpr
 import org.usvm.machine.TvmContext.TvmInt257Sort
-import org.usvm.test.resolver.TvmTestDataCellValue
-import org.usvm.test.resolver.TvmTestSliceValue
 import java.nio.file.Path
 import kotlin.io.path.Path
 
@@ -35,17 +35,6 @@ inline fun <T> tryCatchIf(condition: Boolean, body: () -> T, exceptionHandler: (
     return runCatching {
         body()
     }.getOrElse(exceptionHandler)
-}
-
-/**
- * @return remaining data bits and refs as a cell
- */
-fun truncateSliceCell(slice: TvmTestSliceValue): TvmTestDataCellValue {
-    val truncatedCellData = slice.cell.data.drop(slice.dataPos)
-    val truncatedCellRefs = slice.cell.refs.drop(slice.refPos)
-
-    // TODO handle cell type loads
-    return TvmTestDataCellValue(truncatedCellData, truncatedCellRefs)
 }
 
 inline fun <reified T> getResourcePath(path: String): Path {
@@ -69,3 +58,5 @@ fun Cell.toTvmCell(): TvmCell {
 
 context(TvmContext)
 fun UExpr<UBoolSort>.asIntValue(): UExpr<TvmInt257Sort> = mkIte(this, oneValue, zeroValue)
+
+fun maxUnsignedValue(bits: UInt): BigInteger = powerOfTwo(bits).minus(BigInteger.ONE)

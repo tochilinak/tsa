@@ -4,7 +4,6 @@ import org.ton.bytecode.TvmAppCryptoChksignuInst
 import org.ton.bytecode.TvmAppCryptoHashcuInst
 import org.ton.bytecode.TvmAppCryptoHashsuInst
 import org.ton.bytecode.TvmAppCryptoInst
-import org.usvm.UHeapRef
 import org.usvm.api.makeSymbolicPrimitive
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmStepScopeManager
@@ -18,9 +17,8 @@ import org.usvm.machine.state.consumeDefaultGas
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
 import org.usvm.machine.state.slicePreloadDataBits
-import org.usvm.machine.state.takeLastBuilder
-import org.usvm.machine.state.takeLastCell
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
+import org.usvm.machine.state.takeLastRef
 import org.usvm.machine.state.takeLastSlice
 import org.usvm.machine.state.unsignedIntegerFitsBits
 import org.usvm.machine.types.TvmBuilderType
@@ -50,7 +48,7 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
         scope.consumeDefaultGas(stmt)
 
         scope.calcOnState {
-            val value = stack.popHashableStackValue(operandType)
+            val value = stack.takeLastRef(operandType)
                 ?: return@calcOnState
 
             val hash = addressToHash[value] ?: run {
@@ -114,12 +112,4 @@ class TvmCryptoInterpreter(private val ctx: TvmContext) {
             newStmt(stmt.nextStmt())
         }
     }
-
-    context(TvmState)
-    private fun TvmStack.popHashableStackValue(referenceType: TvmRealReferenceType): UHeapRef? =
-        when (referenceType) {
-            TvmBuilderType -> takeLastBuilder()
-            TvmCellType -> takeLastCell()
-            TvmSliceType -> takeLastSlice()
-        }
 }

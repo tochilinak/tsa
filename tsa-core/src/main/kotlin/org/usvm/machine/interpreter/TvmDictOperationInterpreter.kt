@@ -19,6 +19,9 @@ import org.ton.bytecode.TvmDictGetDictugetInst
 import org.ton.bytecode.TvmDictGetDictugetrefInst
 import org.ton.bytecode.TvmDictGetInst
 import org.ton.bytecode.TvmDictInst
+import org.ton.bytecode.TvmDictMayberefDictgetoptrefInst
+import org.ton.bytecode.TvmDictMayberefDictigetoptrefInst
+import org.ton.bytecode.TvmDictMayberefDictugetoptrefInst
 import org.ton.bytecode.TvmDictMayberefInst
 import org.ton.bytecode.TvmDictMinDictimaxInst
 import org.ton.bytecode.TvmDictMinDictimaxrefInst
@@ -126,6 +129,7 @@ import org.ton.bytecode.TvmDictSetDictusetrefInst
 import org.ton.bytecode.TvmDictSetInst
 import org.ton.bytecode.TvmDictSpecialInst
 import org.ton.bytecode.TvmDictSubInst
+import org.ton.bytecode.TvmInst
 import org.usvm.UBoolExpr
 import org.usvm.UBvSort
 import org.usvm.UExpr
@@ -199,9 +203,9 @@ class TvmDictOperationInterpreter(
             is TvmDictSerialInst -> visitDictSerial(scope, inst)
             is TvmDictMinInst -> visitDictMin(scope, inst)
             is TvmDictNextInst -> visitDictNext(scope, inst)
-            is TvmDictSubInst -> TODO()
-            is TvmDictMayberefInst -> TODO()
-            is TvmDictPrefixInst -> TODO()
+            is TvmDictMayberefInst -> visitDictMaybeRef(scope, inst)
+            is TvmDictSubInst -> TODO("Unknown stmt: $inst")
+            is TvmDictPrefixInst -> TODO("Unknown stmt: $inst")
             is TvmDictSpecialInst -> error("Dict special inst should not be handled there: $inst")
         }
     }
@@ -272,12 +276,21 @@ class TvmDictOperationInterpreter(
 
     private fun visitDictGet(scope: TvmStepScopeManager, inst: TvmDictGetInst) {
         when (inst) {
-            is TvmDictGetDictgetInst -> doDictGet(inst, scope, DictKeyType.SLICE, DictValueType.SLICE)
-            is TvmDictGetDictgetrefInst -> doDictGet(inst, scope, DictKeyType.SLICE, DictValueType.CELL)
-            is TvmDictGetDictigetInst -> doDictGet(inst, scope, DictKeyType.SIGNED_INT, DictValueType.SLICE)
-            is TvmDictGetDictigetrefInst -> doDictGet(inst, scope, DictKeyType.SIGNED_INT, DictValueType.CELL)
-            is TvmDictGetDictugetInst -> doDictGet(inst, scope, DictKeyType.UNSIGNED_INT, DictValueType.SLICE)
-            is TvmDictGetDictugetrefInst -> doDictGet(inst, scope, DictKeyType.UNSIGNED_INT, DictValueType.CELL)
+            is TvmDictGetDictgetInst -> doDictGet(inst, scope, DictKeyType.SLICE, DictValueType.SLICE, nullDefaultValue = false)
+            is TvmDictGetDictgetrefInst -> doDictGet(inst, scope, DictKeyType.SLICE, DictValueType.CELL, nullDefaultValue = false)
+            is TvmDictGetDictigetInst -> doDictGet(inst, scope, DictKeyType.SIGNED_INT, DictValueType.SLICE, nullDefaultValue = false)
+            is TvmDictGetDictigetrefInst -> doDictGet(inst, scope, DictKeyType.SIGNED_INT, DictValueType.CELL, nullDefaultValue = false)
+            is TvmDictGetDictugetInst -> doDictGet(inst, scope, DictKeyType.UNSIGNED_INT, DictValueType.SLICE, nullDefaultValue = false)
+            is TvmDictGetDictugetrefInst -> doDictGet(inst, scope, DictKeyType.UNSIGNED_INT, DictValueType.CELL, nullDefaultValue = false)
+        }
+    }
+
+    private fun visitDictMaybeRef(scope: TvmStepScopeManager, inst: TvmDictMayberefInst) {
+        when (inst) {
+            is TvmDictMayberefDictgetoptrefInst -> doDictGet(inst, scope, DictKeyType.SLICE, DictValueType.CELL, nullDefaultValue = true)
+            is TvmDictMayberefDictigetoptrefInst -> doDictGet(inst, scope, DictKeyType.SIGNED_INT, DictValueType.CELL, nullDefaultValue = true)
+            is TvmDictMayberefDictugetoptrefInst -> doDictGet(inst, scope, DictKeyType.UNSIGNED_INT, DictValueType.CELL, nullDefaultValue = true)
+            else -> TODO("Unknown stmt: $inst")
         }
     }
 
@@ -552,18 +565,19 @@ class TvmDictOperationInterpreter(
     }
 
     private fun doDictGet(
-        inst: TvmDictGetInst,
+        inst: TvmInst,
         scope: TvmStepScopeManager,
         keyType: DictKeyType,
-        valueType: DictValueType
-    ) {
+        valueType: DictValueType,
+        nullDefaultValue: Boolean,
+    ) = with(ctx) {
         val keyLength = loadKeyLength(scope)
             ?: return
         val dictCellRef = loadDict(scope)
         val key = loadKey(scope, keyType, keyLength) ?: return
 
         if (dictCellRef == null) {
-            scope.doWithStateCtx {
+            scope.doWithState {
                 addOnStack(falseValue, TvmIntegerType)
                 newStmt(inst.nextStmt())
             }
@@ -587,7 +601,11 @@ class TvmDictOperationInterpreter(
             dictContainsKey,
             falseStateIsExceptional = false,
             blockOnFalseState = {
-                addOnStack(ctx.falseValue, TvmIntegerType)
+                if (nullDefaultValue) {
+                    addOnStack(nullValue, TvmNullType)
+                } else {
+                    addOnStack(falseValue, TvmIntegerType)
+                }
                 newStmt(inst.nextStmt())
             }
         ) ?: return
@@ -597,7 +615,9 @@ class TvmDictOperationInterpreter(
 
         scope.doWithState {
             storeValue(valueType, unwrappedValue)
-            addOnStack(ctx.trueValue, TvmIntegerType)
+            if (!nullDefaultValue) {
+                addOnStack(trueValue, TvmIntegerType)
+            }
             newStmt(inst.nextStmt())
         }
     }

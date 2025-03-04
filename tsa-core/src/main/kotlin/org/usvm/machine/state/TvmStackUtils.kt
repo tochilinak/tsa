@@ -12,12 +12,6 @@ import org.usvm.machine.types.TvmSliceType
 import org.usvm.UExpr
 import org.usvm.UHeapRef
 import org.usvm.USort
-import org.usvm.api.makeSymbolicPrimitive
-import org.usvm.api.writeField
-import org.usvm.isTrue
-import org.usvm.machine.TvmContext
-import org.usvm.machine.TvmContext.Companion.ADDRESS_TAG_BITS
-import org.usvm.machine.TvmContext.Companion.STD_ADDRESS_TAG
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.TvmStack.TvmConcreteStackEntry
@@ -104,6 +98,13 @@ fun TvmStack.takeLastBuilder(): UConcreteHeapRef? =
     takeLastRef(this, TvmBuilderType, TvmStackValue::builderValue) {
         generateSymbolicBuilder()
     }?.also { ensureSymbolicBuilderInitialized(it) }
+
+context(TvmState)
+fun TvmStack.takeLastRef(type: TvmRealReferenceType): UHeapRef? = when (type) {
+    is TvmCellType -> takeLastCell()
+    is TvmSliceType -> takeLastSlice()
+    is TvmBuilderType -> takeLastBuilder()
+}
 
 fun TvmStepScopeManager.takeLastTuple(): TvmStackTupleValue? = calcOnStateCtx {
     val lastEntry = stack.takeLastEntry()

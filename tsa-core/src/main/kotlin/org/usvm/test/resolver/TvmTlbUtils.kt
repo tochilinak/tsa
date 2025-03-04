@@ -7,7 +7,6 @@ import org.ton.cell.CellBuilder
 import org.ton.cell.CellSlice
 import org.ton.hashmap.HashMapE
 import org.ton.tlb.TlbCodec
-import org.usvm.machine.truncateSliceCell
 
 // TODO maybe use HashMapESerializer from `ton-disassembler` after making it public
 data object HashMapESerializer : TlbCodec<Cell> {

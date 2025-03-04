@@ -3,6 +3,7 @@ package org.usvm.machine.interpreter
 import org.ton.Endian
 import org.ton.bytecode.TvmCell
 import org.ton.bytecode.TvmCellBuildBbitsInst
+import org.ton.bytecode.TvmCellBuildBdepthInst
 import org.ton.bytecode.TvmCellBuildEndcInst
 import org.ton.bytecode.TvmCellBuildInst
 import org.ton.bytecode.TvmCellBuildNewcInst
@@ -80,6 +81,7 @@ import org.ton.bytecode.TvmCellParseSdbeginsxInst
 import org.ton.bytecode.TvmCellParseSdbeginsxqInst
 import org.ton.bytecode.TvmCellParseSdcutfirstInst
 import org.ton.bytecode.TvmCellParseSdcutlastInst
+import org.ton.bytecode.TvmCellParseSdepthInst
 import org.ton.bytecode.TvmCellParseSdskipfirstInst
 import org.ton.bytecode.TvmCellParseSdskiplastInst
 import org.ton.bytecode.TvmCellParseSrefsInst
@@ -141,6 +143,7 @@ import org.usvm.machine.state.slicePreloadRef
 import org.usvm.machine.state.takeLastBuilder
 import org.usvm.machine.state.takeLastCell
 import org.usvm.machine.state.takeLastIntOrThrowTypeError
+import org.usvm.machine.state.takeLastRef
 import org.usvm.machine.state.takeLastSlice
 import org.usvm.machine.state.unsignedIntegerFitsBits
 import org.usvm.machine.types.TvmBuilderType
@@ -150,6 +153,7 @@ import org.usvm.machine.types.TvmIntegerType
 import org.usvm.machine.types.TvmSliceType
 import org.usvm.machine.types.TvmCellDataBitArrayRead
 import org.usvm.machine.types.TvmCellDataIntegerRead
+import org.usvm.machine.types.TvmRealReferenceType
 import org.usvm.machine.types.assertEndOfCell
 import org.usvm.machine.types.copyTlbToNewBuilder
 import org.usvm.machine.types.makeCellToSlice
@@ -447,7 +451,8 @@ class TvmCellInterpreter(
                 visitBeginsXInst(scope, stmt, quiet = true)
             }
 
-            is TvmCellParseCdepthInst -> visitCellDepthInst(scope, stmt)
+            is TvmCellParseCdepthInst -> visitDepthInst(scope, stmt, operandType = TvmCellType)
+            is TvmCellParseSdepthInst -> visitDepthInst(scope, stmt, operandType = TvmSliceType)
             else -> TODO("Unknown stmt: $stmt")
         }
     }
@@ -534,6 +539,8 @@ class TvmCellInterpreter(
                 doSwap(scope)
                 visitStoreRefInst(scope, stmt, quiet = true)
             }
+
+            is TvmCellBuildBdepthInst -> visitDepthInst(scope, stmt, operandType = TvmBuilderType)
 
             else -> TODO("$stmt")
         }
@@ -1230,25 +1237,34 @@ class TvmCellInterpreter(
         }
     }
 
-    private fun visitCellDepthInst(scope: TvmStepScopeManager, stmt: TvmCellParseCdepthInst) = with(ctx) {
+    private fun visitDepthInst(
+        scope: TvmStepScopeManager,
+        stmt: TvmInst,
+        operandType: TvmRealReferenceType,
+    ) = with(ctx) {
         scope.consumeDefaultGas(stmt)
 
-        val cell = scope.takeLastCell()
-
         scope.doWithStateCtx {
-            if (cell == null) {
-                stack.addInt(zeroValue)
-                newStmt(stmt.nextStmt())
-                return@doWithStateCtx
-            }
+            val ref = stack.takeLastRef(operandType)
+                ?: run {
+                    // this operation is safe only for cells
+                    if (operandType is TvmCellType) {
+                        stack.addInt(zeroValue)
+                        newStmt(stmt.nextStmt())
+                    } else {
+                        throwTypeCheckError(this)
+                    }
 
-            val depth = addressToDepth[cell] ?: run {
+                    return@doWithStateCtx
+                }
+
+            val depth = addressToDepth[ref] ?: run {
                 makeSymbolicPrimitive(ctx.int257sort).also {
-                    addressToDepth = addressToDepth.put(cell, it)
+                    addressToDepth = addressToDepth.put(ref, it)
                     scope.assert(
                         mkBvSignedLessOrEqualExpr(zeroValue, it),
                         unsatBlock = {
-                            error("Cannot make the cell depth not negative")
+                            error("Cannot make the depth not negative")
                         }
                     ) ?: return@doWithStateCtx
                 }
