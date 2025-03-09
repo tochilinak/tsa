@@ -82,11 +82,14 @@ private fun List<TvmSymbolicTest>.toSarifResult(
     val methodName = methodsMapping[methodId]
 
     val properties = PropertyBag(
-        mapOf(
+        listOfNotNull(
             "gasUsage" to it.gasUsage,
-            "usedParameters" to TvmContractCode.json.encodeToJsonElement(it.input.usedParameters),
+            "usedParameters" to TvmContractCode.json.encodeToJsonElement(it.input),
+            it.fetchedValues.takeIf { it.isNotEmpty() }?.let {
+                "fetchedValues" to TvmContractCode.json.encodeToJsonElement(it)
+            },
             "resultStack" to TvmContractCode.json.encodeToJsonElement(it.result.stack),
-        )
+        ).toMap()
     )
 
     if (useShortenedOutput) {

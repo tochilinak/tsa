@@ -1,12 +1,20 @@
 package org.usvm.test.resolver
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
 sealed interface TvmTestInput {
     val usedParameters: List<TvmTestValue>
 
+    @Serializable
+    @SerialName("stackInput")
     data class StackInput(
         override val usedParameters: List<TvmTestValue>,
     ) : TvmTestInput
 
+    @Serializable
+    @SerialName("recvInternalInput")
     data class RecvInternalInput(
         val srcAddress: TvmTestSliceValue,
         val msgBody: TvmTestSliceValue,

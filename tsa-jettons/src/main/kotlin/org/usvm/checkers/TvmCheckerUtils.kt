@@ -15,7 +15,7 @@ fun runAnalysisAndExtractFailingExecutions(
     contracts: List<TsaContractCode>,
     stopWhenFoundOneConflictingExecution: Boolean,
     inputInfo: TvmInputInfo?,
-    enableInternalArgConstraints: Boolean = true,
+    useRecvInternalInput: Boolean = true,
     manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
 ): List<TvmSymbolicTest> {
     val additionalStopStrategy = FirstFailureTerminator()
@@ -27,7 +27,7 @@ fun runAnalysisAndExtractFailingExecutions(
         additionalObserver = if (stopWhenFoundOneConflictingExecution) additionalStopStrategy else null,
         options = TvmOptions(
             turnOnTLBParsingChecks = false,
-            enableInternalArgsConstraints = enableInternalArgConstraints
+            useRecvInternalInput = useRecvInternalInput
         ),
         inputInfo = inputInfo ?: TvmInputInfo(),
         manualStatePostProcess = manualStatePostProcess,

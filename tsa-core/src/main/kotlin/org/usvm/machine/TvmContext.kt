@@ -63,8 +63,8 @@ class TvmContext(
     val int257Ext1Sort = TvmInt257Ext1Sort(this)
     val int257Ext256Sort = TvmInt257Ext256Sort(this)
 
-    val trueValue: KBitVecValue<TvmInt257Sort> = (-1).toBv257()
-    val falseValue: KBitVecValue<TvmInt257Sort> = 0.toBv257()
+    val trueValue: KBitVecValue<TvmInt257Sort> = TRUE_CONCRETE_VALUE.toBv257()
+    val falseValue: KBitVecValue<TvmInt257Sort> = FALSE_CONCRETE_VALUE.toBv257()
     val oneValue: KBitVecValue<TvmInt257Sort> = 1.toBv257()
     val twoValue: KBitVecValue<TvmInt257Sort> = 2.toBv257()
     val threeValue: KBitVecValue<TvmInt257Sort> = 3.toBv257()
@@ -244,6 +244,9 @@ class TvmContext(
         val RECEIVE_EXTERNAL_ID: MethodId = (-1).toMethodId()
 
         const val OP_BITS: UInt = 32u
+
+        const val TRUE_CONCRETE_VALUE = -1
+        const val FALSE_CONCRETE_VALUE = 0
 
         val cellDataLengthField: TvmField = TvmFieldImpl(TvmCellType, "dataLength")
         val cellRefsLengthField: TvmField = TvmFieldImpl(TvmCellType, "refsLength")

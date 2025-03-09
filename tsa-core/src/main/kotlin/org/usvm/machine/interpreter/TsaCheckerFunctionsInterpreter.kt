@@ -2,11 +2,15 @@ package org.usvm.machine.interpreter
 
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmInst
+import org.usvm.api.makeSymbolicPrimitive
+import org.usvm.machine.TvmContext.Companion.FALSE_CONCRETE_VALUE
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.TvmContractExecutionMemory
 import org.usvm.machine.state.TvmContractPosition
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
+import org.usvm.machine.state.addInt
 import org.usvm.machine.state.doWithCtx
+import org.usvm.machine.state.doWithStateCtx
 import org.usvm.machine.state.initializeContractExecutionMemory
 import org.usvm.machine.state.newStmt
 import org.usvm.machine.state.nextStmt
@@ -50,6 +54,9 @@ class TsaCheckerFunctionsInterpreter(
             }
             FETCH_VALUE_ID -> {
                 performFetchValue(scope, stmt)
+            }
+            MK_SYMBOLIC_INT_METHOD_ID -> {
+                performMkSymbolicInt(scope, stmt)
             }
             else -> {
                 return Unit
@@ -121,6 +128,31 @@ class TsaCheckerFunctionsInterpreter(
                 "Value with id $valueId is already present: $fetchedValues[$valueId]"
             }
             fetchedValues = fetchedValues.put(valueId, entry)
+            newStmt(stmt.nextStmt())
+        }
+    }
+
+    private fun performMkSymbolicInt(scope: TvmStepScopeManager, stmt: TvmInst) {
+        scope.doWithStateCtx {
+            val isSigned = takeLastIntOrThrowTypeError()?.intValueOrNull
+                ?: return@doWithStateCtx
+            val bits = takeLastIntOrThrowTypeError()?.intValueOrNull
+                ?: return@doWithStateCtx
+
+            check(bits >= 0) {
+                "Bits count must be non-negative, but found $bits"
+            }
+
+            val value = makeSymbolicPrimitive(mkBvSort(bits.toUInt())).let {
+                if (isSigned == FALSE_CONCRETE_VALUE) {
+                    it.zeroExtendToSort(int257sort)
+                } else {
+                    // every non-zero integer is considered a true value.
+                    it.signExtendToSort(int257sort)
+                }
+            }
+
+            stack.addInt(value)
             newStmt(stmt.nextStmt())
         }
     }

@@ -22,6 +22,7 @@ data object TvmTestResolver {
         val stateResolver = TvmTestStateResolver(ctx, model, state, ctx.tvmOptions.performAdditionalChecksWhileResolving)
 
         val input = stateResolver.resolveInput()
+        val fetchedValues = stateResolver.resolveFetchedValues()
         val config = stateResolver.resolveConfig()
         val contractAddress = stateResolver.resolveContractAddress()
         val contractBalance = stateResolver.resolveContractBalance()
@@ -41,6 +42,7 @@ data object TvmTestResolver {
             contractBalance = contractBalance,
             time = time,
             input = input,
+            fetchedValues = fetchedValues,
             result = result,
             stackTrace = state.continuationStack,
             gasUsage = gasUsage,
@@ -107,6 +109,7 @@ data class TvmSymbolicTest(
     val rootInitialData: TvmTestCellValue,
     val initialData: Map<ContractId, TvmTestCellValue>,
     val input: TvmTestInput,
+    val fetchedValues: Map<Int, TvmTestValue>,
     val result: TvmMethodSymbolicResult,
     val externalMessageWasAccepted: Boolean,
     val stackTrace: List<TvmInst>,
@@ -121,18 +124,18 @@ sealed interface TvmMethodSymbolicResult {
 }
 
 sealed interface TvmTerminalMethodSymbolicResult : TvmMethodSymbolicResult {
-    val exitCode: UInt
+    val exitCode: Int
 }
 
 data class TvmMethodFailure(
     val failure: TvmFailure,
     val lastStmt: TvmInst,
-    override val exitCode: UInt,
+    override val exitCode: Int,
     override val stack: List<TvmTestValue>
 ) : TvmTerminalMethodSymbolicResult
 
 data class TvmSuccessfulExecution(
-    override val exitCode: UInt,
+    override val exitCode: Int,
     override val stack: List<TvmTestValue>,
 ) : TvmTerminalMethodSymbolicResult
 

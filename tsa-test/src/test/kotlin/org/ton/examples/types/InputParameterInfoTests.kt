@@ -833,7 +833,7 @@ class InputParameterInfoTests {
         assertEquals(1, results.testSuites.size)
         val tests = results.testSuites.first()
         assertTrue(tests.all { it.result !is TvmExecutionWithStructuralError })
-        assertTrue(tests.all { (it.result as? TvmMethodFailure)?.exitCode != 1001u })
+        assertTrue(tests.all { (it.result as? TvmMethodFailure)?.exitCode != 1001 })
     }
 
     @Test
@@ -855,7 +855,7 @@ class InputParameterInfoTests {
         assertEquals(1, results.testSuites.size)
         val tests = results.testSuites.first()
         assertTrue(tests.all { it.result !is TvmExecutionWithStructuralError })
-        assertTrue(tests.all { (it.result as? TvmMethodFailure)?.exitCode != 1001u })
+        assertTrue(tests.all { (it.result as? TvmMethodFailure)?.exitCode != 1001 })
     }
 
     @Test
@@ -877,13 +877,13 @@ class InputParameterInfoTests {
         assertEquals(1, results.testSuites.size)
         val tests = results.testSuites.first()
         assertTrue(tests.all { it.result !is TvmExecutionWithStructuralError })
-        assertTrue(tests.all { (it.result as? TvmMethodFailure)?.exitCode != 1000u })
+        assertTrue(tests.all { (it.result as? TvmMethodFailure)?.exitCode != 1000 })
 
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001u },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1002u }
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001 },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1002 }
             )
         )
     }
@@ -924,7 +924,7 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test -> test.result !is TvmExecutionWithStructuralError },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1001u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1001 },
             )
         )
 
@@ -932,7 +932,7 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test -> test.result is TvmSuccessfulExecution },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u }
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 }
             )
         )
     }
@@ -981,8 +981,8 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001u }
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001 }
             )
         )
     }
@@ -1029,7 +1029,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution }
             )
         )
@@ -1184,7 +1184,7 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test -> test.result !is TvmExecutionWithStructuralError },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1000u }
+                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1000 }
             )
         )
     }
@@ -1269,8 +1269,8 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1289,7 +1289,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1308,7 +1308,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1334,8 +1334,8 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1001 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1362,7 +1362,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1389,7 +1389,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1419,8 +1419,8 @@ class InputParameterInfoTests {
         checkInvariants(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1000u },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1001u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1000 },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1001 },
                 { test -> test.result !is TvmExecutionWithStructuralError },
             )
         )
@@ -1444,7 +1444,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1469,7 +1469,7 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test -> test.result !is TvmExecutionWithStructuralError },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1000u }
+                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1000 }
             )
         )
     }
@@ -1487,7 +1487,7 @@ class InputParameterInfoTests {
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )
@@ -1512,14 +1512,14 @@ class InputParameterInfoTests {
             tests,
             listOf(
                 { test -> test.result !is TvmExecutionWithStructuralError },
-                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1001u }
+                { test -> (test.result as? TvmMethodFailure)?.exitCode != 1001 }
             )
         )
 
         propertiesFound(
             tests,
             listOf(
-                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000u },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
         )

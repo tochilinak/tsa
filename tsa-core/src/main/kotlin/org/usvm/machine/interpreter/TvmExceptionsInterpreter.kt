@@ -125,7 +125,7 @@ class TvmExceptionsInterpreter(private val ctx: TvmContext) {
         code: Int,
         level: TvmFailureType = TvmFailureType.UnknownError,
         param: UExpr<TvmInt257Sort> = ctx.zeroValue,
-    ) = ctx.setFailure(TvmUnknownFailure(code.toUInt()), level, param, implicitThrow = false)(this)
+    ) = ctx.setFailure(TvmUnknownFailure(code), level, param, implicitThrow = false)(this)
 
     private fun doThrowIfInst(
         scope: TvmStepScopeManager,

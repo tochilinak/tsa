@@ -14,7 +14,7 @@ class SignatureTest {
     private val signaturePath = "/signature/signature.fc"
     private val unreachableCodePath = "/signature/signature-unreachable.fc"
 
-    private val passedSignatureCheckExitCode = 333u
+    private val passedSignatureCheckExitCode = 333
 
     @Test
     fun testSignature() {

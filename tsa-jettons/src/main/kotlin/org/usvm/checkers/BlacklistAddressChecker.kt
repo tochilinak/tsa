@@ -43,7 +43,7 @@ data class BlacklistAddressChecker(private val resourcesDir: Path?) : TvmChecker
     }
 
     private fun extractMsgBody(test: TvmSymbolicTest): TvmTestDataCellValue? {
-        val msgBodySlice = test.usedParameters.lastOrNull() as? TvmTestSliceValue
+        val msgBodySlice = test.input.usedParameters.lastOrNull() as? TvmTestSliceValue
             ?: return null
         return msgBodySlice.cell
     }

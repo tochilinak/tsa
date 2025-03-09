@@ -25,6 +25,7 @@ import org.usvm.machine.state.addOnStack
 import org.usvm.machine.state.callContinuation
 import org.usvm.machine.state.consumeDefaultGas
 import org.usvm.machine.state.contractEpilogue
+import org.usvm.machine.state.doWithStateCtx
 import org.usvm.machine.state.getBalance
 import org.usvm.machine.state.initializeContractExecutionMemory
 import org.usvm.machine.state.jumpToContinuation
@@ -97,23 +98,28 @@ class TvmArtificialInstInterpreter(
     }
 
     private fun visitExitInst(scope: TvmStepScopeManager, stmt: TsaArtificialExitInst) {
-        scope.doWithState { phase = EXIT_PHASE }
+        scope.doWithStateCtx {
+            phase = EXIT_PHASE
 
-        if (ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
-            processIntercontractExit(scope, stmt.result)
-        } else {
-            processCheckerExit(scope, stmt.result)
+            if (tvmOptions.intercontractOptions.isIntercontractEnabled && !messageQueue.isEmpty()) {
+                processIntercontractExit(scope, stmt.result)
+            } else {
+                processCheckerExit(scope, stmt.result)
+            }
         }
     }
 
     private fun processIntercontractExit(scope: TvmStepScopeManager, result: TvmMethodResult) {
         scope.doWithState {
+            require(!messageQueue.isEmpty()) {
+                "Unexpected empty message queue during processing inter-contract exit"
+            }
+
             val commitedState = lastCommitedStateOfContracts[currentContract]
 
             // TODO stop at failure state or at state without commitedState
             if (analysisOfGetMethod ||
                 commitedState == null ||
-                messageQueue.isEmpty() ||
                 result is TvmFailure && result.phase == ACTION_PHASE ||
                 result is TvmStructuralError && result.phase == ACTION_PHASE
             ) {
@@ -132,8 +138,9 @@ class TvmArtificialInstInterpreter(
             intercontractPath = intercontractPath.add(nextContract)
 
             val prevStack = stack
-            val newMemory = initializeContractExecutionMemory(contractsCode, this, currentContract, allowInputStackValues = false)
+            // Update current contract to the next contract
             currentContract = nextContract
+            val newMemory = initializeContractExecutionMemory(contractsCode, this, currentContract, allowInputStackValues = false)
             stack = newMemory.stack
             stack.copyInputValues(prevStack)
             registersOfCurrentContract = newMemory.registers

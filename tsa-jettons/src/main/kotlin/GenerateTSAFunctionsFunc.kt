@@ -2,14 +2,15 @@ import kotlin.io.path.Path
 import kotlin.io.path.bufferedWriter
 import kotlin.math.max
 
-private val pathInSafetyPropertiesMainResources = Path("tsa-safety-properties/src/main/resources/imports/tsa_functions.fc")
-private val pathInSafetyPropertiesTestResources = Path("tsa-safety-properties/src/test/resources/imports/tsa_functions.fc")
+private const val pathInJettonsResources = "tsa-jettons/src/main/resources/imports/tsa_functions.fc"
+private const val pathInSafetyPropertiesExamplesTestResources = "tsa-safety-properties-examples/src/test/resources/imports/tsa_functions.fc"
 private val pathsForTsaFunctions = listOf(
-    pathInSafetyPropertiesMainResources,
-    pathInSafetyPropertiesTestResources,
-)
+    pathInJettonsResources,
+    pathInSafetyPropertiesExamplesTestResources
+).map(::Path)
 
 private const val MAX_PARAMETERS = 10
+private const val DOUBLE_SEPARATOR = "\n\n"
 
 fun main() {
     val prefix = """
@@ -24,7 +25,7 @@ fun main() {
         "forall $typeParams -> ($typeParams) return_$params() asm \"NOP\";"
     }.joinToString(separator = "\n")
 
-    val firstAPIFunctions = """
+    val firstApiFunctions = """
         ;; API functions
 
         () tsa_forbid_failures() impure method_id(1) {
@@ -48,6 +49,14 @@ fun main() {
         }
     """.trimIndent()
 
+    val mkSymbolicApiFunctions = """
+        ;; making symbolic values API functions
+        
+        int tsa_mk_int(int bits, int signed) impure method_id(100) {
+            return return_1();
+        }
+    """.trimIndent()
+
     val callFunctions = List(MAX_PARAMETERS + 1) { retParams ->
         List(MAX_PARAMETERS + 1) { putParams ->
             val typeParams = ('A'..'Z').take(max(retParams + putParams, 1))
@@ -67,9 +76,15 @@ fun main() {
                 }
             """.trimIndent()
         }
-    }.flatten().joinToString(separator = "\n\n")
+    }.flatten().joinToString(prefix = ";; calling methods functions$DOUBLE_SEPARATOR", separator = DOUBLE_SEPARATOR)
 
-    val code = prefix + "\n\n" + auxiliaryFunctions + "\n\n" + firstAPIFunctions + "\n\n" + callFunctions
+    val code = listOf(
+        prefix,
+        auxiliaryFunctions,
+        firstApiFunctions,
+        mkSymbolicApiFunctions,
+        callFunctions
+    ).joinToString(separator = DOUBLE_SEPARATOR)
 
     pathsForTsaFunctions.forEach { path ->
         path.bufferedWriter().use {

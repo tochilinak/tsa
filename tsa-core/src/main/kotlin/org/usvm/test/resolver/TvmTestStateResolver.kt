@@ -123,6 +123,13 @@ class TvmTestStateResolver(
 
     private fun resolveStackInput(): List<TvmTestValue> = stack.inputValues.filterNotNull().map { resolveStackValue(it) }.reversed()
 
+    fun resolveFetchedValues(): Map<Int, TvmTestValue> = state.fetchedValues.mapValues { (index, stackEntry) ->
+        val value = stackEntry.cell(stack)
+            ?: error("Fetched value $index was expected to be concrete stack entry, but got $stackEntry")
+
+        resolveStackValue(value)
+    }
+
     fun resolveInitialData(): Map<ContractId, TvmTestCellValue> = state.contractIdToInitialData.entries.associate { (key, value) ->
         key to resolveCell(value.persistentData)
     }

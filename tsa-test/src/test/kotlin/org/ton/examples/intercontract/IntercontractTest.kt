@@ -41,7 +41,7 @@ class IntercontractTest {
             result.exitCode to test.intercontractPath
         }
 
-        val invalidatedInvariantCode = 999u
+        val invalidatedInvariantCode = 999
 
         // no invalidated invariants
         val invalidatedInvariantCount = failedPaths.count { it.first == invalidatedInvariantCode }
@@ -49,12 +49,12 @@ class IntercontractTest {
 
         // simple path test
         val simplePath = listOf(0, 1, 2)
-        val simplePathEndCode = 101u
+        val simplePathEndCode = 101
         assertContains(failedPaths, simplePathEndCode to simplePath)
 
         // complex path test
         val complexPath = listOf(0, 2, 1, 2, 2)
-        val complexPathEndCode = 102u
+        val complexPathEndCode = 102
         assertContains(failedPaths, complexPathEndCode to complexPath)
     }
 }

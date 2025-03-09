@@ -17,6 +17,7 @@ import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.transformValues
+import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
@@ -248,12 +249,21 @@ class SafetyPropertiesAnalysis : CliktCommand(
         .help("The path to the safety properties checker contract.")
         .required()
 
+    private val interContractSchemePath by option("-s", "--scheme")
+        .path(mustExist = true, canBeFile = true, canBeDir = false)
+        .help("Scheme of the inter-contract communication.")
+
     private val pathOptionDescriptor = option().path(mustExist = true, canBeFile = true, canBeDir = false)
     private val typeOptionDescriptor = option().enum<ContractType>(ignoreCase = true)
-    private val contractSource: ContractSources by contractSourcesOption(
-        pathOptionDescriptor,
-        typeOptionDescriptor
-    ).required()
+    private val contractSources: List<ContractSources> by contractSourcesOption(pathOptionDescriptor, typeOptionDescriptor)
+        .multiple(required = true)
+        .validate {
+            if (it.size > 1) {
+                requireNotNull(interContractSchemePath) {
+                    "Inter-contract communication scheme is required for multiple contracts"
+                }
+            }
+        }
 
     private val fiftAnalyzer by lazy {
         FiftAnalyzer(
@@ -276,7 +286,7 @@ class SafetyPropertiesAnalysis : CliktCommand(
             isTSAChecker = true
         )
 
-        val contractToAnalyze = contractSource.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer)
+        val contractsToAnalyze = contractSources.map { it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer) }
 
         // TODO support TL-B schemes in JAR
         val inputInfo = runCatching {
@@ -286,11 +296,11 @@ class SafetyPropertiesAnalysis : CliktCommand(
             ?: TvmInputInfo() // In case TL-B scheme is not provided, use empty scheme
 
         val options = TvmOptions(
-            intercontractOptions = IntercontractOptions(communicationScheme = null),
+            intercontractOptions = IntercontractOptions(communicationScheme = interContractSchemePath?.extractIntercontractScheme()),
             turnOnTLBParsingChecks = false
         )
 
-        val contracts = listOf(checkerContract, contractToAnalyze)
+        val contracts = listOf(checkerContract) + contractsToAnalyze
         val result = analyzeInterContract(
             contracts,
             startContractId = 0, // Checker contract is the first to analyze
@@ -303,7 +313,6 @@ class SafetyPropertiesAnalysis : CliktCommand(
     }
 }
 
-// TODO support safety properties mode for inter contract analysis
 class InterContractAnalysis : CliktCommand(
     name = "inter-contract",
     help = "Options for analyzing inter-contract communication of smart contracts",
@@ -335,11 +344,6 @@ class InterContractAnalysis : CliktCommand(
     private val contractSources: List<ContractSources> by contractSourcesOption(pathOptionDescriptor, typeOptionDescriptor)
         .multiple(required = true)
 
-    private fun extractScheme(): Map<ContractId, TvmContractHandlers> {
-        val jsonContent = interContractSchemePath.readText()
-        return communicationSchemeFromJson(jsonContent)
-    }
-
     private val startContractId: Int by option("-r", "--root")
         .int()
         .default(0)
@@ -353,7 +357,7 @@ class InterContractAnalysis : CliktCommand(
     override fun run() {
         val contracts = contractSources.map { it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer) }
 
-        val communicationScheme = extractScheme()
+        val communicationScheme = interContractSchemePath.extractIntercontractScheme()
         val options = TvmOptions(intercontractOptions = IntercontractOptions(communicationScheme))
 
         val result = analyzeInterContract(
@@ -366,6 +370,8 @@ class InterContractAnalysis : CliktCommand(
         echo(result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = true))
     }
 }
+
+private fun Path.extractIntercontractScheme(): Map<ContractId, TvmContractHandlers> = communicationSchemeFromJson(readText())
 
 private enum class ContractType {
     Tact,

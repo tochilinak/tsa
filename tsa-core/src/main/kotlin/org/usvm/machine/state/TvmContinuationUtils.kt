@@ -437,7 +437,7 @@ private fun TvmStepScopeManager.doAgainJump(cont: TvmAgainContinuation) {
 private fun TvmStepScopeManager.doExceptionJump(cont: TvmExceptionContinuation) {
     val exitCode = takeLastIntOrThrowTypeError() ?: return
     val exitCodeValue = exitCode.intValueOrNull ?: error("Cannot extract concrete code exception")
-    val failure = TvmUnknownFailure(exitCodeValue.toUInt())
+    val failure = TvmUnknownFailure(exitCodeValue)
 
     doWithState {
         stack.addInt(exitCode)

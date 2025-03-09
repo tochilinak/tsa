@@ -22,7 +22,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${Versions.collections}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:${Versions.kotlinx_serialization}")
 
-    implementation(group = "org.slf4j", name = "slf4j-simple", version = Versions.slf4j)
     testImplementation("ch.qos.logback:logback-classic:${Versions.logback}")
 
     api(group = Packages.ksmtBv2Int, name = "ksmt-core", version = Versions.ksmtBv2Int)

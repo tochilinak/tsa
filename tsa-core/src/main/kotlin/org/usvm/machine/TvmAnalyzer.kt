@@ -486,18 +486,14 @@ fun analyzeSpecificMethod(
     return TvmTestResolver.resolveSingleMethod(methodId, states, coverage)
 }
 
-fun getFuncContract(path: Path, funcStdlibPath: Path, fiftStdlibPath: Path, isTSAChecker: Boolean = false): TsaContractCode {
-    val tmpBocFile = createTempFile(suffix = ".boc")
-    try {
-        FuncAnalyzer(funcStdlibPath, fiftStdlibPath)
-            .compileFuncSourceToBoc(path, tmpBocFile)
-        return BocAnalyzer.loadContractFromBoc(tmpBocFile).also {
-            if (isTSAChecker) {
-                setTSACheckerFunctions(it)
-            }
-        }
-    } finally {
-        tmpBocFile.deleteIfExists()
+fun getFuncContract(
+    path: Path,
+    funcStdlibPath: Path,
+    fiftStdlibPath: Path,
+    isTSAChecker: Boolean = false
+): TsaContractCode = FuncAnalyzer(funcStdlibPath, fiftStdlibPath).convertToTvmContractCode(path).also {
+    if (isTSAChecker) {
+        setTSACheckerFunctions(it)
     }
 }
 

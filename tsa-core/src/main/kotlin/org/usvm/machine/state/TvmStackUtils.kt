@@ -1,14 +1,8 @@
 package org.usvm.machine.state
 
-import org.usvm.machine.types.TvmBuilderType
-import org.usvm.machine.types.TvmCellType
-import org.usvm.machine.types.TvmContinuationType
 import org.ton.bytecode.TvmContinuation
 import org.usvm.UAddressSort
 import org.usvm.UConcreteHeapRef
-import org.usvm.machine.types.TvmIntegerType
-import org.usvm.machine.types.TvmRealReferenceType
-import org.usvm.machine.types.TvmSliceType
 import org.usvm.UExpr
 import org.usvm.UHeapRef
 import org.usvm.USort
@@ -18,7 +12,13 @@ import org.usvm.machine.state.TvmStack.TvmConcreteStackEntry
 import org.usvm.machine.state.TvmStack.TvmInputStackEntry
 import org.usvm.machine.state.TvmStack.TvmStackTupleValue
 import org.usvm.machine.state.TvmStack.TvmStackValue
+import org.usvm.machine.types.TvmBuilderType
+import org.usvm.machine.types.TvmCellType
+import org.usvm.machine.types.TvmContinuationType
+import org.usvm.machine.types.TvmIntegerType
+import org.usvm.machine.types.TvmRealReferenceType
 import org.usvm.machine.types.TvmRealType
+import org.usvm.machine.types.TvmSliceType
 import org.usvm.machine.types.TvmType
 
 data class TypeCastException(
