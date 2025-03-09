@@ -40,6 +40,7 @@ import org.usvm.test.resolver.TvmTestSliceValue
 import java.nio.file.Path
 import java.util.Locale
 import org.usvm.machine.TvmContext.Companion.stdMsgAddrSize
+import org.usvm.test.minimization.minimizeTestCase
 import kotlin.io.path.nameWithoutExtension
 
 /**
@@ -51,9 +52,18 @@ fun generateTests(
     sourceRelativePath: Path,
     contractType: TsRenderer.ContractType,
     generateRecvExternalTests: Boolean = false,  // TODO: make `true` default (after fixes for recv_external)
+    useMinimization: Boolean = false,
 ): String? {
     val entryTests = analysisResult.testSuites.flatten()
-    return generateTests(entryTests, projectPath, sourceRelativePath, contractType, generateRecvExternalTests)
+
+    return generateTests(
+        entryTests,
+        projectPath,
+        sourceRelativePath,
+        contractType,
+        generateRecvExternalTests,
+        useMinimization
+    )
 }
 
 fun generateTests(
@@ -62,12 +72,18 @@ fun generateTests(
     sourceRelativePath: Path,
     contractType: TsRenderer.ContractType,
     generateRecvExternalTests: Boolean = false,  // TODO: make `true` default (after fixes for recv_external)
+    useMinimization: Boolean = false,
 ): String? {
     val name = extractContractName(sourceRelativePath)
 
     val ctx = TsContext()
-    val test = ctx.constructTests(name, tests, sourceRelativePath.toString(), generateRecvExternalTests)
-        ?: return null
+    val test = ctx.constructTests(
+        name,
+        tests,
+        sourceRelativePath.toString(),
+        generateRecvExternalTests,
+        useMinimization
+    ) ?: return null
 
     val renderedTests = TsRenderer(ctx, contractType).renderTests(test)
 
@@ -80,13 +96,16 @@ private fun TsContext.constructTests(
     tests: List<TvmSymbolicTest>,
     sourcePath: String,
     generateRecvExternalTests: Boolean,
+    useMinimization: Boolean,
 ): TsTestFile? {
-    val recvInternalTests = tests.filter { it.methodId == RECEIVE_INTERNAL_ID && it.result is TvmMethodFailure }
+    val recvInternalTests = tests
+        .filter { it.methodId == RECEIVE_INTERNAL_ID && it.result is TvmMethodFailure }
+        .let { if (useMinimization) minimizeTestCase(it) else it }
 
     val recvExternalTests = if (generateRecvExternalTests) {
         tests.filter {
             it.methodId == RECEIVE_EXTERNAL_ID && it.result is TvmMethodFailure && it.externalMessageWasAccepted
-        }
+        }.let { if (useMinimization) minimizeTestCase(it) else it }
     } else {
         emptyList()
     }

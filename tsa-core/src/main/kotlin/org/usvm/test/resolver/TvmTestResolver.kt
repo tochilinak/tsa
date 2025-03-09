@@ -3,6 +3,7 @@ package org.usvm.test.resolver
 import org.ton.TlbResolvedBuiltinLabel
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmAppGasAcceptInst
+import org.ton.bytecode.TvmArtificialInst
 import org.ton.bytecode.TvmInst
 import org.ton.bytecode.TvmMethod
 import org.usvm.machine.interpreter.TvmInterpreter.Companion.logger
@@ -49,6 +50,7 @@ data object TvmTestResolver {
             additionalFlags = state.additionalFlags,
             numberOfAddressesWithAssertedDataConstraints = state.cellDataFieldManager.getCellsWithAssertedCellData().size,
             intercontractPath = state.intercontractPath,
+            coveredInstructions = collectVisitedInstructions(state),
             externalMessageWasAccepted = externalMessageWasAccepted,
         )
     }
@@ -84,6 +86,12 @@ data object TvmTestResolver {
             tests,
         )
     }
+
+    private fun collectVisitedInstructions(state: TvmState): List<TvmInst> =
+        state.pathNode.allStatements
+            .filterNot { it is TvmArtificialInst }
+            .reversed()
+
 }
 
 data class TvmContractSymbolicTestResult(val testSuites: List<TvmSymbolicTestSuite>) : List<TvmSymbolicTestSuite> by testSuites
@@ -116,6 +124,8 @@ data class TvmSymbolicTest(
     val gasUsage: Int,
     val additionalFlags: Set<String>,
     val intercontractPath: List<ContractId>,
+    // a list of the covered instructions in the order they are visited
+    val coveredInstructions: List<TvmInst>,
     val numberOfAddressesWithAssertedDataConstraints: Int,  // for testing
 )
 

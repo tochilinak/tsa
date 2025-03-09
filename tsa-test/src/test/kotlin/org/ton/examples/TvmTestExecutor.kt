@@ -47,19 +47,27 @@ object TvmTestExecutor {
     fun executeGeneratedTests(
         testResult: TvmContractSymbolicTestResult,
         sources: Path,
-        contractType: TsRenderer.ContractType
+        contractType: TsRenderer.ContractType,
+        useMinimization: Boolean = false,
     ) {
         executeGeneratedTests { project ->
-            generateTests(testResult, project, sources.toAbsolutePath(), contractType)
+            generateTests(
+                testResult,
+                project,
+                sources.toAbsolutePath(),
+                contractType,
+                useMinimization = useMinimization
+            )
         }
     }
 
     fun executeGeneratedTests(
         testSuite: TvmSymbolicTestSuite,
         sources: Path,
-        contractType: TsRenderer.ContractType
+        contractType: TsRenderer.ContractType,
+        useMinimization: Boolean = false,
     ) {
-        executeGeneratedTests(TvmContractSymbolicTestResult(listOf(testSuite)), sources, contractType)
+        executeGeneratedTests(TvmContractSymbolicTestResult(listOf(testSuite)), sources, contractType, useMinimization)
     }
 
     init {

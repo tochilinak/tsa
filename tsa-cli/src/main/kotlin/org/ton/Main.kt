@@ -148,6 +148,7 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
             projectPath,
             sourcesRelativePath,
             contractType,
+            useMinimization = true,
         )
     }
 }
