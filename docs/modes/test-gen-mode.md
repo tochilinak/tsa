@@ -1,3 +1,10 @@
+---
+layout: default
+title: Tests generation mode
+parent: Getting started
+nav_order: 2
+---
+
 # Test Generation
 
 This document provides details about the CLI command for generating tests using [TSA](https://github.com/espritoxyz/tsa). 
@@ -14,7 +21,7 @@ Additionally, the test contract wrapper is generated.
 ## Required Flags
 
 #### Project Path
-- `-p` / `--project`: specifies the absolute path to the initialized sandbox project. [Project example](../tsa-test/src/test/resources/sandbox).
+- `-p` / `--project`: specifies the absolute path to the initialized sandbox project. [Project example](../../tsa-test/src/test/resources/sandbox).
 
 #### FunC Standard Library
 - `--func-std`: specifies the absolute path to the FunC standard library file (`stdlib.fc` or `stdlib.func`).
