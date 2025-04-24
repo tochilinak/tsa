@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.ton.TvmInputInfo
+import org.ton.boc.BagOfCells
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.setTSACheckerFunctions
@@ -169,8 +170,23 @@ class FuncAnalyzer(
             "FunC compilation to BoC has not finished in $COMPILER_TIMEOUT seconds"
         }
 
-        check(exitValue == 0 && errors.isEmpty()) {
-            "FunC compilation to BoC failed with an error, exit code $exitValue, errors: \n${errors.toText()}"
+        // Ensure the BoC file is not empty after compilation
+        val isBocEmptyOrMissing = bocFilePath.toFile().length() == 0L
+
+        // we don't check that [errors] is empty, because there is a case, when it reports something strange,
+        // but compilation is still successful.
+        // Example of such message (not present in older version of Fift):
+        // [ 1][t 0][2025-03-21 09:37:26.441386890][Fift.cpp:66]   top: <continuation 0x55871d44a300>
+        // level 1: <continuation 0x55871d44a340>
+        // level 2: <text interpreter continuation>
+        // [ 1][t 0][2025-03-21 09:37:26.441586888][Fift.cpp:69]   Error::-?
+        check(exitValue == 0 && bocFilePath.exists() && !isBocEmptyOrMissing) {
+            """
+                FunC compilation to BoC failed with an error, exit code $exitValue, errors: 
+                ${errors.toText()}
+                Command:
+                $command
+            """.trimIndent()
         }
     }
 
@@ -416,7 +432,8 @@ fun analyzeInterContract(
         machine.analyze(
             contracts,
             startContractId,
-            Cell.of(DEFAULT_CONTRACT_DATA_HEX),
+            // TODO support contract data for inter contract
+            contractData = contracts.map { null },
             coverageStatistics,
             methodId,
             inputInfo = inputInfo,
@@ -460,6 +477,7 @@ fun analyzeAllMethods(
     return TvmTestResolver.groupTestSuites(methodTests, takeEmptyTests)
 }
 
+@OptIn(ExperimentalStdlibApi::class)
 fun analyzeSpecificMethod(
     contract: TsaContractCode,
     methodId: MethodId,
@@ -467,7 +485,9 @@ fun analyzeSpecificMethod(
     inputInfo: TvmInputInfo = TvmInputInfo(),
     tvmOptions: TvmOptions = TvmOptions(),
 ): TvmSymbolicTestSuite {
-    val contractData = Cell.Companion.of(contractDataHex ?: DEFAULT_CONTRACT_DATA_HEX)
+    val contractData = contractDataHex?.let {
+        BagOfCells(it.hexToByteArray()).roots.single()
+    }
     val machineOptions = TvmMachine.defaultOptions.copy(
         timeout = tvmOptions.timeout,
         loopIterationLimit = tvmOptions.loopIterationLimit,
@@ -517,7 +537,6 @@ data class FiftInterpreterResult(
     val stack: List<String>
 )
 
-const val DEFAULT_CONTRACT_DATA_HEX = "b5ee9c7241010101000a00001000000185d258f59ccfc59500"
 private const val COMPILER_TIMEOUT = 5.toLong() // seconds
 
 @Suppress("NOTHING_TO_INLINE")
