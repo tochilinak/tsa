@@ -439,6 +439,10 @@ fun analyzeAllMethods(
     tvmOptions: TvmOptions = TvmOptions(),
     takeEmptyTests: Boolean = false,
 ): TvmContractSymbolicTestResult {
+    if (contract.methods.isEmpty()) {
+        throw NoSelectedMethodsToAnalyze()
+    }
+
     val methodsExceptDictPushConst = contract.methods.filterKeys { it !in methodsBlackList }
     val methodTests = methodsExceptDictPushConst.values.mapNotNull { method ->
         if (methodWhitelist?.let { method.id in it } == false) {
@@ -501,6 +505,10 @@ fun getFuncContract(
 }
 
 private fun String.toExecutionCommand(): List<String> = listOf("/bin/sh", "-c", this)
+
+class NoSelectedMethodsToAnalyze : RuntimeException() {
+    override val message: String = "No selected methods can be extracted from this contract. Please specify a method to analyze."
+}
 
 data class FiftInterpreterResult(
     val exitCode: Int,

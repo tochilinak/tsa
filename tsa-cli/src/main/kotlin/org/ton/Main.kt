@@ -39,6 +39,7 @@ import org.usvm.machine.analyzeInterContract
 import org.usvm.machine.getFuncContract
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.toMethodId
+import org.usvm.test.resolver.TvmContractSymbolicTestResult
 import java.math.BigInteger
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -46,6 +47,7 @@ import kotlin.io.path.writeText
 
 class ContractProperties : OptionGroup("Contract properties") {
     val contractData by option("-d", "--data").help("The serialized contract persistent data")
+    val methodId by option("--method").int().help("Id of the method to analyze. If not specified, analyze all methods")
 }
 
 class SarifOptions : OptionGroup("SARIF options") {
@@ -90,6 +92,31 @@ class TlbOptions : OptionGroup("TlB scheme options") {
         }
     }
 }
+
+private fun <SourcesDescription> performAnalysis(
+    analyzer: TvmAnalyzer<SourcesDescription>,
+    sources: SourcesDescription,
+    contractData: String?,
+    inputInfo: Map<BigInteger, TvmInputInfo>,
+    methodId: Int?
+): TvmContractSymbolicTestResult =
+    if (methodId == null) {
+        analyzer.analyzeAllMethods(
+            sources,
+            contractData,
+            inputInfo = inputInfo,
+        )
+    } else {
+        val methodIdCasted = methodId.toMethodId()
+        val tests = analyzer.analyzeSpecificMethod(
+            sources,
+            methodIdCasted,
+            contractDataHex = contractData,
+            inputInfo = inputInfo[methodIdCasted] ?: TvmInputInfo(),
+        )
+        TvmContractSymbolicTestResult(listOf(tests))
+    }
+
 
 class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test generation for FunC projects") {
     private val projectPath by option("-p", "--project")
@@ -145,11 +172,7 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
         val absolutePath = projectPath.resolve(sourcesRelativePath)
         val inputInfo = TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath)
 
-        val results = analyzer.analyzeAllMethods(
-            absolutePath,
-            contractProperties.contractData,
-            inputInfo = inputInfo,
-        )
+        val results = performAnalysis(analyzer, absolutePath, contractProperties.contractData, inputInfo, contractProperties.methodId)
 
         generateTests(
             results,
@@ -474,10 +497,12 @@ sealed class ErrorsSarifDetector<SourcesDescription>(name: String, help: String)
         sources: SourcesDescription,
         inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap()
     ) {
-        val analysisResult = analyzer.analyzeAllMethods(
+        val analysisResult = performAnalysis(
+            analyzer = analyzer,
             sources = sources,
-            contractDataHex = contractProperties.contractData,
+            contractData = contractProperties.contractData,
             inputInfo = inputInfo,
+            methodId = contractProperties.methodId
         )
         val sarifReport = analysisResult.toSarifReport(methodsMapping = emptyMap())
 
