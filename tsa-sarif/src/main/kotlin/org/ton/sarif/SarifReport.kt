@@ -88,6 +88,7 @@ private fun List<TvmSymbolicTest>.toSarifResult(
             it.fetchedValues.takeIf { it.isNotEmpty() }?.let {
                 "fetchedValues" to TvmContractCode.json.encodeToJsonElement(it)
             },
+            "rootContractInitialC4" to TvmContractCode.json.encodeToJsonElement(it.rootInitialData),
             "resultStack" to TvmContractCode.json.encodeToJsonElement(it.result.stack),
         ).toMap()
     )
