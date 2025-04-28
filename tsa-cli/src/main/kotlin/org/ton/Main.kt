@@ -12,6 +12,7 @@ import com.github.ajalt.clikt.parameters.groups.single
 import com.github.ajalt.clikt.parameters.options.NullableOption
 import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
@@ -70,10 +71,14 @@ class FuncOptions : OptionGroup("FunC options") {
         .help("The path to the FunC standard library file (stdlib.fc)")
 }
 
-class TlbOptions : OptionGroup("TlB scheme options") {
+class TlbCLIOptions : OptionGroup("TlB scheme options") {
     val tlbJsonPath by option("-t", "--tlb")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
         .help("The path to the parsed TL-B scheme.")
+
+    val doNotPerformTlbChecks by option("--no-tlb-checks")
+        .flag()
+        .help("Turn off TL-B parsing checks")
 
     companion object {
         fun extractInputInfo(path: Path?): Map<BigInteger, TvmInputInfo> {
@@ -97,14 +102,17 @@ private fun <SourcesDescription> performAnalysis(
     analyzer: TvmAnalyzer<SourcesDescription>,
     sources: SourcesDescription,
     contractData: String?,
-    inputInfo: Map<BigInteger, TvmInputInfo>,
-    methodId: Int?
-): TvmContractSymbolicTestResult =
-    if (methodId == null) {
+    methodId: Int?,
+    tlbOptions: TlbCLIOptions,
+): TvmContractSymbolicTestResult {
+    val options = TvmOptions(turnOnTLBParsingChecks = !tlbOptions.doNotPerformTlbChecks)
+    val inputInfo = TlbCLIOptions.extractInputInfo(tlbOptions.tlbJsonPath)
+    return if (methodId == null) {
         analyzer.analyzeAllMethods(
             sources,
             contractData,
             inputInfo = inputInfo,
+            tvmOptions = options,
         )
     } else {
         val methodIdCasted = methodId.toMethodId()
@@ -113,9 +121,11 @@ private fun <SourcesDescription> performAnalysis(
             methodIdCasted,
             contractDataHex = contractData,
             inputInfo = inputInfo[methodIdCasted] ?: TvmInputInfo(),
+            tvmOptions = options,
         )
         TvmContractSymbolicTestResult(listOf(tests))
     }
+}
 
 
 class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test generation for FunC projects") {
@@ -154,7 +164,7 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
 
-    private val tlbOptions by TlbOptions()
+    private val tlbOptions by TlbCLIOptions()
 
     override fun run() {
         val analyzer = when (contractType) {
@@ -170,9 +180,8 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
         }
 
         val absolutePath = projectPath.resolve(sourcesRelativePath)
-        val inputInfo = TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath)
 
-        val results = performAnalysis(analyzer, absolutePath, contractProperties.contractData, inputInfo, contractProperties.methodId)
+        val results = performAnalysis(analyzer, absolutePath, contractProperties.contractData, contractProperties.methodId, tlbOptions)
 
         generateTests(
             results,
@@ -201,15 +210,12 @@ class TactAnalysis : ErrorsSarifDetector<TactSourcesDescription>(
         .required()
         .help("Name of the Tact smart contract to analyze")
 
-    private val tlbOptions by TlbOptions()
-
     override fun run() {
         val sources = TactSourcesDescription(tactConfigPath, tactProjectName, tactContractName)
 
         generateAndWriteSarifReport(
             analyzer = TactAnalyzer,
             sources = sources,
-            inputInfo = TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath)
         )
     }
 }
@@ -222,7 +228,6 @@ class FuncAnalysis : ErrorsSarifDetector<Path>(name = "func", help = "Options fo
 
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
-    private val tlbOptions by TlbOptions()
 
     override fun run() {
         val analyzer = FuncAnalyzer(
@@ -233,7 +238,6 @@ class FuncAnalysis : ErrorsSarifDetector<Path>(name = "func", help = "Options fo
         generateAndWriteSarifReport(
             analyzer = analyzer,
             sources = funcSourcesPath,
-            inputInfo = TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath)
         )
     }
 }
@@ -281,7 +285,9 @@ class CheckerAnalysis : CliktCommand(
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
 
-    private val tlbOptions by TlbOptions()
+    private val sarifOptions by SarifOptions()
+
+    private val tlbOptions by TlbCLIOptions()
 
     private val checkerContractPath by option("--checker")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
@@ -329,7 +335,7 @@ class CheckerAnalysis : CliktCommand(
 
         // TODO support TL-B schemes in JAR
         val inputInfo = runCatching {
-            TlbOptions.extractInputInfo(tlbOptions.tlbJsonPath).values.singleOrNull()
+            TlbCLIOptions.extractInputInfo(tlbOptions.tlbJsonPath).values.singleOrNull()
         }
             .getOrElse { TvmInputInfo() } // In case TL-B scheme is incorrect (not json format, for example), use empty scheme
             ?: TvmInputInfo() // In case TL-B scheme is not provided, use empty scheme
@@ -348,7 +354,11 @@ class CheckerAnalysis : CliktCommand(
             inputInfo = inputInfo,
         )
 
-        echo(result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = true))
+        val sarifReport = result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = false)
+
+        sarifOptions.sarifPath?.writeText(sarifReport) ?: run {
+            echo(sarifReport)
+        }
     }
 }
 
@@ -358,6 +368,8 @@ class InterContractAnalysis : CliktCommand(
 ) {
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
+
+    private val sarifOptions by SarifOptions()
 
     private val interContractSchemePath by option("-s", "--scheme")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
@@ -406,7 +418,11 @@ class InterContractAnalysis : CliktCommand(
             options = options,
         )
 
-        echo(result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = true))
+        val sarifReport = result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = false)
+
+        sarifOptions.sarifPath?.writeText(sarifReport) ?: run {
+            echo(sarifReport)
+        }
     }
 }
 
@@ -495,17 +511,18 @@ sealed class ErrorsSarifDetector<SourcesDescription>(name: String, help: String)
     private val contractProperties by ContractProperties()
     private val sarifOptions by SarifOptions()
 
+    private val tlbOptions by TlbCLIOptions()
+
     fun generateAndWriteSarifReport(
         analyzer: TvmAnalyzer<SourcesDescription>,
         sources: SourcesDescription,
-        inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap()
     ) {
         val analysisResult = performAnalysis(
             analyzer = analyzer,
             sources = sources,
             contractData = contractProperties.contractData,
-            inputInfo = inputInfo,
-            methodId = contractProperties.methodId
+            methodId = contractProperties.methodId,
+            tlbOptions = tlbOptions,
         )
         val sarifReport = analysisResult.toSarifReport(methodsMapping = emptyMap())
 
