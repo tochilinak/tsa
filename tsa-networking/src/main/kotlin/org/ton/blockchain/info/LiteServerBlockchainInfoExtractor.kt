@@ -1,11 +1,9 @@
 package org.ton.blockchain.info
 
-import org.ton.bitstring.toBitString
 import org.ton.blockchain.ContractState
 import org.ton.blockchain.base64ToHex
 import org.ton.blockchain.toBase64
 import org.ton.boc.BagOfCells
-import org.ton.cell.CellType
 import org.ton.java.tonlib.Tonlib
 import org.ton.java.tonlib.types.AccountAddressOnly
 import org.ton.java.tonlib.types.VerbosityLevel
@@ -30,7 +28,12 @@ class LiteServerBlockchainInfoExtractor(
             .build()
         val result = tonlib.getAccountState(accountAddressOnly)
         val balance = result.balance.toLong()
-        if (balance == -1L) {
+        if (
+            balance == -1L ||
+            result.account_state == null ||
+            result.account_state.code == null ||
+            result.account_state.data == null
+        ) {
             return null  // no active contract at this address
         }
         return ContractState(
