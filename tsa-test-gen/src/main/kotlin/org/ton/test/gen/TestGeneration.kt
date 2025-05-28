@@ -395,7 +395,7 @@ private fun generateTestNames(tests: List<TvmSymbolicTest>): List<String> {
 
 private fun extractContractName(sourceRelativePath: Path): String {
     val fileName = sourceRelativePath.fileName.nameWithoutExtension
-    val words = fileName.split('_', '-')
+    val words = fileName.split('_', '-', '.')
     val capitalizedWords = words.map { word ->
         word.replaceFirstChar { firstChar ->
             if (firstChar.isLowerCase()) {

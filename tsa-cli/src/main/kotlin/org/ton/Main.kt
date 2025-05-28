@@ -5,12 +5,9 @@ import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.ParameterHolder
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
-import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
-import com.github.ajalt.clikt.parameters.groups.required
-import com.github.ajalt.clikt.parameters.groups.single
 import com.github.ajalt.clikt.parameters.options.NullableOption
-import com.github.ajalt.clikt.parameters.options.convert
+import com.github.ajalt.clikt.parameters.options.OptionCallTransformContext
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
@@ -22,6 +19,9 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
+import io.ksmt.utils.uncheckedCast
+import java.math.BigInteger
+import java.nio.file.Path
 import org.ton.bytecode.TsaContractCode
 import org.ton.sarif.toSarifReport
 import org.ton.test.gen.dsl.render.TsRenderer
@@ -41,9 +41,8 @@ import org.usvm.machine.getFuncContract
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.toMethodId
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
-import java.math.BigInteger
-import java.nio.file.Path
 import kotlin.io.path.readText
+import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
 
 class ContractProperties : OptionGroup("Contract properties") {
@@ -132,31 +131,22 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
     private val projectPath by option("-p", "--project")
         .path(mustExist = true, canBeFile = false, canBeDir = true)
         .required()
-        .help("The path to the FunC project")
+        .help("The path to the sandbox project")
 
-    private val sourcesDescription: Pair<Path, TsRenderer.ContractType> by mutuallyExclusiveOptions(
-        option("--boc")
-            .help("Relative path from the project root to the BoC file")
-            .path(canBeFile = true, canBeDir = false)
-            .convert {
-                require(!it.isAbsolute) {
-                    "Contract file path must be relative (to project path)"
-                }
-                it to TsRenderer.ContractType.Boc
-            },
-        option("--func")
-            .help("Relative path from the project root to the FunC file")
-            .path(canBeFile = true, canBeDir = false)
-            .convert {
-                require(!it.isAbsolute) {
-                    "Contract file path must be relative (to project path)"
-                }
-                it to TsRenderer.ContractType.Func
-            },
-    ).single().required()
+    private val pathOptionDescriptor = option().path(canBeFile = true, canBeDir = false)
+    private val typeOptionDescriptor = option().enum<ContractType>(ignoreCase = true)
+    private val contractSources: ContractSources by contractSourcesOption(pathOptionDescriptor, typeOptionDescriptor) {
+        require(!it.isAbsolute) {
+            "File path must be relative (to project path)"
+        }
+    }.required()
 
-    private val sourcesRelativePath by lazy { sourcesDescription.first }
-    private val contractType by lazy { sourcesDescription.second }
+    private val contractType by lazy {
+        when (val optionSources = contractSources) {
+            is SinglePath -> optionSources.type
+            is TactPath -> ContractType.Tact
+        }
+    }
 
     private val contractProperties by ContractProperties()
 
@@ -166,28 +156,47 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
 
     private val tlbOptions by TlbCLIOptions()
 
+    private fun toAbsolutePath(relativePath: Path) = projectPath.resolve(relativePath).normalize()
+
     override fun run() {
-        val analyzer = when (contractType) {
-            TsRenderer.ContractType.Func -> {
-                FuncAnalyzer(
-                    funcStdlibPath = funcOptions.funcStdlibPath,
-                    fiftStdlibPath = fiftOptions.fiftStdlibPath
-                )
-            }
-            TsRenderer.ContractType.Boc -> {
-                BocAnalyzer
+        val (sourcesAbsolutePath, sourcesRelativePath) = when (val optionSources = contractSources) {
+            is SinglePath -> optionSources.path.let { toAbsolutePath(it) to it }
+
+            is TactPath -> {
+                val configAbsolutePath = toAbsolutePath(optionSources.tactPath.configPath)
+                val sourcesAbsolutePath = optionSources.tactPath.copy(configPath = configAbsolutePath)
+                val bocAbsolutePath = TactAnalyzer.getBocAbsolutePath(sourcesAbsolutePath)
+                val bocRelativePath = bocAbsolutePath.relativeTo(projectPath)
+
+                sourcesAbsolutePath to bocRelativePath
             }
         }
+        val analyzer = when (contractType) {
+            ContractType.Func -> FuncAnalyzer(funcOptions.funcStdlibPath, fiftOptions.fiftStdlibPath)
+            ContractType.Boc -> BocAnalyzer
+            ContractType.Tact -> TactAnalyzer
 
-        val absolutePath = projectPath.resolve(sourcesRelativePath)
+            ContractType.Fift -> error("Fift is not supported")
+        }
 
-        val results = performAnalysis(analyzer, absolutePath, contractProperties.contractData, contractProperties.methodId, tlbOptions)
+        val results = performAnalysis(
+            analyzer.uncheckedCast(),
+            sourcesAbsolutePath,
+            contractProperties.contractData,
+            contractProperties.methodId,
+            tlbOptions
+        )
+
+        val testGenContractType = when (contractType) {
+            ContractType.Func -> TsRenderer.ContractType.Func
+            else -> TsRenderer.ContractType.Boc
+        }
 
         generateTests(
             results,
             projectPath,
             sourcesRelativePath,
-            contractType,
+            testGenContractType,
             useMinimization = true,
         )
     }
@@ -462,7 +471,8 @@ private data class TactPath(val tactPath: TactSourcesDescription) : ContractSour
 
 private fun ParameterHolder.contractSourcesOption(
     pathOptionDescriptor: NullableOption<Path, Path>,
-    typeOptionDescriptor: NullableOption<ContractType, ContractType>
+    typeOptionDescriptor: NullableOption<ContractType, ContractType>,
+    pathValidator: OptionCallTransformContext.(Path) -> Unit = { },
 ) = option("-c", "--contract")
     .help(
         """
@@ -489,7 +499,7 @@ private fun ParameterHolder.contractSourcesOption(
         val typeRaw = args[0]
         val type = typeOptionDescriptor.transformValue(this, typeRaw)
         val pathRaw = args[1]
-        val path = pathOptionDescriptor.transformValue(this, pathRaw)
+        val path = pathOptionDescriptor.transformValue(this, pathRaw).also { pathValidator(it) }
         if (type == ContractType.Tact) {
             require(args.size == 4) {
                 "Tact expects 3 parameters: path to tact.config.json, project name, contract name."

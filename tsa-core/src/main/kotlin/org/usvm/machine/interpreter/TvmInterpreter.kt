@@ -1740,7 +1740,7 @@ class TvmInterpreter(
                 val cont = stack.takeLastContinuation()
                     ?: return@doWithStateCtx throwTypeCheckError(this)
                 if (
-                    cont !is TvmOrdContinuation ||  // support only orfinary continuations
+                    cont !is TvmOrdContinuation ||  // support only ordinary continuations
                     cont.isPartiallyExecuted() ||
                     cont.sourceCell == null  // we can extract TsaContractCode only if continuation has raw cell representation
                 ) {
@@ -2221,6 +2221,7 @@ class TvmInterpreter(
 
                 val method = contractCode.methods[methodId] ?: run {
                     scope.addOnStack(methodIdSymbolic, TvmIntegerType)
+                    scope.doWithState { newStmt(stmt.nextStmt()) }
                     return
                 }
 

@@ -8,8 +8,6 @@ import org.ton.boc.BagOfCells
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.setTSACheckerFunctions
-import org.ton.cell.Cell
-import org.usvm.machine.FiftAnalyzer.Companion.FIFT_INCLUDE_PREAMBLE
 import org.usvm.machine.FuncAnalyzer.Companion.FIFT_EXECUTABLE
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmState
@@ -21,13 +19,13 @@ import org.usvm.test.resolver.TvmSymbolicTestSuite
 import org.usvm.test.resolver.TvmTestResolver
 import org.usvm.utils.executeCommandWithTimeout
 import org.usvm.utils.toText
-import java.io.File
 import java.math.BigInteger
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
+import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
@@ -70,19 +68,20 @@ data class TactSourcesDescription(
 
 data object TactAnalyzer : TvmAnalyzer<TactSourcesDescription> {
     override fun convertToTvmContractCode(sources: TactSourcesDescription): TsaContractCode {
+        compileTact(sources.configPath)
+
+        return TsaContractCode.construct(getBocAbsolutePath(sources))
+    }
+
+    fun getBocAbsolutePath(sources: TactSourcesDescription): Path {
         val config = readTactConfig(sources.configPath)
         val project = config.projects.firstOrNull {
             it.name == sources.projectName
         } ?: error("Project with name ${sources.projectName} not found.")
-        val outputDir = File(sources.configPath.parent?.toAbsolutePath()?.toString(), project.output)
-
-        compileTact(sources.configPath)
-
+        val outputDir = sources.configPath.parent.toAbsolutePath() / project.output
         val bocFileName = "${sources.projectName}_${sources.contractName}.code.boc"
-        val bocFile = outputDir.walk().singleOrNull { it.name == bocFileName }
-            ?: error("Cannot find file $bocFileName after compiling the Tact source")
 
-        return TsaContractCode.construct(bocFile.toPath())
+        return outputDir.resolve(bocFileName).normalize()
     }
 
     private fun readTactConfig(configPath: Path): TactConfig {
@@ -99,7 +98,7 @@ data object TactAnalyzer : TvmAnalyzer<TactSourcesDescription> {
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
             executionCommand,
             COMPILER_TIMEOUT,
-            processWorkingDirectory = configFile.parent?.toFile(),
+            processWorkingDirectory = configFile.parent.toFile(),
         )
 
         check(completedInTime) {
@@ -153,7 +152,8 @@ class FuncAnalyzer(
         check(exitValue == 0) {
             "FunC compilation failed with an error, exit code $exitValue, errors: \n${errors.toText()}"
         }
-        val fiftCode = "$FIFT_INCLUDE_PREAMBLE${output.toText()}"
+        val fiftIncludePreamble = """"Fift.fif" include"""
+        val fiftCode = "$fiftIncludePreamble\n${output.toText()}"
 
         fiftFilePath.writeText(fiftCode)
     }
@@ -249,7 +249,8 @@ class FiftAnalyzer(
         check(fiftWorkDir.resolve("Fift.fif").exists()) { "No Fift.fif" }
 
         val fiftTextWithOutputCommand = """
-        $FIFT_INCLUDE_PREAMBLE
+        "Fift.fif" include
+        "Asm.fif" include
 
         ${codeBlock.trim()}s runvmcode $FINAL_STACK_STATE_MARKER .s
     """.trimIndent()
@@ -273,7 +274,8 @@ class FiftAnalyzer(
         val blocks = codeBlocks.mapIndexed { index, block -> "cb_$index PROC:$block" }
 
         val fiftCode = """
-        $FIFT_INCLUDE_PREAMBLE
+        "Fift.fif" include
+        "Asm.fif" include
         
         PROGRAM{
           ${methodIds.joinToString("\n")}
@@ -357,11 +359,6 @@ class FiftAnalyzer(
     companion object {
         private const val FINAL_STACK_STATE_MARKER = "\"FINAL STACK STATE\""
         private val TVM_EXECUTION_STATUS_PATTERN = Regex(""".*steps: (\d+) gas: used=(\d+).*""")
-
-        const val FIFT_INCLUDE_PREAMBLE = """
-            "Fift.fif" include
-            "Asm.fif" include
-        """
     }
 }
 
@@ -380,6 +377,7 @@ private fun runAnalysisInCatchingBlock(
     contractForCoverageStats: TsaContractCode,
     methodId: MethodId,
     logInfoAboutAnalysis: Boolean = true,
+    throwNotImplementedError: Boolean = false,
     analysisRun: (TvmCoverageStatistics) -> List<TvmState>,
 ): Pair<List<TvmState>, TvmMethodCoverage> =
     runCatching {
@@ -404,6 +402,10 @@ private fun runAnalysisInCatchingBlock(
 
         states to coverage
     }.getOrElse {
+        if (it is NotImplementedError && throwNotImplementedError) {
+            throw it
+        }
+
         logger.error(it) {
             "Failed analyzing method with id $methodId"
         }
@@ -419,6 +421,7 @@ fun analyzeInterContract(
     additionalStopStrategy: StopStrategy = StopStrategy { false },
     additionalObserver: UMachineObserver<TvmState>? = null,
     options: TvmOptions = TvmOptions(),
+    throwNotImplementedError: Boolean = false,
     manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
 ): TvmSymbolicTestSuite {
     val machine = TvmMachine(tvmOptions = options)
@@ -428,6 +431,7 @@ fun analyzeInterContract(
         contractForCoverageStats = startContractCode,
         methodId = methodId,
         logInfoAboutAnalysis = false,
+        throwNotImplementedError = throwNotImplementedError,
     ) { coverageStatistics ->
         machine.analyze(
             contracts,
@@ -488,12 +492,8 @@ fun analyzeSpecificMethod(
     val contractData = contractDataHex?.let {
         BagOfCells(it.hexToByteArray()).roots.single()
     }
-    val machineOptions = TvmMachine.defaultOptions.copy(
-        timeout = tvmOptions.timeout,
-        loopIterationLimit = tvmOptions.loopIterationLimit,
-    )
 
-    val machine = TvmMachine(tvmOptions = tvmOptions, options = machineOptions)
+    val machine = TvmMachine(tvmOptions = tvmOptions)
     val (states, coverage) = machine.use {
         runAnalysisInCatchingBlock(
             contractIdForCoverageStats = 0,
