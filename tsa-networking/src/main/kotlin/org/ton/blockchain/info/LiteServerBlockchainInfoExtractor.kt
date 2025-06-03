@@ -1,9 +1,11 @@
 package org.ton.blockchain.info
 
+import org.ton.bitstring.toBitString
 import org.ton.blockchain.ContractState
 import org.ton.blockchain.base64ToHex
 import org.ton.blockchain.toBase64
 import org.ton.boc.BagOfCells
+import org.ton.cell.CellType
 import org.ton.java.tonlib.Tonlib
 import org.ton.java.tonlib.types.AccountAddressOnly
 import org.ton.java.tonlib.types.VerbosityLevel
