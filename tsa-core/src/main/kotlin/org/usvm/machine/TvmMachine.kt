@@ -30,9 +30,13 @@ import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.seconds
 
 class TvmMachine(
-    private val options: UMachineOptions = defaultOptions,
     private val tvmOptions: TvmOptions = TvmOptions(),
 ) : UMachine<TvmState>() {
+    private val options: UMachineOptions = defaultOptions.copy(
+        timeout = tvmOptions.timeout,
+        loopIterationLimit = tvmOptions.loopIterationLimit,
+    )
+
     private val components = TvmComponents(options)
     private val ctx = TvmContext(tvmOptions, components)
 
@@ -139,9 +143,8 @@ class TvmMachine(
             stopStrategy = integrativeStopStrategy,
         )
 
-        return interpreter.postProcessStates(statesCollector.collectedStates).flatMap {
-            manualStatePostProcess(it)
-        }
+        val states = statesCollector.collectedStates.flatMap { manualStatePostProcess(it) }
+        return interpreter.postProcessStates(states)
     }
 
     private fun isStateTerminated(state: TvmState): Boolean = state.isTerminated
