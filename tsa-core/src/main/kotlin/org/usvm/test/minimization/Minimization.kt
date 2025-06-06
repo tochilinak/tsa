@@ -2,7 +2,7 @@ package org.usvm.test.minimization
 
 import java.util.IdentityHashMap
 import org.ton.bytecode.TvmInst
-import org.usvm.machine.state.TvmUnknownFailure
+import org.usvm.machine.state.TvmUserDefinedFailure
 import org.usvm.test.resolver.TvmExecutionWithStructuralError
 import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmMethodSymbolicResult
@@ -134,7 +134,7 @@ private fun executionToTestSuite(execution: TvmExecution): Int =
     when (val result = execution.test.result) {
         is TvmSuccessfulExecution -> 0
         is TvmExecutionWithStructuralError -> 1
-        is TvmMethodFailure -> if (result.failure.exit is TvmUnknownFailure) 2 else 3
+        is TvmMethodFailure -> if (result.failure.exit is TvmUserDefinedFailure) 2 else 3
     }
 
 /**

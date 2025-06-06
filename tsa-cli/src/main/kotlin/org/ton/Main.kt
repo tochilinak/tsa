@@ -54,6 +54,10 @@ class SarifOptions : OptionGroup("SARIF options") {
     val sarifPath by option("-o", "--output")
         .path(mustExist = false, canBeFile = true, canBeDir = false)
         .help("The path to the output SARIF report file")
+
+    val excludeUserDefinedErrors by option("--no-user-errors")
+        .flag()
+        .help("Do not report executions with user-defined errors")
 }
 
 class FiftOptions : OptionGroup("Fift options") {
@@ -363,7 +367,11 @@ class CheckerAnalysis : CliktCommand(
             inputInfo = inputInfo,
         )
 
-        val sarifReport = result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = false)
+        val sarifReport = result.toSarifReport(
+            methodsMapping = emptyMap(),
+            useShortenedOutput = false,
+            excludeUserDefinedErrors = sarifOptions.excludeUserDefinedErrors,
+        )
 
         sarifOptions.sarifPath?.writeText(sarifReport) ?: run {
             echo(sarifReport)
@@ -427,7 +435,11 @@ class InterContractAnalysis : CliktCommand(
             options = options,
         )
 
-        val sarifReport = result.toSarifReport(methodsMapping = emptyMap(), useShortenedOutput = false)
+        val sarifReport = result.toSarifReport(
+            methodsMapping = emptyMap(),
+            useShortenedOutput = false,
+            excludeUserDefinedErrors = sarifOptions.excludeUserDefinedErrors,
+        )
 
         sarifOptions.sarifPath?.writeText(sarifReport) ?: run {
             echo(sarifReport)
@@ -534,7 +546,10 @@ sealed class ErrorsSarifDetector<SourcesDescription>(name: String, help: String)
             methodId = contractProperties.methodId,
             tlbOptions = tlbOptions,
         )
-        val sarifReport = analysisResult.toSarifReport(methodsMapping = emptyMap())
+        val sarifReport = analysisResult.toSarifReport(
+            methodsMapping = emptyMap(),
+            excludeUserDefinedErrors = sarifOptions.excludeUserDefinedErrors,
+        )
 
         sarifOptions.sarifPath?.writeText(sarifReport) ?: run {
             echo(sarifReport)

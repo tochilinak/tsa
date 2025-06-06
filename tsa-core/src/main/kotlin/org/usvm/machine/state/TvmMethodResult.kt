@@ -176,7 +176,7 @@ data class TvmOutOfGas(val consumedGas: UExpr<UBv32Sort>, val gasLimit: UExpr<UB
 }
 
 @Serializable
-data class TvmUnknownFailure(override val exitCode: Int): TvmErrorExit {
+data class TvmUserDefinedFailure(override val exitCode: Int): TvmErrorExit {
     override val ruleName: String = "user-defined-error"
 
     override fun toString(): String = "TVM user defined error with exit code $exitCode"
