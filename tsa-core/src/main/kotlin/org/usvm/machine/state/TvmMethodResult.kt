@@ -5,9 +5,10 @@ import org.ton.TlbBuiltinLabel
 import org.usvm.UBv32Sort
 import org.usvm.UExpr
 import org.usvm.machine.state.TvmMethodResult.TvmErrorExit
+import org.usvm.machine.state.TvmMethodResult.TvmAbstractSoftFailure
 import org.usvm.machine.state.TvmMethodResult.TvmSuccessfulExit
-import org.usvm.machine.types.TvmStructuralExit
 import org.usvm.machine.types.TvmCellDataTypeRead
+import org.usvm.machine.types.TvmStructuralExit
 
 /**
  * Represents a result of a method invocation.
@@ -33,8 +34,15 @@ sealed interface TvmMethodResult {
     data class TvmFailure(
         val exit: TvmErrorExit,
         val type: TvmFailureType,
-        val phase: TmvPhase,
-    ) : TvmMethodResult
+        val phase: TvmPhase,
+    ) : TvmMethodResult {
+        override fun toString(): String =
+            if (type == TvmFailureType.UnknownError) {
+                "TvmFailure(exit=$exit, phase=$phase)"
+            } else {
+                "TvmFailure(exit=$exit, type=$type, phase=$phase)"
+            }
+    }
 
     @Serializable
     sealed interface TvmExit {
@@ -48,10 +56,31 @@ sealed interface TvmMethodResult {
         val ruleName: String
     }
 
-    data class TvmStructuralError(
-        val exit: TvmStructuralExit<TvmCellDataTypeRead<*>, TlbBuiltinLabel>,
-        val phase: TmvPhase,
-    ) : TvmMethodResult
+    sealed interface TvmAbstractSoftFailure : TvmMethodResult {
+        val phase: TvmPhase
+    }
+
+    data class TvmSoftFailure(
+        val exit: TvmSoftFailureExit,
+        override val phase: TvmPhase,
+    ) : TvmAbstractSoftFailure
+
+    sealed interface TvmSoftFailureExit {
+        val ruleId: String
+    }
+}
+
+data class TvmStructuralError(
+    val exit: TvmStructuralExit<TvmCellDataTypeRead<*>, TlbBuiltinLabel>,
+    override val phase: TvmPhase,
+) : TvmAbstractSoftFailure
+
+data object TvmUsageOfAnycastAddress : TvmMethodResult.TvmSoftFailureExit {
+    override val ruleId = "anycast-address-usage"
+}
+
+data object TvmUsageOfVarAddress : TvmMethodResult.TvmSoftFailureExit {
+    override val ruleId = "var-address-usage"
 }
 
 object TvmNormalExit : TvmSuccessfulExit {
@@ -183,4 +212,4 @@ data class TvmUserDefinedFailure(override val exitCode: Int): TvmErrorExit {
 }
 
 fun TvmMethodResult.isExceptional(): Boolean =
-    this is TvmMethodResult.TvmFailure || this is TvmMethodResult.TvmStructuralError
+    this is TvmMethodResult.TvmFailure || this is TvmMethodResult.TvmAbstractSoftFailure

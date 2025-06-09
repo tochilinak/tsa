@@ -19,6 +19,7 @@ import org.ton.bytecode.TvmMethod
 import org.usvm.machine.state.TvmMethodResult.TvmFailure
 import org.usvm.machine.state.TvmUserDefinedFailure
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
+import org.usvm.test.resolver.TvmExecutionWithSoftFailure
 import org.usvm.test.resolver.TvmExecutionWithStructuralError
 import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSuccessfulExecution
@@ -83,6 +84,10 @@ private fun List<TvmSymbolicTest>.toSarifResult(
         is TvmExecutionWithStructuralError -> {
             val exit = (it.result as TvmExecutionWithStructuralError).exit
             exit.ruleId to exit.toString()
+        }
+        is TvmExecutionWithSoftFailure -> {
+            val exit = (it.result as TvmExecutionWithSoftFailure).failure
+            exit.exit.ruleId to exit.toString()
         }
         is TvmSuccessfulExecution -> {
             return@mapNotNull null
