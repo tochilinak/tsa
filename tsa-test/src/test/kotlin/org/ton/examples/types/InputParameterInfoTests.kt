@@ -18,6 +18,7 @@ import org.usvm.machine.TlbOptions
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.getResourcePath
 import org.usvm.machine.types.TvmReadingOfUnexpectedType
+import org.usvm.machine.types.TvmReadingSwitchWithUnexpectedType
 import org.usvm.machine.types.TvmUnexpectedDataReading
 import org.usvm.machine.types.TvmUnexpectedEndOfReading
 import org.usvm.machine.types.TvmUnexpectedRefReading
@@ -1522,6 +1523,72 @@ class InputParameterInfoTests {
                 { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
                 { test -> test.result is TvmSuccessfulExecution },
             )
+        )
+    }
+
+    @Test
+    fun maybeInLongTagTest() {
+        // loading dict == load_maybe_ref
+        val resourcePath = getResourcePath<InputParameterInfoTests>(dictPath)
+        val inputInfo = TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(intSwitchStructure))))
+        val results = funcCompileAndAnalyzeAllMethods(
+            resourcePath,
+            inputInfo = mapOf(MethodId.ZERO to inputInfo),
+            tvmOptions = TvmOptions(
+                performAdditionalChecksWhileResolving = true,
+                tlbOptions = TlbOptions(
+                    performTlbChecksOnAllocatedCells = true,
+                ),
+            ),
+        )
+
+        val tests = results.first { it.methodId == MethodId.ZERO }
+
+        checkInvariants(
+            tests,
+            listOf(
+                { test -> test.result !is TvmSuccessfulExecution},
+                { test -> test.result !is TvmMethodFailure},
+            )
+        )
+
+        propertiesFound(
+            tests,
+            listOf {
+                test -> (test.result as? TvmExecutionWithStructuralError)?.exit is TvmReadingSwitchWithUnexpectedType
+            }
+        )
+    }
+
+
+    @Test
+    fun loadMaybeRefWhenNoRefsExpectedTest() {
+        // loading dict == load_maybe_ref
+        val resourcePath = getResourcePath<InputParameterInfoTests>(dictPath)
+        val inputInfo = TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(recursiveStructure))))
+        val results = funcCompileAndAnalyzeAllMethods(
+            resourcePath,
+            inputInfo = mapOf(MethodId.ZERO to inputInfo),
+            tvmOptions = TvmOptions(
+                performAdditionalChecksWhileResolving = true,
+                tlbOptions = TlbOptions(
+                    performTlbChecksOnAllocatedCells = true,
+                ),
+            ),
+        )
+
+        val tests = results.first { it.methodId == MethodId.ZERO }
+
+        checkInvariants(
+            tests,
+            listOf { test -> test.result !is TvmSuccessfulExecution }
+        )
+
+        propertiesFound(
+            tests,
+            listOf {
+                test -> (test.result as? TvmExecutionWithStructuralError)?.exit is TvmUnexpectedRefReading
+            }
         )
     }
 }
