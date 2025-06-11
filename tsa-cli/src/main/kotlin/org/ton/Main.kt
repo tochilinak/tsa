@@ -74,6 +74,12 @@ class FuncOptions : OptionGroup("FunC options") {
         .help("The path to the FunC standard library file (stdlib.fc)")
 }
 
+class TactOptions : OptionGroup("Tact options") {
+    val tactExecutable by option("--tact")
+        .default(TactAnalyzer.DEFAULT_TACT_EXECUTABLE)
+        .help("Tact executable. Default: ${TactAnalyzer.DEFAULT_TACT_EXECUTABLE}")
+}
+
 class TlbCLIOptions : OptionGroup("TlB scheme options") {
     val tlbJsonPath by option("-t", "--tlb")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
@@ -167,6 +173,7 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
     // TODO: make these optional (only for FunC)
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
+    private val tactOptions by TactOptions()
 
     private val tlbOptions by TlbCLIOptions()
 
@@ -175,13 +182,15 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
     private fun toAbsolutePath(relativePath: Path) = projectPath.resolve(relativePath).normalize()
 
     override fun run() {
+        val tactAnalyzer = TactAnalyzer(tactOptions.tactExecutable)
+
         val (sourcesAbsolutePath, sourcesRelativePath) = when (val optionSources = contractSources) {
             is SinglePath -> optionSources.path.let { toAbsolutePath(it) to it }
 
             is TactPath -> {
                 val configAbsolutePath = toAbsolutePath(optionSources.tactPath.configPath)
                 val sourcesAbsolutePath = optionSources.tactPath.copy(configPath = configAbsolutePath)
-                val bocAbsolutePath = TactAnalyzer.getBocAbsolutePath(sourcesAbsolutePath)
+                val bocAbsolutePath = tactAnalyzer.getBocAbsolutePath(sourcesAbsolutePath)
                 val bocRelativePath = bocAbsolutePath.relativeTo(projectPath)
 
                 sourcesAbsolutePath to bocRelativePath
@@ -190,7 +199,7 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
         val analyzer = when (contractType) {
             ContractType.Func -> FuncAnalyzer(funcOptions.funcStdlibPath, fiftOptions.fiftStdlibPath)
             ContractType.Boc -> BocAnalyzer
-            ContractType.Tact -> TactAnalyzer
+            ContractType.Tact -> tactAnalyzer
 
             ContractType.Fift -> error("Fift is not supported")
         }
@@ -236,11 +245,13 @@ class TactAnalysis : ErrorsSarifDetector<TactSourcesDescription>(
         .required()
         .help("Name of the Tact smart contract to analyze")
 
+    private val tactOptions by TactOptions()
+
     override fun run() {
         val sources = TactSourcesDescription(tactConfigPath, tactProjectName, tactContractName)
 
         generateAndWriteSarifReport(
-            analyzer = TactAnalyzer,
+            analyzer = TactAnalyzer(tactOptions.tactExecutable),
             sources = sources,
         )
     }
@@ -310,6 +321,7 @@ class CheckerAnalysis : CliktCommand(
 ) {
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
+    private val tactOptions by TactOptions()
 
     private val sarifOptions by SarifOptions()
 
@@ -349,6 +361,12 @@ class CheckerAnalysis : CliktCommand(
         )
     }
 
+    private val tactAnalyzer by lazy {
+        TactAnalyzer(
+            tactExecutable = tactOptions.tactExecutable,
+        )
+    }
+
     override fun run() {
         val checkerContract = getFuncContract(
             checkerContractPath,
@@ -357,7 +375,9 @@ class CheckerAnalysis : CliktCommand(
             isTSAChecker = true
         )
 
-        val contractsToAnalyze = contractSources.map { it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer) }
+        val contractsToAnalyze = contractSources.map {
+            it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer, tactAnalyzer)
+        }
 
         // TODO support TL-B schemes in JAR
         val inputInfo = runCatching {
@@ -398,6 +418,7 @@ class InterContractAnalysis : CliktCommand(
 ) {
     private val fiftOptions by FiftOptions()
     private val funcOptions by FuncOptions()
+    private val tactOptions by TactOptions()
 
     private val sarifOptions by SarifOptions()
 
@@ -419,6 +440,12 @@ class InterContractAnalysis : CliktCommand(
         )
     }
 
+    private val tactAnalyzer by lazy {
+        TactAnalyzer(
+            tactExecutable = tactOptions.tactExecutable
+        )
+    }
+
     private val pathOptionDescriptor = option().path(mustExist = true, canBeFile = true, canBeDir = false)
     private val typeOptionDescriptor = option().enum<ContractType>(ignoreCase = true)
 
@@ -436,7 +463,9 @@ class InterContractAnalysis : CliktCommand(
         .help("Id of the starting method in the root contract.")
 
     override fun run() {
-        val contracts = contractSources.map { it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer) }
+        val contracts = contractSources.map {
+            it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer, tactAnalyzer)
+        }
 
         val communicationScheme = interContractSchemePath.extractIntercontractScheme()
         val options = TvmOptions(intercontractOptions = IntercontractOptions(communicationScheme))
@@ -470,12 +499,13 @@ private enum class ContractType {
 }
 
 private sealed interface ContractSources {
-    fun convertToTsaContractCode(fiftAnalyzer: FiftAnalyzer, funcAnalyzer: FuncAnalyzer): TsaContractCode
+    fun convertToTsaContractCode(fiftAnalyzer: FiftAnalyzer, funcAnalyzer: FuncAnalyzer, tactAnalyzer: TactAnalyzer): TsaContractCode
 }
 private data class SinglePath(val type: ContractType, val path: Path) : ContractSources {
     override fun convertToTsaContractCode(
         fiftAnalyzer: FiftAnalyzer,
-        funcAnalyzer: FuncAnalyzer
+        funcAnalyzer: FuncAnalyzer,
+        tactAnalyzer: TactAnalyzer,
     ): TsaContractCode {
         val analyzer = when (type) {
             ContractType.Boc -> BocAnalyzer
@@ -490,8 +520,9 @@ private data class SinglePath(val type: ContractType, val path: Path) : Contract
 private data class TactPath(val tactPath: TactSourcesDescription) : ContractSources {
     override fun convertToTsaContractCode(
         fiftAnalyzer: FiftAnalyzer,
-        funcAnalyzer: FuncAnalyzer
-    ): TsaContractCode = TactAnalyzer.convertToTvmContractCode(tactPath)
+        funcAnalyzer: FuncAnalyzer,
+        tactAnalyzer: TactAnalyzer,
+    ): TsaContractCode = tactAnalyzer.convertToTvmContractCode(tactPath)
 }
 
 private fun ParameterHolder.contractSourcesOption(

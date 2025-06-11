@@ -66,7 +66,9 @@ data class TactSourcesDescription(
     val contractName: String,
 )
 
-data object TactAnalyzer : TvmAnalyzer<TactSourcesDescription> {
+class TactAnalyzer(
+    private val tactExecutable: String = DEFAULT_TACT_EXECUTABLE
+) : TvmAnalyzer<TactSourcesDescription> {
     override fun convertToTvmContractCode(sources: TactSourcesDescription): TsaContractCode {
         compileTact(sources.configPath)
 
@@ -93,7 +95,7 @@ data object TactAnalyzer : TvmAnalyzer<TactSourcesDescription> {
     }
 
     private fun compileTact(configFile: Path) {
-        val tactCommand = "$TACT_EXECUTABLE --config ${configFile.absolutePathString()}"
+        val tactCommand = "$tactExecutable --config ${configFile.absolutePathString()}"
         val executionCommand = tactCommand.toExecutionCommand()
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
             executionCommand,
@@ -120,7 +122,9 @@ data object TactAnalyzer : TvmAnalyzer<TactSourcesDescription> {
         val output: String,
     )
 
-    private const val TACT_EXECUTABLE: String = "tact"
+    companion object {
+        const val DEFAULT_TACT_EXECUTABLE: String = "tact"
+    }
 }
 
 class FuncAnalyzer(
