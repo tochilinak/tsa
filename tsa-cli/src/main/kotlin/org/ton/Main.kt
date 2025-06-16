@@ -5,9 +5,14 @@ import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.ParameterHolder
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
+import com.github.ajalt.clikt.parameters.groups.default
+import com.github.ajalt.clikt.parameters.groups.help
+import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
+import com.github.ajalt.clikt.parameters.groups.single
 import com.github.ajalt.clikt.parameters.options.NullableOption
 import com.github.ajalt.clikt.parameters.options.OptionCallTransformContext
+import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
@@ -47,8 +52,21 @@ import kotlin.io.path.writeText
 
 class ContractProperties : OptionGroup("Contract properties") {
     val contractData by option("-d", "--data").help("The serialized contract persistent data")
-    val methodId by option("--method").int().help("Id of the method to analyze. If not specified, analyze all methods")
 }
+
+private sealed interface AnalysisTarget
+private data object AllMethods : AnalysisTarget
+private data object Receivers : AnalysisTarget
+private data class SpecificMethod(val methodId: Int) : AnalysisTarget
+
+private fun CliktCommand.analysisTargetOption() = mutuallyExclusiveOptions(
+    option("--method").int().help("Id of the method to analyze. If not specified, analyze all methods").convert { SpecificMethod(it) },
+    option("--analyze-receivers").flag().help("Analyze recv_internal and recv_external").convert { Receivers },
+    option("--analyze-all-methods").flag().help("Analyze all methods (applicable only for contracts with default main method)").convert { AllMethods }
+)
+    .single()
+    .default(Receivers)
+    .help("Analysis target", "What to analyze. By default, only receivers (recv_interval and recv_external) are analyzed.")
 
 class SarifOptions : OptionGroup("SARIF options") {
     val sarifPath by option("-o", "--output")
@@ -117,7 +135,7 @@ private fun <SourcesDescription> performAnalysis(
     analyzer: TvmAnalyzer<SourcesDescription>,
     sources: SourcesDescription,
     contractData: String?,
-    methodId: Int?,
+    target: AnalysisTarget,
     tlbOptions: TlbCLIOptions,
     analysisOptions: AnalysisOptions,
 ): TvmContractSymbolicTestResult {
@@ -126,23 +144,32 @@ private fun <SourcesDescription> performAnalysis(
         analyzeBouncedMessaged = analysisOptions.analyzeBouncedMessages,
     )
     val inputInfo = TlbCLIOptions.extractInputInfo(tlbOptions.tlbJsonPath)
-    return if (methodId == null) {
+    val methodIds: List<BigInteger>? = when (target) {
+        is AllMethods -> null
+        is SpecificMethod -> listOf(target.methodId.toMethodId())
+        is Receivers -> listOf(TvmContext.RECEIVE_INTERNAL_ID, TvmContext.RECEIVE_EXTERNAL_ID)
+    }
+
+    return if (methodIds == null) {
         analyzer.analyzeAllMethods(
             sources,
             contractData,
             inputInfo = inputInfo,
             tvmOptions = options,
         )
+
     } else {
-        val methodIdCasted = methodId.toMethodId()
-        val tests = analyzer.analyzeSpecificMethod(
-            sources,
-            methodIdCasted,
-            contractDataHex = contractData,
-            inputInfo = inputInfo[methodIdCasted] ?: TvmInputInfo(),
-            tvmOptions = options,
-        )
-        TvmContractSymbolicTestResult(listOf(tests))
+        val testSets = methodIds.map { methodId ->
+            analyzer.analyzeSpecificMethod(
+                sources,
+                methodId,
+                contractDataHex = contractData,
+                inputInfo = inputInfo[methodId] ?: TvmInputInfo(),
+                tvmOptions = options,
+            )
+        }
+
+        TvmContractSymbolicTestResult(testSets)
     }
 }
 
@@ -181,6 +208,8 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
 
     private fun toAbsolutePath(relativePath: Path) = projectPath.resolve(relativePath).normalize()
 
+    private val target by analysisTargetOption()
+
     override fun run() {
         val tactAnalyzer = TactAnalyzer(tactOptions.tactExecutable)
 
@@ -208,7 +237,7 @@ class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test 
             analyzer.uncheckedCast(),
             sourcesAbsolutePath,
             contractProperties.contractData,
-            contractProperties.methodId,
+            target,
             tlbOptions,
             analysisOptions,
         )
@@ -579,6 +608,7 @@ sealed class ErrorsSarifDetector<SourcesDescription>(name: String, help: String)
 
     private val tlbOptions by TlbCLIOptions()
     private val analysisOptions by AnalysisOptions()
+    private val target by analysisTargetOption()
 
     fun generateAndWriteSarifReport(
         analyzer: TvmAnalyzer<SourcesDescription>,
@@ -588,7 +618,7 @@ sealed class ErrorsSarifDetector<SourcesDescription>(name: String, help: String)
             analyzer = analyzer,
             sources = sources,
             contractData = contractProperties.contractData,
-            methodId = contractProperties.methodId,
+            target = target,
             tlbOptions = tlbOptions,
             analysisOptions,
         )
