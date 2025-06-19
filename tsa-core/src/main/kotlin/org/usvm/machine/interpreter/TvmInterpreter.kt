@@ -569,7 +569,7 @@ class TvmInterpreter(
         )
 
         return scope.stepResult().apply {
-            if (state.gasUsage === initialGasUsage || forkedStates.any { it.gasUsage === initialGasUsage }) {
+            if (originalStateAlive && state.gasUsage === initialGasUsage || forkedStates.any { it.gasUsage === initialGasUsage }) {
                 TODO("Gas usage was not updated after: $stmt")
             }
         }

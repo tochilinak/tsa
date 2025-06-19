@@ -49,6 +49,8 @@ import org.usvm.test.resolver.TvmContractSymbolicTestResult
 import kotlin.io.path.readText
 import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
+import kotlin.time.Duration.Companion.INFINITE
+import kotlin.time.Duration.Companion.seconds
 
 class ContractProperties : OptionGroup("Contract properties") {
     val contractData by option("-d", "--data").help("The serialized contract persistent data")
@@ -129,6 +131,10 @@ class AnalysisOptions : OptionGroup("Symbolic analysis options") {
     val analyzeBouncedMessages by option("--analyze-bounced-messages")
         .flag()
         .help("Consider inputs when the message is bounced.")
+
+    val timeout by option("--timeout")
+        .int()
+        .help("Analysis timeout in seconds.")
 }
 
 private fun <SourcesDescription> performAnalysis(
@@ -140,8 +146,10 @@ private fun <SourcesDescription> performAnalysis(
     analysisOptions: AnalysisOptions,
 ): TvmContractSymbolicTestResult {
     val options = TvmOptions(
+        quietMode = true,
         turnOnTLBParsingChecks = !tlbOptions.doNotPerformTlbChecks,
         analyzeBouncedMessaged = analysisOptions.analyzeBouncedMessages,
+        timeout = analysisOptions.timeout?.seconds ?: INFINITE,
     )
     val inputInfo = TlbCLIOptions.extractInputInfo(tlbOptions.tlbJsonPath)
     val methodIds: List<BigInteger>? = when (target) {

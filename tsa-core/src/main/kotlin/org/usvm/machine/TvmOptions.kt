@@ -10,7 +10,6 @@ import kotlin.time.Duration
 
 data class TvmOptions(
     val quietMode: Boolean = false,
-    val enableVarAddress: Boolean = false,
     val enableExternalAddress: Boolean = false,
     val useRecvInternalInput: Boolean = true,
     val enableInputValues: Boolean = true,
