@@ -100,7 +100,7 @@ class TactAnalyzer(
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
             executionCommand,
             COMPILER_TIMEOUT,
-            processWorkingDirectory = configFile.parent.toFile(),
+            processWorkingDirectory = configFile.parent?.toFile() ?: Paths.get("").toAbsolutePath().toFile(),
         )
 
         check(completedInTime) {
