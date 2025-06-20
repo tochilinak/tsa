@@ -10,6 +10,7 @@ import org.ton.bytecode.TvmCellBuildNewcInst
 import org.ton.bytecode.TvmCellBuildStbInst
 import org.ton.bytecode.TvmCellBuildStbqInst
 import org.ton.bytecode.TvmCellBuildStbrInst
+import org.ton.bytecode.TvmCellBuildStbrefrInst
 import org.ton.bytecode.TvmCellBuildStbrqInst
 import org.ton.bytecode.TvmCellBuildStiInst
 import org.ton.bytecode.TvmCellBuildStixInst
@@ -564,6 +565,15 @@ class TvmCellInterpreter(
             }
 
             is TvmCellBuildBdepthInst -> visitDepthInst(scope, stmt, operandType = TvmBuilderType)
+
+            is TvmCellBuildStbrefrInst -> {
+                scope.consumeDefaultGas(stmt)
+
+                doEndc(scope)
+                doSwap(scope)
+
+                visitStoreRefInst(scope, stmt, quiet = false)
+            }
 
             else -> TODO("$stmt")
         }
@@ -1433,6 +1443,14 @@ class TvmCellInterpreter(
     private fun visitEndCellInst(scope: TvmStepScopeManager, stmt: TvmCellBuildEndcInst) {
         scope.consumeDefaultGas(stmt)
 
+        doEndc(scope)
+
+        scope.doWithState {
+            newStmt(stmt.nextStmt())
+        }
+    }
+
+    private fun doEndc(scope: TvmStepScopeManager) {
         val builder = scope.calcOnState { stack.takeLastBuilder() }
         if (builder == null) {
             scope.doWithState(ctx.throwTypeCheckError)
@@ -1443,7 +1461,6 @@ class TvmCellInterpreter(
 
         scope.doWithState {
             addOnStack(cell, TvmCellType)
-            newStmt(stmt.nextStmt())
         }
     }
 
