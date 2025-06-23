@@ -492,6 +492,7 @@ fun analyzeSpecificMethod(
     contractDataHex: String? = null,
     inputInfo: TvmInputInfo = TvmInputInfo(),
     tvmOptions: TvmOptions = TvmOptions(),
+    manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
 ): TvmSymbolicTestSuite {
     val contractData = contractDataHex?.let {
         BagOfCells(it.hexToByteArray()).roots.single()
@@ -509,7 +510,8 @@ fun analyzeSpecificMethod(
                 contractData,
                 coverageStatistics,
                 methodId,
-                inputInfo
+                inputInfo,
+                manualStatePostProcess,
             )
         }
     }

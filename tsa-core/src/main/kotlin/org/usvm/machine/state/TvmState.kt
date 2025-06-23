@@ -73,6 +73,7 @@ class TvmState(
     var currentContract: ContractId,
     var fetchedValues: PersistentMap<Int, TvmStack.TvmStackEntry> = persistentMapOf(),
     var additionalFlags: PersistentSet<String> = persistentHashSetOf(),
+    var unprocessedMessages: PersistentList<Pair<ContractId, OutMessage>> = persistentListOf(),
     // inter-contract fields
     var messageQueue: PersistentList<Pair<ContractId, OutMessage>> = persistentListOf(),
     var lastMsgBody: UHeapRef? = null,
@@ -171,6 +172,7 @@ class TvmState(
             intercontractPath = intercontractPath,
             phase = phase,
             analysisOfGetMethod = analysisOfGetMethod,
+            unprocessedMessages = unprocessedMessages,
         ).also { newState ->
             newState.dataCellInfoStorage = dataCellInfoStorage.clone()
             newState.contractIdToInitialData = contractIdToInitialData

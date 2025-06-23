@@ -23,7 +23,14 @@ data class TvmOptions(
     val intercontractOptions: IntercontractOptions = IntercontractOptions(),
     val useMainMethodForInitialMethodJump: Boolean = true,
     val analyzeBouncedMessaged: Boolean = false,
-)
+    val enableOutMessageAnalysis: Boolean = false,
+) {
+    init {
+        check(enableOutMessageAnalysis || !intercontractOptions.isIntercontractEnabled) {
+            "Cannot perform inter-contract analysis without enabling out messages analysis"
+        }
+    }
+}
 
 data class TlbOptions(
     val performTlbChecksOnAllocatedCells: Boolean = false,

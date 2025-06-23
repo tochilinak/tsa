@@ -425,7 +425,8 @@ class CheckerAnalysis : CliktCommand(
 
         val options = TvmOptions(
             intercontractOptions = IntercontractOptions(communicationScheme = interContractSchemePath?.extractIntercontractScheme()),
-            turnOnTLBParsingChecks = false
+            turnOnTLBParsingChecks = false,
+            enableOutMessageAnalysis = true,
         )
 
         val contracts = listOf(checkerContract) + contractsToAnalyze
