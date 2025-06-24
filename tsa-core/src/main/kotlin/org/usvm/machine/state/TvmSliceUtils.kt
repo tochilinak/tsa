@@ -943,14 +943,12 @@ fun TvmState.allocateCell(cellValue: TvmCell): UConcreteHeapRef = with(ctx) {
     val cellDataSizeCondition = cellValue.data.bits.length <= MAX_DATA_LENGTH
     check(refsSizeCondition && cellDataSizeCondition) { "Unexpected cellValue: $cellValue" }
 
-    if (cellValue.data.bits.isEmpty()) {
-        return allocEmptyCell()
-    }
-
-    val data = mkBv(cellValue.data.bits, cellValue.data.bits.length.toUInt())
     val cell = allocEmptyCell()
 
-    builderStoreDataBits(cell, data)
+    if (cellValue.data.bits.isNotEmpty()) {
+        val data = mkBv(cellValue.data.bits, cellValue.data.bits.length.toUInt())
+        builderStoreDataBits(cell, data)
+    }
 
     cellValue.refs.forEach { refValue ->
         val ref = allocateCell(refValue)
