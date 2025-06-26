@@ -209,11 +209,10 @@ class TvmTransactionInterpreter(val ctx: TvmContext) {
                 ?: return null
 
             // value:CurrencyCollection
-            sliceLoadGramsTransaction(scope, ptr.slice)?.unwrap(ptr)
+            // TODO: consider different modes
+            val symbolicMsgValue = sliceLoadGramsTransaction(scope, ptr.slice)?.unwrap(ptr)
                 ?: return@with null
 
-            // TODO send correct msg_value
-            val symbolicMsgValue = scope.calcOnState { makeSymbolicPrimitive(int257sort) }
             builderStoreGramsTransaction(scope, msgFull, symbolicMsgValue)
                 ?: return null
 

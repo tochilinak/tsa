@@ -18,6 +18,7 @@ import org.usvm.USort
 import org.usvm.api.makeSymbolicPrimitive
 import org.usvm.api.readField
 import org.usvm.api.writeField
+import org.usvm.isAllocated
 import org.usvm.isFalse
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_BITS
@@ -890,15 +891,15 @@ fun TvmStepScopeManager.builderStoreSlice(
     return cellData
 }
 
-fun TvmState.allocDataCellFromData(data: UExpr<UBvSort>): UConcreteHeapRef = with(ctx) {
+fun TvmState.allocDataCellFromData(data: UExpr<UBvSort>): UConcreteHeapRef {
     check(data.sort.sizeBits <= CELL_DATA_BITS) { "Unexpected data: $data" }
 
     val cell = allocEmptyCell()
 
-    assertType(cell, TvmDataCellType)
+    memory.types.allocate(cell.address, TvmDataCellType)
     builderStoreDataBits(cell, data)
 
-    cell
+    return cell
 }
 
 fun TvmStepScopeManager.allocCellFromData(

@@ -112,6 +112,7 @@ import org.usvm.machine.state.addInt
 import org.usvm.machine.state.addOnStack
 import org.usvm.machine.state.allocEmptyCell
 import org.usvm.machine.state.allocSliceFromCell
+import org.usvm.machine.state.assertDataCellType
 import org.usvm.machine.state.assertDataLengthConstraintWithoutError
 import org.usvm.machine.state.assertRefsLengthConstraintWithoutError
 import org.usvm.machine.state.assertType
@@ -1173,7 +1174,8 @@ class TvmCellInterpreter(
             return
         }
 
-        scope.doWithState { assertType(cell, TvmDataCellType) }
+        scope.assertDataCellType(cell)
+            ?: return
 
         val slice = scope.calcOnState { allocSliceFromCell(cell) }
 
