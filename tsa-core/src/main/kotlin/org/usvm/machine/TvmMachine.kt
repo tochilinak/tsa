@@ -41,7 +41,7 @@ class TvmMachine(
 
     fun analyze(
         contractCode: TsaContractCode,
-        contractData: Cell?,
+        contractData: TvmConcreteData,
         coverageStatistics: TvmCoverageStatistics,
         methodId: BigInteger,
         inputInfo: TvmInputInfo = TvmInputInfo(),
@@ -60,7 +60,7 @@ class TvmMachine(
     fun analyze(
         contractsCode: List<TsaContractCode>,
         startContractId: ContractId,
-        contractData: List<Cell?>,
+        contractData: List<TvmConcreteData>,
         coverageStatistics: TvmCoverageStatistics,  // TODO: adapt for several contracts
         methodId: BigInteger,
         inputInfo: TvmInputInfo = TvmInputInfo(),

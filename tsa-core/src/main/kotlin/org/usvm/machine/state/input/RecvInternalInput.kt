@@ -2,7 +2,7 @@ package org.usvm.machine.state.input
 
 import org.ton.Endian
 import org.ton.bytecode.ADDRESS_PARAMETER_IDX
-import org.usvm.UBoolSort
+import org.usvm.UBoolExpr
 import org.usvm.UConcreteHeapRef
 import org.usvm.UExpr
 import org.usvm.UHeapRef
@@ -98,9 +98,13 @@ class RecvInternalInput(
     val createdLt = initialState.makeSymbolicPrimitive(initialState.ctx.int257sort) // created_lt:uint64
     val createdAt = initialState.makeSymbolicPrimitive(initialState.ctx.int257sort) // created_at:uint32
 
-    val addrCell = initialState.getContractInfoParam(ADDRESS_PARAMETER_IDX).cellValue as? UConcreteHeapRef
-        ?: error("Cannot extract contract address")
-    val addrSlice = initialState.allocSliceFromCell(addrCell)
+    val addrCell: UConcreteHeapRef by lazy {
+        initialState.getContractInfoParam(ADDRESS_PARAMETER_IDX).cellValue as? UConcreteHeapRef
+            ?: error("Cannot extract contract address")
+    }
+    val addrSlice: UConcreteHeapRef by lazy {
+        initialState.allocSliceFromCell(addrCell)
+    }
 
     fun getSrcAddressCell(state: TvmState): UConcreteHeapRef {
         val srcAddressCell =
@@ -142,14 +146,14 @@ class RecvInternalInput(
         )
     }
 
-    private fun TvmContext.mkBalanceConstraints(scope: TvmStepScopeManager): UExpr<UBoolSort> {
+    private fun TvmContext.mkBalanceConstraints(scope: TvmStepScopeManager): UBoolExpr {
         val balance = scope.calcOnState { getBalance() }
             ?: error("Unexpected incorrect config balance value")
 
-        val initialBalance = mkBvSubExpr(balance, msgValue)
         val balanceConstraints = mkAnd(
             mkBvSignedLessOrEqualExpr(balance, maxMessageCurrencyValue),
-            mkBvSignedLessOrEqualExpr(minMessageCurrencyValue, initialBalance),
+            mkBvSignedLessOrEqualExpr(minMessageCurrencyValue, msgValue),
+            mkBvSignedLessOrEqualExpr(msgValue, balance),
         )
 
         return balanceConstraints

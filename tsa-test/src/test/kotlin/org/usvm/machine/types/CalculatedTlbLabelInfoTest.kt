@@ -20,6 +20,7 @@ import org.ton.examples.types.wrappedMsgStructure
 import org.usvm.UExpr
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.TvmComponents
+import org.usvm.machine.TvmConcreteData
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmMachine
 import org.usvm.machine.TvmOptions
@@ -53,7 +54,7 @@ class CalculatedTlbLabelInfoTest {
     )
     private val dummyState = dummyInterpreter.getInitialState(
         startContractId = 0,
-        contractData = listOf(null),
+        contractData = listOf(TvmConcreteData()),
         methodId = BigInteger.ZERO
     )
     val cellDataFieldManager = dummyState.cellDataFieldManager

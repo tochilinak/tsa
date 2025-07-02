@@ -35,7 +35,7 @@ import kotlin.time.Duration.Companion.minutes
 sealed interface TvmAnalyzer<SourcesDescription> {
     fun analyzeAllMethods(
         sources: SourcesDescription,
-        contractDataHex: String? = null,
+        contractData: TvmConcreteData = TvmConcreteData(),
         methodsBlackList: Set<MethodId> = hashSetOf(),
         methodsWhiteList: Set<MethodId>? = null,
         inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap(),
@@ -43,18 +43,18 @@ sealed interface TvmAnalyzer<SourcesDescription> {
         takeEmptyTests: Boolean = false,
     ): TvmContractSymbolicTestResult {
         val contract = convertToTvmContractCode(sources)
-        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractDataHex, inputInfo, tvmOptions)
+        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractData, inputInfo, tvmOptions)
     }
 
     fun analyzeSpecificMethod(
         sources: SourcesDescription,
         methodId: MethodId,
-        contractDataHex: String? = null,
+        contractData: TvmConcreteData = TvmConcreteData(),
         inputInfo: TvmInputInfo = TvmInputInfo(),
         tvmOptions: TvmOptions = TvmOptions(quietMode = true, timeout = 10.minutes),
     ): TvmSymbolicTestSuite {
         val contract = convertToTvmContractCode(sources)
-        return analyzeSpecificMethod(contract, methodId, contractDataHex, inputInfo, tvmOptions)
+        return analyzeSpecificMethod(contract, methodId, contractData, inputInfo, tvmOptions)
     }
 
     fun convertToTvmContractCode(sources: SourcesDescription): TsaContractCode
@@ -441,7 +441,7 @@ fun analyzeInterContract(
             contracts,
             startContractId,
             // TODO support contract data for inter contract
-            contractData = contracts.map { null },
+            contractData = contracts.map { TvmConcreteData() },
             coverageStatistics,
             methodId,
             inputInfo = inputInfo,
@@ -459,7 +459,7 @@ fun analyzeAllMethods(
     contract: TsaContractCode,
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhitelist: Set<MethodId>? = null,
-    contractDataHex: String? = null,
+    contractData: TvmConcreteData = TvmConcreteData(),
     inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
     takeEmptyTests: Boolean = false,
@@ -476,7 +476,7 @@ fun analyzeAllMethods(
         analyzeSpecificMethod(
             contract,
             method.id,
-            contractDataHex,
+            contractData,
             inputInfo[method.id] ?: TvmInputInfo(),
             tvmOptions
         )
@@ -485,19 +485,14 @@ fun analyzeAllMethods(
     return TvmTestResolver.groupTestSuites(methodTests, takeEmptyTests)
 }
 
-@OptIn(ExperimentalStdlibApi::class)
 fun analyzeSpecificMethod(
     contract: TsaContractCode,
     methodId: MethodId,
-    contractDataHex: String? = null,
+    contractData: TvmConcreteData = TvmConcreteData(),
     inputInfo: TvmInputInfo = TvmInputInfo(),
     tvmOptions: TvmOptions = TvmOptions(),
     manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
 ): TvmSymbolicTestSuite {
-    val contractData = contractDataHex?.let {
-        BagOfCells(it.hexToByteArray()).roots.single()
-    }
-
     val machine = TvmMachine(tvmOptions = tvmOptions)
     val (states, coverage) = machine.use {
         runAnalysisInCatchingBlock(

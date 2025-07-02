@@ -215,6 +215,7 @@ import org.usvm.collections.immutable.internal.MutabilityOwnership
 import org.usvm.constraints.UPathConstraints
 import org.usvm.forkblacklists.UForkBlackList
 import org.usvm.machine.TvmCellDataFieldManager
+import org.usvm.machine.TvmConcreteData
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.RECEIVE_INTERNAL_ID
@@ -313,6 +314,7 @@ import org.usvm.machine.types.TvmType
 import org.usvm.machine.types.TvmTypeSystem
 import org.usvm.memory.UMemory
 import org.usvm.memory.UWritableMemory
+import org.usvm.memory.with
 import org.usvm.mkSizeExpr
 import org.usvm.mkSizeGeExpr
 import org.usvm.sizeSort
@@ -353,7 +355,7 @@ class TvmInterpreter(
 
     fun getInitialState(
         startContractId: ContractId,
-        contractData: List<Cell?>,
+        contractData: List<TvmConcreteData>,
         methodId: MethodId,
         targets: List<TvmTarget> = emptyList()
     ): TvmState {
@@ -384,7 +386,7 @@ class TvmInterpreter(
 
         state.contractIdToC4Register = contractsCode.indices.associateWith {
             // If no concrete contract data is provided for the contract, consider it as symbolic
-            val givenData = contractData.getOrNull(it)
+            val givenData = contractData.getOrNull(it)?.contractC4
             val ref = if (givenData != null) {
                 state.allocateCell(givenData.toTvmCell())
             } else {
@@ -392,8 +394,21 @@ class TvmInterpreter(
             }
             C4Register(TvmCellValue(ref))
         }.toPersistentMap()
+
+        val useRecvInternalInput = methodId == RECEIVE_INTERNAL_ID && ctx.tvmOptions.useRecvInternalInput
+        if (useRecvInternalInput) {
+            val input = RecvInternalInput(state)
+            state.input = input
+        } else {
+            state.input = TvmStateStackInput
+        }
+        val msgValue = when (val input = state.input) {
+            is RecvInternalInput -> input.msgValue
+            is TvmStateStackInput -> null
+        }
+
         state.contractIdToFirstElementOfC7 = contractsCode.mapIndexed { index, code ->
-            index to state.initContractInfo(code)
+            index to state.initContractInfo(code, contractData[index], msgValue)
         }.toMap().toPersistentMap()
         state.contractIdToInitialData = contractsCode.indices.associateWith {
             val c4 = state.contractIdToC4Register[it]
@@ -402,7 +417,7 @@ class TvmInterpreter(
                 ?: error("First element of c7 for contract $it not found")
             TvmInitialStateData(c4.value.value, c7)
         }
-        prepareMemoryForInitialState(state, startContractId, methodId)
+        prepareMemoryForInitialState(state, startContractId)
 
         state.callStack.push(contractCode.mainMethod, returnSite = null)
         state.switchToFirstMethodInContract(contractCode, methodId)
@@ -414,10 +429,8 @@ class TvmInterpreter(
     private fun prepareMemoryForInitialState(
         state: TvmState,
         startContractId: ContractId,
-        methodId: MethodId,
     ) {
-        val useRecvInternalInput = methodId == RECEIVE_INTERNAL_ID && ctx.tvmOptions.useRecvInternalInput
-        val allowInputStackValues = ctx.tvmOptions.enableInputValues && !useRecvInternalInput
+        val allowInputStackValues = ctx.tvmOptions.enableInputValues && (state.input is TvmStateStackInput)
         val executionMemory = initializeContractExecutionMemory(
             contractsCode,
             state,
@@ -428,65 +441,63 @@ class TvmInterpreter(
         state.stack = executionMemory.stack
         state.registersOfCurrentContract = executionMemory.registers
 
-        if (useRecvInternalInput) {
-            val input = RecvInternalInput(state)
-            state.input = input
+        when (val input = state.input) {
+            is RecvInternalInput -> {
+                val configBalance = state.getBalance()
+                    ?: error("Unexpected incorrect config balance value")
 
-            val configBalance = state.getBalance()
-                ?: error("Unexpected incorrect config balance value")
+                val newInputInfo = hashMapOf<UConcreteHeapRef, CellInfo>()
 
-            val newInputInfo = hashMapOf<UConcreteHeapRef, CellInfo>()
+                // take input info only for the last parameter (msg_body)
+                if ((inputInfo.parameterInfos.keys - setOf(0)).isNotEmpty()) {
+                    error("Can take into account input info only for msg_body in case of recv_internal but got $inputInfo")
+                }
 
-            // take input info only for the last parameter (msg_body)
-            if ((inputInfo.parameterInfos.keys - setOf(0)).isNotEmpty()) {
-                error("Can take into account input info only for msg_body in case of recv_internal but got $inputInfo")
+                val lastInputInfo = inputInfo.parameterInfos[0]?.let {
+                    (it as? SliceInfo)
+                        ?: error("Incorrect input info for message body")
+                }
+                val msgBodyCellNonBounced = state.memory.readField(input.msgBodySliceNonBounced, sliceCellField, ctx.addressSort) as UConcreteHeapRef
+
+                if (lastInputInfo != null) {
+                    newInputInfo[msgBodyCellNonBounced] = lastInputInfo.cellInfo
+                } else {
+                    newInputInfo[msgBodyCellNonBounced] = UnknownCellInfo
+                }
+
+                val srcAddressCell = input.getSrcAddressCell(state)
+                newInputInfo[srcAddressCell] = DataCellInfo(TlbFullMsgAddrLabel)
+
+                val dataCellInfoStorage = TvmDataCellInfoStorage.build(
+                    state = state,
+                    info = TvmInputInfo(),
+                    additionalCellLabels = newInputInfo,
+                    additionalSliceToCell = mapOf(input.msgBodySliceNonBounced to msgBodyCellNonBounced),
+                )
+                setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
+
+                input.getAddressSlices().forEach {
+                    dataCellInfoStorage.mapper.addAddressSlice(it)
+                }
+
+                // prepare stack
+                executionMemory.stack.addInt(configBalance)
+                executionMemory.stack.addInt(input.msgValue)
+                executionMemory.stack.addStackEntry(TvmConcreteStackEntry(TvmStackCellValue(input.constructFullMessage(state))))
+                executionMemory.stack.addStackEntry(TvmConcreteStackEntry(TvmStackSliceValue(input.msgBodySliceMaybeBounced)))
+
+                // Save msgBody for inter-contract
+                if (ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
+                    state.lastMsgBody = input.msgBodySliceMaybeBounced
+                }
             }
-
-            val lastInputInfo = inputInfo.parameterInfos[0]?.let {
-                (it as? SliceInfo)
-                    ?: error("Incorrect input info for message body")
+            is TvmStateStackInput -> {
+                val dataCellInfoStorage = TvmDataCellInfoStorage.build(
+                    state,
+                    inputInfo
+                )
+                setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
             }
-            val msgBodyCellNonBounced = state.memory.readField(input.msgBodySliceNonBounced, sliceCellField, ctx.addressSort) as UConcreteHeapRef
-
-            if (lastInputInfo != null) {
-                newInputInfo[msgBodyCellNonBounced] = lastInputInfo.cellInfo
-            } else {
-                newInputInfo[msgBodyCellNonBounced] = UnknownCellInfo
-            }
-
-            val srcAddressCell = input.getSrcAddressCell(state)
-            newInputInfo[srcAddressCell] = DataCellInfo(TlbFullMsgAddrLabel)
-
-            val dataCellInfoStorage = TvmDataCellInfoStorage.build(
-                state = state,
-                info = TvmInputInfo(),
-                additionalCellLabels = newInputInfo,
-                additionalSliceToCell = mapOf(input.msgBodySliceNonBounced to msgBodyCellNonBounced),
-            )
-            setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
-
-            input.getAddressSlices().forEach {
-                dataCellInfoStorage.mapper.addAddressSlice(it)
-            }
-
-            // prepare stack
-            executionMemory.stack.addInt(configBalance)
-            executionMemory.stack.addInt(input.msgValue)
-            executionMemory.stack.addStackEntry(TvmConcreteStackEntry(TvmStackCellValue(input.constructFullMessage(state))))
-            executionMemory.stack.addStackEntry(TvmConcreteStackEntry(TvmStackSliceValue(input.msgBodySliceMaybeBounced)))
-
-            // Save msgBody for inter-contract
-            if (ctx.tvmOptions.intercontractOptions.isIntercontractEnabled) {
-                state.lastMsgBody = input.msgBodySliceMaybeBounced
-            }
-        } else {
-            state.input = TvmStateStackInput
-
-            val dataCellInfoStorage = TvmDataCellInfoStorage.build(
-                state,
-                inputInfo
-            )
-            setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
         }
     }
 
