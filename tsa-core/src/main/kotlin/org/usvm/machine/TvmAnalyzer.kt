@@ -4,7 +4,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.ton.TvmInputInfo
-import org.ton.boc.BagOfCells
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.setTSACheckerFunctions
@@ -426,7 +425,7 @@ fun analyzeInterContract(
     additionalObserver: UMachineObserver<TvmState>? = null,
     options: TvmOptions = TvmOptions(),
     throwNotImplementedError: Boolean = false,
-    manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
+    manualStateProcessor: TvmManualStateProcessor = TvmManualStateProcessor(),
 ): TvmSymbolicTestSuite {
     val machine = TvmMachine(tvmOptions = options)
     val startContractCode = contracts[startContractId]
@@ -447,7 +446,7 @@ fun analyzeInterContract(
             inputInfo = inputInfo,
             additionalStopStrategy = additionalStopStrategy,
             additionalObserver = additionalObserver,
-            manualStatePostProcess = manualStatePostProcess,
+            manualStateProcessor = manualStateProcessor,
         )
     }
 
@@ -491,7 +490,7 @@ fun analyzeSpecificMethod(
     contractData: TvmConcreteData = TvmConcreteData(),
     inputInfo: TvmInputInfo = TvmInputInfo(),
     tvmOptions: TvmOptions = TvmOptions(),
-    manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
+    manualStateProcessor: TvmManualStateProcessor = TvmManualStateProcessor(),
 ): TvmSymbolicTestSuite {
     val machine = TvmMachine(tvmOptions = tvmOptions)
     val (states, coverage) = machine.use {
@@ -506,7 +505,7 @@ fun analyzeSpecificMethod(
                 coverageStatistics,
                 methodId,
                 inputInfo,
-                manualStatePostProcess,
+                manualStateProcessor,
             )
         }
     }

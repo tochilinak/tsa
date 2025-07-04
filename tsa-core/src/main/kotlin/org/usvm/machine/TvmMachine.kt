@@ -45,7 +45,7 @@ class TvmMachine(
         coverageStatistics: TvmCoverageStatistics,
         methodId: BigInteger,
         inputInfo: TvmInputInfo = TvmInputInfo(),
-        manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
+        manualStateProcessor: TvmManualStateProcessor = TvmManualStateProcessor(),
     ): List<TvmState> =
         analyze(
             listOf(contractCode),
@@ -54,7 +54,7 @@ class TvmMachine(
             coverageStatistics,
             methodId,
             inputInfo,
-            manualStatePostProcess = manualStatePostProcess
+            manualStateProcessor = manualStateProcessor
         )
 
     fun analyze(
@@ -66,7 +66,7 @@ class TvmMachine(
         inputInfo: TvmInputInfo = TvmInputInfo(),
         additionalStopStrategy: StopStrategy = StopStrategy { false },
         additionalObserver: UMachineObserver<TvmState>? = null,
-        manualStatePostProcess: (TvmState) -> List<TvmState> = { listOf(it) },
+        manualStateProcessor: TvmManualStateProcessor = TvmManualStateProcessor(),
     ): List<TvmState> {
         val interpreter = TvmInterpreter(
             ctx,
@@ -152,8 +152,9 @@ class TvmMachine(
             stopStrategy = integrativeStopStrategy,
         )
 
-        val states = statesCollector.collectedStates.flatMap { manualStatePostProcess(it) }
-        return interpreter.postProcessStates(states)
+        var states = statesCollector.collectedStates.flatMap { manualStateProcessor.postProcessBeforePartialConcretization(it) }
+        states = interpreter.postProcessStates(states)
+        return states.flatMap { manualStateProcessor.postProcessAfterPartialConcretization(it) }
     }
 
     private fun isStateTerminated(state: TvmState): Boolean = state.isTerminated
