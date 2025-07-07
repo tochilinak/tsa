@@ -201,7 +201,6 @@ import org.ton.bytecode.TvmStackComplexXcpuInst
 import org.ton.bytecode.TvmStackComplexXcpuxcInst
 import org.ton.bytecode.TvmTupleInst
 import org.ton.bytecode.disassembleCell
-import org.ton.cell.Cell
 import org.ton.targets.TvmTarget
 import org.usvm.StepResult
 import org.usvm.UBoolExpr
@@ -215,7 +214,8 @@ import org.usvm.collections.immutable.internal.MutabilityOwnership
 import org.usvm.constraints.UPathConstraints
 import org.usvm.forkblacklists.UForkBlackList
 import org.usvm.machine.TvmCellDataFieldManager
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
+import org.usvm.machine.TvmConcreteGeneralData
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.RECEIVE_EXTERNAL_ID
 import org.usvm.machine.TvmContext.Companion.RECEIVE_INTERNAL_ID
@@ -314,7 +314,6 @@ import org.usvm.machine.types.TvmType
 import org.usvm.machine.types.TvmTypeSystem
 import org.usvm.memory.UMemory
 import org.usvm.memory.UWritableMemory
-import org.usvm.memory.with
 import org.usvm.mkSizeExpr
 import org.usvm.mkSizeGeExpr
 import org.usvm.sizeSort
@@ -355,7 +354,8 @@ class TvmInterpreter(
 
     fun getInitialState(
         startContractId: ContractId,
-        contractData: List<TvmConcreteData>,
+        concreteGeneralData: TvmConcreteGeneralData,
+        concreteContractData: List<TvmConcreteContractData>,
         methodId: MethodId,
         targets: List<TvmTarget> = emptyList()
     ): TvmState {
@@ -386,7 +386,7 @@ class TvmInterpreter(
 
         state.contractIdToC4Register = contractsCode.indices.associateWith {
             // If no concrete contract data is provided for the contract, consider it as symbolic
-            val givenData = contractData.getOrNull(it)?.contractC4
+            val givenData = concreteContractData.getOrNull(it)?.contractC4
             val ref = if (givenData != null) {
                 state.allocateCell(givenData.toTvmCell())
             } else {
@@ -397,10 +397,13 @@ class TvmInterpreter(
 
         val useRecvInternalInput = methodId == RECEIVE_INTERNAL_ID && ctx.tvmOptions.useRecvInternalInput
         if (useRecvInternalInput) {
-            val input = RecvInternalInput(state)
+            val input = RecvInternalInput(state, concreteGeneralData)
             state.input = input
         } else {
             state.input = TvmStateStackInput
+            check(concreteGeneralData.initialOpcode == null && concreteGeneralData.initialSenderBits == null) {
+                "Cannot take into account concrete initialOpcode or sender if not using RecvInternal input"
+            }
         }
         val msgValue = when (val input = state.input) {
             is RecvInternalInput -> input.msgValue
@@ -408,7 +411,7 @@ class TvmInterpreter(
         }
 
         state.contractIdToFirstElementOfC7 = contractsCode.mapIndexed { index, code ->
-            index to state.initContractInfo(code, contractData[index], msgValue)
+            index to state.initContractInfo(code, concreteContractData[index], msgValue)
         }.toMap().toPersistentMap()
         state.contractIdToInitialData = contractsCode.indices.associateWith {
             val c4 = state.contractIdToC4Register[it]
@@ -491,6 +494,7 @@ class TvmInterpreter(
                     state.lastMsgBody = input.msgBodySliceMaybeBounced
                 }
             }
+
             is TvmStateStackInput -> {
                 val dataCellInfoStorage = TvmDataCellInfoStorage.build(
                     state,

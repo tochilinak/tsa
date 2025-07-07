@@ -34,7 +34,8 @@ import kotlin.time.Duration.Companion.minutes
 sealed interface TvmAnalyzer<SourcesDescription> {
     fun analyzeAllMethods(
         sources: SourcesDescription,
-        contractData: TvmConcreteData = TvmConcreteData(),
+        concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+        concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
         methodsBlackList: Set<MethodId> = hashSetOf(),
         methodsWhiteList: Set<MethodId>? = null,
         inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap(),
@@ -42,18 +43,19 @@ sealed interface TvmAnalyzer<SourcesDescription> {
         takeEmptyTests: Boolean = false,
     ): TvmContractSymbolicTestResult {
         val contract = convertToTvmContractCode(sources)
-        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, contractData, inputInfo, tvmOptions)
+        return analyzeAllMethods(contract, methodsBlackList, methodsWhiteList, concreteGeneralData, concreteContractData, inputInfo, tvmOptions)
     }
 
     fun analyzeSpecificMethod(
         sources: SourcesDescription,
         methodId: MethodId,
-        contractData: TvmConcreteData = TvmConcreteData(),
+        concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+        concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
         inputInfo: TvmInputInfo = TvmInputInfo(),
         tvmOptions: TvmOptions = TvmOptions(quietMode = true, timeout = 10.minutes),
     ): TvmSymbolicTestSuite {
         val contract = convertToTvmContractCode(sources)
-        return analyzeSpecificMethod(contract, methodId, contractData, inputInfo, tvmOptions)
+        return analyzeSpecificMethod(contract, methodId, concreteGeneralData, concreteContractData, inputInfo, tvmOptions)
     }
 
     fun convertToTvmContractCode(sources: SourcesDescription): TsaContractCode
@@ -439,8 +441,9 @@ fun analyzeInterContract(
         machine.analyze(
             contracts,
             startContractId,
-            // TODO support contract data for inter contract
-            contractData = contracts.map { TvmConcreteData() },
+            // TODO support concrete data for inter contract
+            concreteGeneralData = TvmConcreteGeneralData(),
+            concreteContractData = contracts.map { TvmConcreteContractData() },
             coverageStatistics,
             methodId,
             inputInfo = inputInfo,
@@ -458,7 +461,8 @@ fun analyzeAllMethods(
     contract: TsaContractCode,
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhitelist: Set<MethodId>? = null,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     inputInfo: Map<BigInteger, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
     takeEmptyTests: Boolean = false,
@@ -475,7 +479,8 @@ fun analyzeAllMethods(
         analyzeSpecificMethod(
             contract,
             method.id,
-            contractData,
+            concreteGeneralData,
+            concreteContractData,
             inputInfo[method.id] ?: TvmInputInfo(),
             tvmOptions
         )
@@ -487,7 +492,8 @@ fun analyzeAllMethods(
 fun analyzeSpecificMethod(
     contract: TsaContractCode,
     methodId: MethodId,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     inputInfo: TvmInputInfo = TvmInputInfo(),
     tvmOptions: TvmOptions = TvmOptions(),
     manualStateProcessor: TvmManualStateProcessor = TvmManualStateProcessor(),
@@ -501,7 +507,8 @@ fun analyzeSpecificMethod(
         ) { coverageStatistics ->
             machine.analyze(
                 contract,
-                contractData,
+                concreteGeneralData,
+                concreteContractData,
                 coverageStatistics,
                 methodId,
                 inputInfo,

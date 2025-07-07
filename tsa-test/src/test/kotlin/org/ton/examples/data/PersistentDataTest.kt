@@ -1,9 +1,8 @@
 package org.ton.examples.data
 
-import org.ton.boc.BagOfCells
 import org.ton.cell.CellBuilder
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
 import org.usvm.machine.getResourcePath
 import org.usvm.test.resolver.TvmMethodFailure
 import kotlin.test.Test
@@ -28,7 +27,7 @@ class PersistentDataTest {
 
         val path = getResourcePath<PersistentDataTest>("/data/data.fc")
 
-        val symbolicResult = funcCompileAndAnalyzeAllMethods(path, contractData = TvmConcreteData(contractC4 = cell))
+        val symbolicResult = funcCompileAndAnalyzeAllMethods(path, concreteContractData = TvmConcreteContractData(contractC4 = cell))
         val allTests = symbolicResult.map { it.tests }.flatten()
         val results = allTests.map { it.result }
         assertTrue(results.isNotEmpty())

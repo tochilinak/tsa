@@ -5,7 +5,8 @@ import org.ton.examples.checkInvariants
 import org.ton.examples.funcCompileAndAnalyzeAllMethods
 import org.ton.examples.propertiesFound
 import org.ton.test.gen.dsl.render.TsRenderer
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
+import org.usvm.machine.TvmConcreteGeneralData
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.getResourcePath
 import org.usvm.test.resolver.TvmMethodFailure
@@ -23,6 +24,8 @@ class ArgsConstraintsTest {
     private val createdAtPath = "/args/created_at.fc"
     private val myAddressPath = "/args/my_address.fc"
     private val balancePath = "/args/balance.fc"
+    private val senderAddressPath = "/args/sender_address.fc"
+    private val opcodePath = "/args/opcode.fc"
 
     @Test
     fun testConsistentMessageValue() {
@@ -92,7 +95,7 @@ class ArgsConstraintsTest {
         val path = getResourcePath<ArgsConstraintsTest>(myAddressPath)
         val result = funcCompileAndAnalyzeAllMethods(
             path,
-            contractData = TvmConcreteData(
+            concreteContractData = TvmConcreteContractData(
                 addressBits = stonfiAddressBits
             )
         )
@@ -138,7 +141,7 @@ class ArgsConstraintsTest {
         val path = getResourcePath<ArgsConstraintsTest>(balancePath)
         val result = funcCompileAndAnalyzeAllMethods(
             path,
-            contractData = TvmConcreteData(initialBalance = 12345.toBigInteger()),
+            concreteContractData = TvmConcreteContractData(initialBalance = 12345.toBigInteger()),
         )
 
         val tests = result.testSuites.single()
@@ -147,6 +150,76 @@ class ArgsConstraintsTest {
         checkInvariants(
             tests,
             listOf { test -> test.result !is TvmSuccessfulExecution },
+        )
+    }
+
+    @Test
+    fun testSenderAddress() {
+        val path = getResourcePath<ArgsConstraintsTest>(senderAddressPath)
+        val result = funcCompileAndAnalyzeAllMethods(path)
+
+        propertiesFound(
+            result.testSuites.single(),
+            listOf(
+                { test -> test.result is TvmSuccessfulExecution },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
+            )
+        )
+
+        TvmTestExecutor.executeGeneratedTests(result, path, TsRenderer.ContractType.Func)
+    }
+
+    @Test
+    fun testConcreteSenderAddress() {
+        val path = getResourcePath<ArgsConstraintsTest>(senderAddressPath)
+        val result = funcCompileAndAnalyzeAllMethods(
+            path,
+            concreteGeneralData = TvmConcreteGeneralData(initialSenderBits = stonfiAddressBits),
+        )
+
+        propertiesFound(
+            result.testSuites.single(),
+            listOf { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 }
+        )
+
+        checkInvariants(
+            result.testSuites.single(),
+            listOf { test -> test.result !is TvmSuccessfulExecution }
+        )
+    }
+
+    @Test
+    fun testOpcode() {
+        val path = getResourcePath<ArgsConstraintsTest>(opcodePath)
+        val result = funcCompileAndAnalyzeAllMethods(path)
+
+        propertiesFound(
+            result.testSuites.single(),
+            listOf(
+                { test -> test.result is TvmSuccessfulExecution },
+                { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 },
+            )
+        )
+
+        TvmTestExecutor.executeGeneratedTests(result, path, TsRenderer.ContractType.Func)
+    }
+
+    @Test
+    fun testConcreteOpcode() {
+        val path = getResourcePath<ArgsConstraintsTest>(opcodePath)
+        val result = funcCompileAndAnalyzeAllMethods(
+            path,
+            concreteGeneralData = TvmConcreteGeneralData(initialOpcode = 0x12345678U)
+        )
+
+        propertiesFound(
+            result.testSuites.single(),
+            listOf { test -> (test.result as? TvmMethodFailure)?.exitCode == 1000 }
+        )
+
+        checkInvariants(
+            result.testSuites.single(),
+            listOf { test -> test.result !is TvmSuccessfulExecution }
         )
     }
 }

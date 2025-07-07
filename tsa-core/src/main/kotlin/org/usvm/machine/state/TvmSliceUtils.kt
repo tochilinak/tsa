@@ -921,13 +921,13 @@ fun TvmStepScopeManager.allocCellFromData(
     cell
 }
 
-fun TvmState.allocSliceFromCell(data: TvmCell): UHeapRef {
+fun TvmState.allocSliceFromCell(data: TvmCell): UConcreteHeapRef {
     val sliceCell = allocateCell(data)
 
     return allocSliceFromCell(sliceCell)
 }
 
-fun TvmState.allocSliceFromData(data: UExpr<UBvSort>): UHeapRef = with(ctx) {
+fun TvmState.allocSliceFromData(data: UExpr<UBvSort>): UConcreteHeapRef {
     val sliceCell = allocDataCellFromData(data)
 
     return allocSliceFromCell(sliceCell)

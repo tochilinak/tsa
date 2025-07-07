@@ -31,7 +31,7 @@ import java.math.BigInteger
 import org.usvm.UBvSort
 import org.usvm.UConcreteHeapRef
 import org.usvm.api.writeField
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.GRAMS_LENGTH_BITS
 import org.usvm.machine.TvmContext.Companion.HASH_BITS
@@ -165,7 +165,7 @@ const val gasPrice = 26214400
 
 fun TvmState.initContractInfo(
     contractCode: TsaContractCode,
-    concreteData: TvmConcreteData,
+    concreteData: TvmConcreteContractData,
     msgValue: UExpr<TvmInt257Sort>?,
 ): TvmStackTupleValueConcreteNew = with(ctx) {
     val tag = TvmStackIntValue(mkBvHex("076ef1ea", sizeBits = INT_BITS).uncheckedCast())

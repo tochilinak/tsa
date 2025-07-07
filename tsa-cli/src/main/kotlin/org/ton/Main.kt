@@ -39,7 +39,7 @@ import org.usvm.machine.IntercontractOptions
 import org.usvm.machine.TactAnalyzer
 import org.usvm.machine.TactSourcesDescription
 import org.usvm.machine.TvmAnalyzer
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.analyzeInterContract
@@ -160,12 +160,12 @@ private fun <SourcesDescription> performAnalysis(
         is Receivers -> listOf(TvmContext.RECEIVE_INTERNAL_ID, TvmContext.RECEIVE_EXTERNAL_ID)
     }
 
-    val concreteData = TvmConcreteData(contractC4 = contractData?.hexToCell())
+    val concreteData = TvmConcreteContractData(contractC4 = contractData?.hexToCell())
 
     return if (methodIds == null) {
         analyzer.analyzeAllMethods(
             sources,
-            concreteData,
+            concreteContractData = concreteData,
             inputInfo = inputInfo,
             tvmOptions = options,
         )
@@ -175,7 +175,7 @@ private fun <SourcesDescription> performAnalysis(
             analyzer.analyzeSpecificMethod(
                 sources,
                 methodId,
-                contractData = concreteData,
+                concreteContractData = concreteData,
                 inputInfo = inputInfo[methodId] ?: TvmInputInfo(),
                 tvmOptions = options,
             )

@@ -9,7 +9,7 @@ import org.ton.examples.propertiesFound
 import org.ton.runHardTestsRegex
 import org.ton.runHardTestsVar
 import org.usvm.machine.BocAnalyzer
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.getResourcePath
 import org.usvm.machine.state.TvmDictOperationOnDataCell
@@ -56,7 +56,7 @@ class DictOperationOnDataCell {
         val tests = BocAnalyzer.analyzeSpecificMethod(
             resourcePath,
             methodId = MethodId.ZERO,
-            contractData = TvmConcreteData(contractC4 = BagOfCells(data).roots.single()),
+            concreteContractData = TvmConcreteContractData(contractC4 = BagOfCells(data).roots.single()),
             tvmOptions = TvmOptions(timeout = 3.minutes)
         )
 

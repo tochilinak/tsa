@@ -12,7 +12,8 @@ import org.usvm.machine.FiftInterpreterResult
 import org.usvm.machine.FuncAnalyzer
 import org.usvm.machine.TactAnalyzer
 import org.usvm.machine.TactSourcesDescription
-import org.usvm.machine.TvmConcreteData
+import org.usvm.machine.TvmConcreteContractData
+import org.usvm.machine.TvmConcreteGeneralData
 import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.analyzeInterContract
@@ -55,7 +56,8 @@ fun extractResource(resourcePath: String) =
 
 fun tactCompileAndAnalyzeAllMethods(
     tactSources: TactSourcesDescription,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
@@ -63,7 +65,8 @@ fun tactCompileAndAnalyzeAllMethods(
     takeEmptyTests: Boolean = false,
 ): TvmContractSymbolicTestResult = TactAnalyzer().analyzeAllMethods(
     tactSources,
-    contractData,
+    concreteGeneralData,
+    concreteContractData,
     methodsBlackList,
     methodWhiteList,
     inputInfo,
@@ -73,7 +76,8 @@ fun tactCompileAndAnalyzeAllMethods(
 
 fun funcCompileAndAnalyzeAllMethods(
     funcSourcesPath: Path,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
@@ -83,7 +87,8 @@ fun funcCompileAndAnalyzeAllMethods(
     fiftStdlibPath = FIFT_STDLIB_RESOURCE,
 ).analyzeAllMethods(
     funcSourcesPath,
-    contractData,
+    concreteGeneralData,
+    concreteContractData,
     methodsBlackList,
     methodWhiteList,
     inputInfo,
@@ -92,14 +97,16 @@ fun funcCompileAndAnalyzeAllMethods(
 
 fun compileAndAnalyzeFift(
     fiftPath: Path,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
 ): TvmContractSymbolicTestResult = FiftAnalyzer(fiftStdlibPath = FIFT_STDLIB_RESOURCE).analyzeAllMethods(
     fiftPath,
-    contractData,
+    concreteGeneralData,
+    concreteContractData,
     methodsBlackList,
     methodWhiteList,
     inputInfo,
@@ -109,13 +116,15 @@ fun compileAndAnalyzeFift(
 fun compileAndAnalyzeFift(
     fiftPath: Path,
     methodId: MethodId,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     inputInfo: TvmInputInfo = TvmInputInfo(),
     tvmOptions: TvmOptions = TvmOptions(),
 ): TvmSymbolicTestSuite = FiftAnalyzer(fiftStdlibPath = FIFT_STDLIB_RESOURCE).analyzeSpecificMethod(
     fiftPath,
     methodId,
-    contractData,
+    concreteGeneralData,
+    concreteContractData,
     inputInfo,
     tvmOptions,
 )
@@ -138,13 +147,14 @@ fun compileFuncToFift(funcSourcesPath: Path, fiftFilePath: Path) =
 
 fun analyzeAllMethods(
     bytecodePath: String,
-    contractData: TvmConcreteData = TvmConcreteData(),
+    concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
+    concreteContractData: TvmConcreteContractData = TvmConcreteContractData(),
     methodsBlackList: Set<MethodId> = hashSetOf(),
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     options: TvmOptions = TvmOptions(),
 ): TvmContractSymbolicTestResult =
-    BocAnalyzer.analyzeAllMethods(Path(bytecodePath), contractData, methodsBlackList, methodWhiteList, inputInfo, options)
+    BocAnalyzer.analyzeAllMethods(Path(bytecodePath), concreteGeneralData, concreteContractData, methodsBlackList, methodWhiteList, inputInfo, options)
 
 fun analyzeFuncIntercontract(
     sources: List<Path>,

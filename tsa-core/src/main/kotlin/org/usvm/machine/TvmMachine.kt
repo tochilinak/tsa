@@ -5,7 +5,6 @@ import org.ton.TvmInputInfo
 import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmCodeBlock
 import org.ton.bytecode.TvmInst
-import org.ton.cell.Cell
 import org.usvm.PathSelectionStrategy
 import org.usvm.StateCollectionStrategy
 import org.usvm.UMachine
@@ -41,7 +40,8 @@ class TvmMachine(
 
     fun analyze(
         contractCode: TsaContractCode,
-        contractData: TvmConcreteData,
+        concreteGeneralData: TvmConcreteGeneralData,
+        concreteContractData: TvmConcreteContractData,
         coverageStatistics: TvmCoverageStatistics,
         methodId: BigInteger,
         inputInfo: TvmInputInfo = TvmInputInfo(),
@@ -50,7 +50,8 @@ class TvmMachine(
         analyze(
             listOf(contractCode),
             startContractId = 0,
-            listOf(contractData),
+            concreteGeneralData,
+            listOf(concreteContractData),
             coverageStatistics,
             methodId,
             inputInfo,
@@ -60,7 +61,8 @@ class TvmMachine(
     fun analyze(
         contractsCode: List<TsaContractCode>,
         startContractId: ContractId,
-        contractData: List<TvmConcreteData>,
+        concreteGeneralData: TvmConcreteGeneralData,
+        concreteContractData: List<TvmConcreteContractData>,
         coverageStatistics: TvmCoverageStatistics,  // TODO: adapt for several contracts
         methodId: BigInteger,
         inputInfo: TvmInputInfo = TvmInputInfo(),
@@ -75,7 +77,7 @@ class TvmMachine(
             inputInfo = inputInfo,
         )
         logger.debug("{}.analyze({})", this, contractsCode)
-        val initialState = interpreter.getInitialState(startContractId, contractData, methodId)
+        val initialState = interpreter.getInitialState(startContractId, concreteGeneralData, concreteContractData, methodId)
 
         val loopTracker = TvmLoopTracker()
         val pathSelector = createPathSelector(
