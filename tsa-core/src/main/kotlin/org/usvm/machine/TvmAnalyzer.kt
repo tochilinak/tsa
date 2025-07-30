@@ -81,7 +81,8 @@ class TactAnalyzer(
         val project = config.projects.firstOrNull {
             it.name == sources.projectName
         } ?: error("Project with name ${sources.projectName} not found.")
-        val outputDir = sources.configPath.parent.toAbsolutePath() / project.output
+        val curDirectory = sources.configPath.parent?.toAbsolutePath() ?: Paths.get("").toAbsolutePath()
+        val outputDir = curDirectory / project.output
         val bocFileName = "${sources.projectName}_${sources.contractName}.code.boc"
 
         return outputDir.resolve(bocFileName).normalize()
