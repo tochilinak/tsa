@@ -2,11 +2,14 @@ package org.ton.examples.types
 
 import org.ton.Endian
 import org.ton.TlbCoinsLabel
+import org.ton.TlbCompositeLabel
 import org.ton.TlbEmptyLabel
 import org.ton.TlbIntegerLabel
 import org.ton.TlbIntegerLabelOfConcreteSize
 import org.ton.TlbMaybeRefLabel
 import org.ton.TlbMsgAddrLabel
+import org.ton.TlbStructure
+import org.ton.TlbStructureIdProvider
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo.DataCellInfo
 import org.ton.TvmParameterInfo.SliceInfo
@@ -681,8 +684,19 @@ class InputParameterInfoTests {
         val resourcePath = this::class.java.getResource(endOfCellPath)?.path?.let { Path(it) }
             ?: error("Cannot find resource $endOfCellPath")
 
-        val inputInfo =
-            TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(TlbIntegerLabelOfConcreteSize(100, true, Endian.BigEndian)))))
+        val label = TlbCompositeLabel(
+            name = "X",
+        ).also {
+            it.internalStructure = TlbStructure.KnownTypePrefix(
+                id = TlbStructureIdProvider.provideId(),
+                typeLabel = TlbIntegerLabelOfConcreteSize(100, true, Endian.BigEndian),
+                typeArgIds = emptyList(),
+                rest = TlbStructure.Empty,
+                owner = it,
+            )
+        }
+
+        val inputInfo = TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(label))))
         val options = TvmOptions(performAdditionalChecksWhileResolving = true, analyzeBouncedMessaged = false)
         val results = funcCompileAndAnalyzeAllMethods(resourcePath, inputInfo = mapOf(BigInteger.ZERO to inputInfo), tvmOptions = options)
         assertEquals(1, results.testSuites.size)

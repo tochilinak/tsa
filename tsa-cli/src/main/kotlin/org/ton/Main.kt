@@ -117,7 +117,7 @@ class TlbCLIOptions : OptionGroup("TlB scheme options") {
             return if (path == null) {
                 emptyMap()
             } else {
-                val struct = readFromJson(path, "InternalMsgBody")
+                val struct = readFromJson(path, "InternalMsgBody") as? TlbCompositeLabel
                     ?: error("Couldn't parse `InternalMsgBody` structure from $path")
                 val info = TvmParameterInfo.SliceInfo(
                     TvmParameterInfo.DataCellInfo(

@@ -1,5 +1,6 @@
 package org.ton.test.utils
 
+import org.ton.TlbCompositeLabel
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo
 import org.ton.bytecode.MethodId
@@ -340,7 +341,7 @@ internal fun checkInvariants(
 internal fun extractTlbInfo(typesPath: String, callerClass: KClass<*>): Map<MethodId, TvmInputInfo> {
     val path = callerClass.java.getResource(typesPath)?.path
         ?: error("Cannot find resource bytecode $typesPath")
-    val struct = readFromJson(Path(path), "InternalMsgBody")
+    val struct = readFromJson(Path(path), "InternalMsgBody") as? TlbCompositeLabel
         ?: error("Couldn't parse TL-B structure")
     val info = TvmParameterInfo.SliceInfo(
         TvmParameterInfo.DataCellInfo(
