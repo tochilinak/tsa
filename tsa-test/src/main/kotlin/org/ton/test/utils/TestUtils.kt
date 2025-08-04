@@ -84,7 +84,6 @@ fun funcCompileAndAnalyzeAllMethods(
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
 ): TvmContractSymbolicTestResult = FuncAnalyzer(
-    funcStdlibPath = FUNC_STDLIB_RESOURCE,
     fiftStdlibPath = FIFT_STDLIB_RESOURCE,
 ).analyzeAllMethods(
     funcSourcesPath,
@@ -142,7 +141,6 @@ fun compileFiftCodeBlocksContract(
 
 fun compileFuncToFift(funcSourcesPath: Path, fiftFilePath: Path) =
     FuncAnalyzer(
-        funcStdlibPath = FUNC_STDLIB_RESOURCE,
         fiftStdlibPath = FIFT_STDLIB_RESOURCE,
     ).compileFuncSourceToFift(funcSourcesPath, fiftFilePath)
 
@@ -162,7 +160,7 @@ fun analyzeFuncIntercontract(
     startContract: ContractId = 0,
     options: TvmOptions,
 ): TvmSymbolicTestSuite {
-    val contracts = sources.map { getFuncContract(it, FUNC_STDLIB_RESOURCE, FIFT_STDLIB_RESOURCE) }
+    val contracts = sources.map { getFuncContract(it, FIFT_STDLIB_RESOURCE) }
 
     return analyzeInterContract(
         contracts = contracts,
