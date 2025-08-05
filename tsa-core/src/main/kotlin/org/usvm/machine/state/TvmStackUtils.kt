@@ -80,27 +80,24 @@ fun TvmStepScopeManager.takeLastIntOrThrowTypeError(): UExpr<TvmInt257Sort>? =
     calcOnState { takeLastIntOrThrowTypeError() }
 
 fun TvmState.takeLastCell(): UHeapRef? =
-    takeLastRef(stack, TvmCellType, TvmStackValue::cellValue) {
+    takeLastRef(TvmCellType, TvmStackValue::cellValue) {
         generateSymbolicCell()
     }?.also { ensureSymbolicCellInitialized(it) }
 
 fun TvmStepScopeManager.takeLastCell(): UHeapRef? =
     calcOnState { takeLastCell() }
 
-context(TvmState)
-fun TvmStack.takeLastSlice(): UHeapRef? =
-    takeLastRef(this, TvmSliceType, TvmStackValue::sliceValue) {
+fun TvmState.takeLastSlice(): UHeapRef? =
+    takeLastRef(TvmSliceType, TvmStackValue::sliceValue) {
         generateSymbolicSlice()
     }?.also { ensureSymbolicSliceInitialized(it) }
 
-context(TvmState)
-fun TvmStack.takeLastBuilder(): UConcreteHeapRef? =
-    takeLastRef(this, TvmBuilderType, TvmStackValue::builderValue) {
+fun TvmState.takeLastBuilder(): UConcreteHeapRef? =
+    takeLastRef(TvmBuilderType, TvmStackValue::builderValue) {
         generateSymbolicBuilder()
     }?.also { ensureSymbolicBuilderInitialized(it) }
 
-context(TvmState)
-fun TvmStack.takeLastRef(type: TvmRealReferenceType): UHeapRef? = when (type) {
+fun TvmState.takeLastRef(type: TvmRealReferenceType): UHeapRef? = when (type) {
     is TvmCellType -> takeLastCell()
     is TvmSliceType -> takeLastSlice()
     is TvmBuilderType -> takeLastBuilder()
@@ -143,9 +140,7 @@ fun TvmStack.takeLastContinuation(): TvmContinuation? {
     return continuationStackValue.continuationValue
 }
 
-context(TvmState)
-private fun <Ref : UHeapRef> takeLastRef(
-    stack: TvmStack,
+private fun <Ref : UHeapRef> TvmState.takeLastRef(
     referenceType: TvmRealReferenceType,
     extractValue: TvmStackValue.() -> Ref?,
     generateSymbolicRef: (Int) -> UHeapRef

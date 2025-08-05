@@ -95,12 +95,6 @@ class TvmContext(
     val masterchain: KBitVecValue<TvmInt257Sort> = minusOneValue
     val baseChain: KBitVecValue<TvmInt257Sort> = zeroValue
 
-    fun <Abstraction : AbstractionForUExpr<Abstraction>> abstractTrue(): AbstractGuard<Abstraction> =
-        AbstractGuard { trueExpr }
-
-    fun <Abstraction : AbstractionForUExpr<Abstraction>> abstractFalse(): AbstractGuard<Abstraction> =
-        AbstractGuard { falseExpr }
-
     val zeroSizeExpr: UExpr<TvmSizeSort> = mkSizeExpr(0)
     val oneSizeExpr: UExpr<TvmSizeSort> = mkSizeExpr(1)
     val twoSizeExpr: UExpr<TvmSizeSort> = mkSizeExpr(2)
@@ -318,6 +312,8 @@ class TvmContext(
         val dictKeyLengthField: TvmField = TvmFieldImpl(TvmDictCellType, "keyLength")
 
         val stdMsgAddrSize = ADDRESS_TAG_LENGTH + 1 + STD_WORKCHAIN_BITS + ADDRESS_BITS
+
+        fun KContext.tctx(): TvmContext = this as TvmContext
     }
 
     class TvmInt257Sort(ctx: KContext) : KBvCustomSizeSort(ctx, INT_BITS)

@@ -68,13 +68,12 @@ class TvmDataCellLoadedTypeInfo(
         addressToActions = newMap
     }
 
-    context(TvmContext)
     fun <ReadResult : TvmCellDataTypeReadValue> loadData(
         state: TvmState,
         offset: UExpr<TvmSizeSort>,
         type: TvmCellDataTypeRead<ReadResult>,
         slice: UHeapRef,
-    ): List<LoadData<ReadResult>> {
+    ): List<LoadData<ReadResult>> = with(state.ctx) {
         val staticSliceAddresses = extractAddressesSpecialized(slice, extractAllocated = true, extractStatic = true)
 
         val result = mutableListOf<LoadData<ReadResult>>()

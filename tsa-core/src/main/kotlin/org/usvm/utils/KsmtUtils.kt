@@ -24,8 +24,7 @@ import org.usvm.memory.foldHeapRef
 val UExpr<TvmContext.TvmInt257Sort>.intValueOrNull: Int?
     get() = (this as? KBitVecValue<*>)?.bigIntValue()?.toInt()
 
-context(TvmContext)
-fun extractAddresses(
+fun TvmContext.extractAddresses(
     ref: UHeapRef,
     extractAllocated: Boolean = false,
     extractStatic: Boolean = true,
