@@ -483,10 +483,12 @@ class TvmTestStateResolver(
                 is TvmRefsMemoryRegion.TvmRefsRegionPinpointUpdateNode -> {
                     val guardValue = evaluateInModel(updateNode.guard)
                     if (guardValue.isTrue) {
-                        val idx = resolveInt(updateNode.key)
-                        if (idx < refsLength) {
-                            val refCell = resolveCell(updateNode.value)
-                            storedRefs.putIfAbsent(idx, refCell)
+                        updateNode.values.forEach { (key, value) ->
+                            val idx = resolveInt(key)
+                            if (idx < refsLength) {
+                                val refCell = resolveCell(value)
+                                storedRefs.putIfAbsent(idx, refCell)
+                            }
                         }
                     }
                 }
