@@ -65,8 +65,8 @@ private data object Receivers : AnalysisTarget
 private data class SpecificMethod(val methodId: Int) : AnalysisTarget
 
 private fun CliktCommand.analysisTargetOption() = mutuallyExclusiveOptions(
-    option("--method").int().help("Id of the method to analyze. If not specified, analyze all methods").convert { SpecificMethod(it) },
-    option("--analyze-receivers").flag().help("Analyze recv_internal and recv_external").convert { Receivers },
+    option("--method").int().help("Id of the method to analyze").convert { SpecificMethod(it) },
+    option("--analyze-receivers").flag().help("Analyze recv_internal and recv_external (default)").convert { Receivers },
     option("--analyze-all-methods").flag().help("Analyze all methods (applicable only for contracts with default main method)").convert { AllMethods }
 )
     .single()
