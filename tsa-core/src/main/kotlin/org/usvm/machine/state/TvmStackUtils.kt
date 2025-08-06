@@ -6,6 +6,7 @@ import org.usvm.UConcreteHeapRef
 import org.usvm.UExpr
 import org.usvm.UHeapRef
 import org.usvm.USort
+import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.state.TvmStack.TvmConcreteStackEntry
@@ -24,7 +25,7 @@ import org.usvm.machine.types.TvmType
 data class TypeCastException(
     val oldType: TvmType,
     val newType: TvmType
-): RuntimeException() {
+) : RuntimeException() {
     override val message: String = "Trying to cast $oldType value to $newType"
 }
 
@@ -78,6 +79,14 @@ fun TvmState.takeLastIntOrThrowTypeError(): UExpr<TvmInt257Sort>? =
 
 fun TvmStepScopeManager.takeLastIntOrThrowTypeError(): UExpr<TvmInt257Sort>? =
     calcOnState { takeLastIntOrThrowTypeError() }
+
+fun TvmStepScopeManager.takeLastSliceOrThrowTypeError(): UHeapRef? = with(ctx) {
+    val slice = this@takeLastSliceOrThrowTypeError.calcOnState { takeLastSlice() }
+    if (slice == null) {
+        doWithState(throwTypeCheckError)
+    }
+    slice
+}
 
 fun TvmState.takeLastCell(): UHeapRef? =
     takeLastRef(TvmCellType, TvmStackValue::cellValue) {

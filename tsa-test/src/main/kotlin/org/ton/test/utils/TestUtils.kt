@@ -37,6 +37,7 @@ import org.usvm.machine.toMethodId
 import org.usvm.test.resolver.TvmExecutionWithSoftFailure
 import kotlin.io.path.Path
 import kotlin.io.path.deleteIfExists
+import kotlin.jvm.java
 import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -153,7 +154,15 @@ fun analyzeAllMethods(
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     options: TvmOptions = TvmOptions(),
 ): TvmContractSymbolicTestResult =
-    BocAnalyzer.analyzeAllMethods(Path(bytecodePath), concreteGeneralData, concreteContractData, methodsBlackList, methodWhiteList, inputInfo, options)
+    BocAnalyzer.analyzeAllMethods(
+        Path(bytecodePath),
+        concreteGeneralData,
+        concreteContractData,
+        methodsBlackList,
+        methodWhiteList,
+        inputInfo,
+        options
+    )
 
 fun analyzeFuncIntercontract(
     sources: List<Path>,
@@ -203,7 +212,8 @@ internal fun compareSymbolicAndConcreteResults(
     methodIds: Set<Int>,
     symbolicResult: TvmContractSymbolicTestResult,
     expectedState: (Int) -> FiftInterpreterResult,
-) = compareSymbolicAndConcreteResults(methodIds, symbolicResult, expectedState,
+) = compareSymbolicAndConcreteResults(
+    methodIds, symbolicResult, expectedState,
     symbolicStack = { symbolicTest -> symbolicTest.result.stack },
     concreteStackBlock = { fiftResult ->
         val result = mutableListOf<TvmTestValue>()
@@ -347,4 +357,16 @@ internal fun extractTlbInfo(typesPath: String, callerClass: KClass<*>): Map<Meth
         )
     )
     return mapOf(BigInteger.ZERO to TvmInputInfo(mapOf(0 to info)))
+}
+
+internal fun compareSymbolicAndConcreteFromResource(testPath: String, lastMethodIndex: Int) {
+    val fiftResourcePath = object {}::class.java.getResource(testPath)?.path?.let { Path(it) }
+        ?: error("Cannot find resource fift $testPath")
+
+    val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
+
+    val methodIds = (0..lastMethodIndex).toSet()
+    compareSymbolicAndConcreteResults(methodIds, symbolicResult) { methodId ->
+        runFiftMethod(fiftResourcePath, methodId)
+    }
 }
