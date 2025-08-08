@@ -2,9 +2,9 @@ package org.ton.examples.loops
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
-import kotlin.io.path.Path
 import kotlin.test.Test
 
 class UntilLoopTest {
@@ -12,8 +12,7 @@ class UntilLoopTest {
 
     @Test
     fun testUntilLoops() {
-        val fiftResourcePath = this::class.java.getResource(untilLoopsFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $untilLoopsFiftPath")
+        val fiftResourcePath = extractResource(untilLoopsFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

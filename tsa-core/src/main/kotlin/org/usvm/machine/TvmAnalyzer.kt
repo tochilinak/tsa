@@ -81,7 +81,7 @@ class TactAnalyzer(
         val project = config.projects.firstOrNull {
             it.name == sources.projectName
         } ?: error("Project with name ${sources.projectName} not found.")
-        val curDirectory = sources.configPath.parent?.toAbsolutePath() ?: Paths.get("").toAbsolutePath()
+        val curDirectory = sources.configPath.getParentNonNull().toAbsolutePath()
         val outputDir = curDirectory / project.output
         val bocFileName = "${sources.projectName}_${sources.contractName}.code.boc"
 
@@ -98,11 +98,10 @@ class TactAnalyzer(
 
     private fun compileTact(configFile: Path) {
         val tactCommand = "$tactExecutable --config ${configFile.absolutePathString()}"
-        val executionCommand = tactCommand.toExecutionCommand()
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
-            executionCommand,
+            tactCommand,
             COMPILER_TIMEOUT,
-            processWorkingDirectory = configFile.parent?.toFile() ?: Paths.get("").toAbsolutePath().toFile(),
+            processWorkingDirectory = configFile.getParentNonNull().toAbsolutePath().toFile(),
         )
 
         check(completedInTime) {
@@ -130,10 +129,11 @@ class TactAnalyzer(
 }
 
 class FuncAnalyzer(
-    private val fiftStdlibPath: Path,
+    fiftStdlibPath: Path,
 ) : TvmAnalyzer<Path> {
     private val funcExecutablePath: Path = Paths.get(FUNC_EXECUTABLE)
-    private val fiftExecutablePath: Path = Paths.get(FIFT_EXECUTABLE)
+
+    private val fiftAnalyzer = FiftAnalyzer(fiftStdlibPath)
 
     override fun convertToTvmContractCode(sources: Path): TsaContractCode {
         val tmpBocFile = createTempFile(suffix = ".boc")
@@ -147,8 +147,11 @@ class FuncAnalyzer(
 
     fun compileFuncSourceToFift(funcSourcesPath: Path, fiftFilePath: Path) {
         val funcCommand = "$funcExecutablePath -AP ${funcSourcesPath.absolutePathString()}"
-        val executionCommand = funcCommand.toExecutionCommand()
-        val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(executionCommand, COMPILER_TIMEOUT)
+        val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
+            funcCommand,
+            COMPILER_TIMEOUT,
+            processWorkingDirectory = funcSourcesPath.getParentNonNull().toFile()
+        )
 
         check(completedInTime) {
             "FunC compilation to Fift has not finished in $COMPILER_TIMEOUT seconds"
@@ -166,32 +169,33 @@ class FuncAnalyzer(
     fun compileFuncSourceToBoc(funcSourcesPath: Path, bocFilePath: Path) {
         val funcCommand =
             "$funcExecutablePath -W ${bocFilePath.absolutePathString()} ${funcSourcesPath.absolutePathString()}"
-        val fiftCommand = "$fiftExecutablePath -I $fiftStdlibPath"
-        val command = "$funcCommand | $fiftCommand"
-        val executionCommand = command.toExecutionCommand()
-        val (exitValue, completedInTime, _, errors) = executeCommandWithTimeout(executionCommand, COMPILER_TIMEOUT)
+        val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
+            funcCommand,
+            COMPILER_TIMEOUT,
+            processWorkingDirectory = funcSourcesPath.getParentNonNull().toFile(),
+        )
 
         check(completedInTime) {
-            "FunC compilation to BoC has not finished in $COMPILER_TIMEOUT seconds"
+            "FunC compilation to Fift has not finished in $COMPILER_TIMEOUT seconds"
         }
 
-        // Ensure the BoC file is not empty after compilation
-        val isBocEmptyOrMissing = bocFilePath.toFile().length() == 0L
-
-        // we don't check that [errors] is empty, because there is a case, when it reports something strange,
-        // but compilation is still successful.
-        // Example of such message (not present in older version of Fift):
-        // [ 1][t 0][2025-03-21 09:37:26.441386890][Fift.cpp:66]   top: <continuation 0x55871d44a300>
-        // level 1: <continuation 0x55871d44a340>
-        // level 2: <text interpreter continuation>
-        // [ 1][t 0][2025-03-21 09:37:26.441586888][Fift.cpp:69]   Error::-?
-        check(exitValue == 0 && bocFilePath.exists() && !isBocEmptyOrMissing) {
+        check(exitValue == 0 && errors.isEmpty()) {
             """
-                FunC compilation to BoC failed with an error, exit code $exitValue, errors: 
+                FunC compilation to Fift failed with an error, exit code $exitValue, errors: 
                 ${errors.toText()}
                 Command:
-                $command
+                $funcCommand
             """.trimIndent()
+        }
+
+        val fiftCode = output.joinToString("\n")
+
+        val tmpFiftFile = createTempFile(suffix = ".fif")
+        try {
+            tmpFiftFile.writeText(fiftCode)
+            fiftAnalyzer.compileFiftToBoc(tmpFiftFile, bocFilePath)
+        } finally {
+            tmpFiftFile.deleteIfExists()
         }
     }
 
@@ -264,8 +268,8 @@ class FiftAnalyzer(
     }
 
     fun compileFiftToBoc(fiftPath: Path, bocFilePath: Path) {
-        val fiftCommand = "echo '\"$fiftPath\" include boc>B \"$bocFilePath\" B>file' | fift"
-        performFiftCommand(fiftCommand, bocFilePath)
+        val fiftStdin = "\"$fiftPath\" include boc>B \"$bocFilePath\" B>file"
+        performFiftCommand("fift", bocFilePath, fiftStdin)
     }
 
     /**
@@ -298,24 +302,39 @@ class FiftAnalyzer(
         2 boc+>B "$bocFilePath" B>file
         """.trimIndent()
 
-        val fiftCommand = "echo '$fiftTextWithOutputCommand' | $fiftExecutablePath -n"
-        performFiftCommand(fiftCommand, bocFilePath)
+        val fiftCommand = "$fiftExecutablePath -n"
+        performFiftCommand(fiftCommand, bocFilePath, fiftTextWithOutputCommand)
     }
 
-    private fun performFiftCommand(fiftCommand: String, bocFilePath: Path) {
-        val executionCommand = fiftCommand.toExecutionCommand()
-        val (exitValue, completedInTime, _, errors) = executeCommandWithTimeout(
-            executionCommand,
-            COMPILER_TIMEOUT,
-            fiftStdlibPath.toFile()
-        )
+    private fun performFiftCommand(fiftCommand: String, bocFilePath: Path, stdinContent: String) {
+        val tmpStdinFile = createTempFile(".txt")
+        try {
+            tmpStdinFile.writeText(stdinContent)
 
-        check(completedInTime) {
-            "Fift compilation has not finished in $COMPILER_TIMEOUT seconds"
-        }
+            val (exitValue, completedInTime, _, errors) = executeCommandWithTimeout(
+                fiftCommand,
+                COMPILER_TIMEOUT,
+                fiftStdlibPath.toFile(),
+                inputFile = tmpStdinFile.toFile(),
+            )
 
-        check(exitValue == 0 && bocFilePath.exists() && bocFilePath.readBytes().isNotEmpty()) {
-            "Fift compilation failed with an error, exit code $exitValue, errors: \n${errors.toText()}"
+            check(completedInTime) {
+                "Fift compilation has not finished in $COMPILER_TIMEOUT seconds"
+            }
+
+            // we don't check that [errors] is empty, because there is a case, when it reports something strange,
+            // but compilation is still successful.
+            // Example of such message (not present in older version of Fift):
+            // [ 1][t 0][2025-03-21 09:37:26.441386890][Fift.cpp:66]   top: <continuation 0x55871d44a300>
+            // level 1: <continuation 0x55871d44a340>
+            // level 2: <text interpreter continuation>
+            // [ 1][t 0][2025-03-21 09:37:26.441586888][Fift.cpp:69]   Error::-?
+            check(exitValue == 0 && bocFilePath.exists() && bocFilePath.readBytes().isNotEmpty()) {
+                "Fift compilation failed with an error, exit code $exitValue, errors: \n${errors.toText()}"
+            }
+
+        } finally {
+            tmpStdinFile.deleteIfExists()
         }
     }
 
@@ -323,14 +342,19 @@ class FiftAnalyzer(
         fiftWorkDir: Path,
         fiftInterpreterCommand: String
     ): FiftInterpreterResult {
-        val fiftCommand = "echo '$fiftInterpreterCommand' | $fiftExecutablePath -n"
-        val executionCommand = fiftCommand.toExecutionCommand()
-        val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
-            executionCommand,
-            COMPILER_TIMEOUT,
-            fiftWorkDir.toFile(),
-            mapOf("FIFTPATH" to fiftStdlibPath.toString())
-        )
+        val tmpStdinFile = createTempFile(suffix = ".txt")
+        val (exitValue, completedInTime, output, errors) = try {
+            tmpStdinFile.writeText(fiftInterpreterCommand)
+            executeCommandWithTimeout(
+                "$fiftExecutablePath -n",
+                COMPILER_TIMEOUT,
+                fiftWorkDir.toFile(),
+                mapOf("FIFTPATH" to fiftStdlibPath.toString()),
+                inputFile = tmpStdinFile.toFile(),
+            )
+        } finally {
+            tmpStdinFile.deleteIfExists()
+        }
 
         check(completedInTime) {
             "`fift` process has not has not finished in $COMPILER_TIMEOUT seconds"
@@ -530,8 +554,6 @@ fun getFuncContract(
     }
 }
 
-private fun String.toExecutionCommand(): List<String> = listOf("/bin/sh", "-c", this)
-
 class NoSelectedMethodsToAnalyze : RuntimeException() {
     override val message: String = "No selected methods can be extracted from this contract. Please specify a method to analyze."
 }
@@ -543,7 +565,7 @@ data class FiftInterpreterResult(
     val stack: List<String>
 )
 
-private const val COMPILER_TIMEOUT = 5.toLong() // seconds
+private const val COMPILER_TIMEOUT = 30.toLong() // seconds
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun Int.toMethodId(): MethodId = toBigInteger()

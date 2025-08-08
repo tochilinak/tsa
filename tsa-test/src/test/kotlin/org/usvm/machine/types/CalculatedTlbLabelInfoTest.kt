@@ -16,6 +16,7 @@ import org.ton.examples.types.refAfterRecursiveStructure
 import org.ton.examples.types.structureX
 import org.ton.examples.types.structureY
 import org.ton.examples.types.wrappedMsgStructure
+import org.ton.test.utils.extractResource
 import org.usvm.UExpr
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.TvmComponents
@@ -30,18 +31,15 @@ import org.usvm.machine.interpreter.TvmInterpreter
 import org.usvm.machine.state.generateSymbolicCell
 import org.usvm.machine.types.dp.CalculatedTlbLabelInfo
 import java.math.BigInteger
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-
 class CalculatedTlbLabelInfoTest {
     private val bytecodePath: String = "/counter.txt"
-    private val bytecodeResourcePath = this::class.java.getResource(bytecodePath)?.path
-        ?: error("Cannot find resource bytecode $bytecodePath")
+    private val bytecodeResourcePath = extractResource(bytecodePath)
 
-    private val someCode = BocAnalyzer.loadContractFromBoc(Path(bytecodeResourcePath))
+    private val someCode = BocAnalyzer.loadContractFromBoc(bytecodeResourcePath)
 
     private val dummyComponents = TvmComponents(TvmMachine.defaultOptions)
     private val ctx = TvmContext(TvmOptions(), dummyComponents)
@@ -58,7 +56,7 @@ class CalculatedTlbLabelInfoTest {
         concreteContractData = listOf(TvmConcreteContractData()),
         methodId = BigInteger.ZERO
     )
-    val cellDataFieldManager = dummyState.cellDataFieldManager
+    private val cellDataFieldManager = dummyState.cellDataFieldManager
 
     val info = CalculatedTlbLabelInfo(
         ctx,

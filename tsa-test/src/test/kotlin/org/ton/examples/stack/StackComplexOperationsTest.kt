@@ -2,6 +2,7 @@ package org.ton.examples.stack
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.loadIntegers
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
@@ -10,7 +11,6 @@ import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmMachine
 import org.usvm.machine.state.TvmStack
 import org.usvm.machine.state.addInt
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -37,8 +37,7 @@ class StackComplexOperationsTest {
 
     @Test
     fun testStackNullChecks() {
-        val fiftResourcePath = this::class.java.getResource(stackNullChecksFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $stackNullChecksFiftPath")
+        val fiftResourcePath = extractResource(stackNullChecksFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
@@ -50,8 +49,7 @@ class StackComplexOperationsTest {
 
     @Test
     fun testStackComplexFift() {
-        val fiftResourcePath = this::class.java.getResource(stackComplexFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $stackComplexFiftPath")
+        val fiftResourcePath = extractResource(stackComplexFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

@@ -2,6 +2,7 @@ package org.ton.examples.ints
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
 import kotlin.io.path.Path
@@ -12,8 +13,7 @@ class BasicArithmeticTest {
 
     @Test
     fun basicArithResultTest() {
-        val fiftResourcePath = this::class.java.getResource(fiftSourcesPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource func $fiftSourcesPath")
+        val fiftResourcePath = extractResource(fiftSourcesPath)
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
         val methodIds = (0..23).toSet()

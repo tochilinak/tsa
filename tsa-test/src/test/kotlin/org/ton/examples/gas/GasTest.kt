@@ -4,6 +4,7 @@ import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import org.ton.test.utils.compileFiftCodeBlocksContract
 import org.ton.test.utils.executionCode
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftCodeBlock
 import org.ton.test.utils.testConcreteOptions
 import org.usvm.machine.analyzeAllMethods
@@ -46,8 +47,8 @@ class GasTest {
     }
 
     private fun findFiftTestFiles(): Pair<List<Path>, Path> {
-        val fiftStdLib = this::class.java.classLoader.getResource("fiftstdlib")?.path?.let { Path(it) }
-        check(fiftStdLib != null && fiftStdLib.exists()) { "Resource root doesn't exists" }
+        val fiftStdLib = extractResource("/fiftstdlib")
+        check(fiftStdLib.exists()) { "Resource root doesn't exists" }
 
         val resourceRoot = fiftStdLib.parent
         val fiftTestFiles = mutableListOf<Path>()

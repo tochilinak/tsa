@@ -3,6 +3,7 @@ package org.ton.examples.continuations
 import org.junit.jupiter.api.Assertions
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.propertiesFound
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
@@ -21,8 +22,7 @@ class ContinuationTest {
 
     @Test
     fun testContinuations() {
-        val fiftResourcePath = this::class.java.getResource(continuationsFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $continuationsFiftPath")
+        val fiftResourcePath = extractResource(continuationsFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
@@ -47,8 +47,7 @@ class ContinuationTest {
     }
 
     private fun testTryCatch(fiftCodePath: String) {
-        val fiftResourcePath = this::class.java.getResource(fiftCodePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $fiftCodePath")
+        val fiftResourcePath = extractResource(fiftCodePath)
 
         val someThrowingMethodId = BigInteger.valueOf(42)
         // Analyze only `test_try_catch` method - ignore `some_throwing` and `main` methods,

@@ -2,9 +2,9 @@ package org.ton.examples.loops
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
-import kotlin.io.path.Path
 import kotlin.test.Test
 
 class WhileLoopTest {
@@ -12,8 +12,7 @@ class WhileLoopTest {
 
     @Test
     fun testWhileLoops() {
-        val fiftResourcePath = this::class.java.getResource(whileLoopsFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $whileLoopsFiftPath")
+        val fiftResourcePath = extractResource(whileLoopsFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

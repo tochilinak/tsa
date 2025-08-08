@@ -1,7 +1,7 @@
 package org.ton.examples.ints
 
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -10,8 +10,7 @@ class IntConstExample {
 
     @Test
     fun testIntConstExamples() {
-        val bytecodeResourcePath = this::class.java.getResource(sourcesPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource bytecode $sourcesPath")
+        val bytecodeResourcePath = extractResource(sourcesPath)
 
         val symbolicResult = funcCompileAndAnalyzeAllMethods(bytecodeResourcePath)
         assertTrue(symbolicResult.isNotEmpty())

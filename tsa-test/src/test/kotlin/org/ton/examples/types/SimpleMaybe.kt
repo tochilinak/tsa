@@ -1,13 +1,13 @@
 package org.ton.examples.types
 
 import org.ton.test.utils.checkInvariants
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.test.utils.testOptionsToAnalyzeSpecificMethod
 import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSuccessfulExecution
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestSliceValue
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -17,8 +17,7 @@ class SimpleMaybe {
 
     @Test
     fun testSimpleMaybe() {
-        val resourcePath = this::class.java.getResource(path)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $path")
+        val resourcePath = extractResource(path)
 
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,

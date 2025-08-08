@@ -1,13 +1,13 @@
 package org.ton.examples.registers
 
 import org.ton.bytecode.MethodId
-import java.math.BigInteger
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
 import org.ton.test.utils.compileFuncToFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
-import kotlin.io.path.Path
+import java.math.BigInteger
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.test.Test
@@ -56,8 +56,7 @@ class RegistersTest {
         contractPath: String,
         methodsBlackList: Set<MethodId> = hashSetOf(),
     ) {
-        val resourcePath = this::class.java.getResource(contractPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource bytecode $contractPath")
+        val resourcePath = extractResource(contractPath)
         val tmpFiftFile = createTempFile(suffix = ".boc")
 
         try {

@@ -2,9 +2,9 @@ package org.ton.examples.ints
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
-import kotlin.io.path.Path
 import kotlin.test.Test
 
 class LogicalArithmeticTest {
@@ -13,8 +13,7 @@ class LogicalArithmeticTest {
 
     @Test
     fun logicalArithResultTest() {
-        val fiftResourcePath = this::class.java.getResource(logicalArithFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $logicalArithFiftPath")
+        val fiftResourcePath = extractResource(logicalArithFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
@@ -26,8 +25,7 @@ class LogicalArithmeticTest {
 
     @Test
     fun logicalArithFailureTest() {
-        val fiftResourcePath = this::class.java.getResource(logicalArithFailureFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $logicalArithFailureFiftPath")
+        val fiftResourcePath = extractResource(logicalArithFailureFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

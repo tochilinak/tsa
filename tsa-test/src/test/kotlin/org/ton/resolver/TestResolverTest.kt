@@ -2,6 +2,7 @@ package org.ton.resolver
 
 import org.ton.bigint.plus
 import org.ton.bytecode.TvmArithmDivInst
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.usvm.machine.state.TvmIntegerOverflowError
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
@@ -12,7 +13,6 @@ import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestIntegerValue
 import org.usvm.test.resolver.TvmTestSliceValue
 import java.math.BigInteger
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -96,8 +96,7 @@ class TestResolverTest {
     }
 
     private fun compileAndAnalyzeAllMethods(sourcePath: String): TvmContractSymbolicTestResult {
-        val bytecodeResourcePath = this::class.java.getResource(sourcePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource bytecode $sourcePath")
+        val bytecodeResourcePath = extractResource(sourcePath)
 
         return funcCompileAndAnalyzeAllMethods(bytecodeResourcePath)
     }

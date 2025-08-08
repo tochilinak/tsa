@@ -3,7 +3,6 @@ package org.usvm.machine
 import io.ksmt.expr.KBitVecValue
 import io.ksmt.utils.BvUtils.toBigIntegerSigned
 import io.ksmt.utils.powerOfTwo
-import java.math.BigInteger
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmCell
 import org.ton.bytecode.TvmCellData
@@ -18,8 +17,10 @@ import org.usvm.UBvSort
 import org.usvm.UExpr
 import org.usvm.machine.TvmContext.Companion.tctx
 import org.usvm.machine.TvmContext.TvmInt257Sort
+import java.io.File
+import java.math.BigInteger
 import java.nio.file.Path
-import kotlin.io.path.Path
+import java.nio.file.Paths
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun UExpr<out UBvSort>.bigIntValue() = (this as KBitVecValue<*>).toBigIntegerSigned()
@@ -39,8 +40,16 @@ inline fun <T> tryCatchIf(condition: Boolean, body: () -> T, exceptionHandler: (
 }
 
 inline fun <reified T> getResourcePath(path: String): Path {
-    return T::class.java.getResource(path)?.path?.let { Path(it) }
-        ?: error("Resource $path was not found")
+    return getResourcePath(T::class.java, path)
+}
+
+fun getResourcePath(cls: Class<*>, path: String): Path {
+    return cls.getResource(path)?.let {
+        // This way paths are parsed correctly on Windows.
+        // String fields like [path] or [file] of [URL] class
+        // shouldn't be used here.
+        File(it.toURI()).toPath()
+    } ?: error("Resource $path was not found")
 }
 
 fun TvmInst.getRootLocation(): TvmInstLocation {
@@ -62,3 +71,6 @@ fun UExpr<UBoolSort>.asIntValue(): UExpr<TvmInt257Sort> = with(ctx.tctx()) {
 }
 
 fun maxUnsignedValue(bits: UInt): BigInteger = powerOfTwo(bits).minus(BigInteger.ONE)
+
+fun Path.getParentNonNull(): Path =
+    parent ?: Paths.get("")

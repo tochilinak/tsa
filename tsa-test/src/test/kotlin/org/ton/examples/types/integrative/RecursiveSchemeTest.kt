@@ -1,12 +1,12 @@
 package org.ton.examples.types.integrative
 
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.extractTlbInfo
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.test.utils.propertiesFound
 import org.usvm.machine.types.TvmReadingOutOfSwitchBounds
 import org.usvm.test.resolver.TvmExecutionWithStructuralError
 import org.usvm.test.resolver.TvmSuccessfulExecution
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -18,8 +18,7 @@ class RecursiveSchemeTest {
 
     @Test
     fun testCorrect() {
-        val path = this::class.java.getResource(correctPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource bytecode $correctPath")
+        val path = extractResource(correctPath)
         val inputInfo = extractTlbInfo(typesPath, this::class)
 
         val results = funcCompileAndAnalyzeAllMethods(path, inputInfo = inputInfo)
@@ -32,8 +31,7 @@ class RecursiveSchemeTest {
 
     @Test
     fun testNoFlagRereading() {
-        val path = this::class.java.getResource(noFlagRereading)?.path?.let { Path(it) }
-            ?: error("Cannot find resource bytecode $noFlagRereading")
+        val path = extractResource(noFlagRereading)
         val inputInfo = extractTlbInfo(typesPath, this::class)
 
         val results = funcCompileAndAnalyzeAllMethods(path, inputInfo = inputInfo)

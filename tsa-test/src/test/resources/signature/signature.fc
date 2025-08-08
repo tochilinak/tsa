@@ -1,4 +1,4 @@
-#include "stdlib.fc";
+#include "../imports/stdlib.fc";
 
 int get_public_key() {
     slice ds = get_data().begin_parse();

@@ -1,5 +1,6 @@
 package org.ton.examples.constraints
 
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.usvm.machine.TvmOptions
 import org.usvm.test.resolver.TvmSuccessfulExecution
@@ -11,8 +12,7 @@ class RecvInternalConstraintsTest {
 
     @Test
     fun testRecvInternalConstraints() {
-        val codeResourcePath = this::class.java.getResource(recvInternalConstraintsPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource bytecode $recvInternalConstraintsPath")
+        val codeResourcePath = extractResource(recvInternalConstraintsPath)
 
         val options = TvmOptions(useRecvInternalInput = true, turnOnTLBParsingChecks = false)
         val methodStates = funcCompileAndAnalyzeAllMethods(codeResourcePath, tvmOptions = options)

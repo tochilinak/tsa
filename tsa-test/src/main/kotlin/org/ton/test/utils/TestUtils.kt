@@ -11,6 +11,7 @@ import org.usvm.machine.FiftAnalyzer
 import org.usvm.machine.FiftInterpreterResult
 import org.usvm.machine.FuncAnalyzer
 import org.usvm.machine.TactAnalyzer
+import org.usvm.machine.TactAnalyzer.Companion.DEFAULT_TACT_EXECUTABLE
 import org.usvm.machine.TactSourcesDescription
 import org.usvm.machine.TvmConcreteContractData
 import org.usvm.machine.TvmConcreteGeneralData
@@ -18,6 +19,7 @@ import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmOptions
 import org.usvm.machine.analyzeInterContract
 import org.usvm.machine.getFuncContract
+import org.usvm.machine.getResourcePath
 import org.usvm.machine.intValue
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmStack
@@ -53,8 +55,10 @@ val testConcreteOptions = TvmOptions(
 val testOptionsToAnalyzeSpecificMethod = TvmOptions(useRecvInternalInput = false)
 
 fun extractResource(resourcePath: String) =
-    object {}.javaClass.getResource(resourcePath)?.path?.let { Path(it) }
-        ?: error("Cannot find resource $resourcePath")
+    getResourcePath(object {}.javaClass, resourcePath)
+
+// On Windows, this might be [tact.cmd] instead of [tact]
+val tactExecutable = System.getenv("TACT_EXECUTABLE") ?: DEFAULT_TACT_EXECUTABLE
 
 fun tactCompileAndAnalyzeAllMethods(
     tactSources: TactSourcesDescription,
@@ -65,7 +69,7 @@ fun tactCompileAndAnalyzeAllMethods(
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
     takeEmptyTests: Boolean = false,
-): TvmContractSymbolicTestResult = TactAnalyzer().analyzeAllMethods(
+): TvmContractSymbolicTestResult = TactAnalyzer(tactExecutable).analyzeAllMethods(
     tactSources,
     concreteGeneralData,
     concreteContractData,
@@ -76,6 +80,8 @@ fun tactCompileAndAnalyzeAllMethods(
     takeEmptyTests,
 )
 
+val funcAnalyzer = FuncAnalyzer(fiftStdlibPath = FIFT_STDLIB_RESOURCE)
+
 fun funcCompileAndAnalyzeAllMethods(
     funcSourcesPath: Path,
     concreteGeneralData: TvmConcreteGeneralData = TvmConcreteGeneralData(),
@@ -84,17 +90,16 @@ fun funcCompileAndAnalyzeAllMethods(
     methodWhiteList: Set<MethodId>? = null,
     inputInfo: Map<MethodId, TvmInputInfo> = emptyMap(),
     tvmOptions: TvmOptions = TvmOptions(),
-): TvmContractSymbolicTestResult = FuncAnalyzer(
-    fiftStdlibPath = FIFT_STDLIB_RESOURCE,
-).analyzeAllMethods(
-    funcSourcesPath,
-    concreteGeneralData,
-    concreteContractData,
-    methodsBlackList,
-    methodWhiteList,
-    inputInfo,
-    tvmOptions,
-)
+): TvmContractSymbolicTestResult =
+    funcAnalyzer.analyzeAllMethods(
+        funcSourcesPath,
+        concreteGeneralData,
+        concreteContractData,
+        methodsBlackList,
+        methodWhiteList,
+        inputInfo,
+        tvmOptions,
+    )
 
 fun compileAndAnalyzeFift(
     fiftPath: Path,
@@ -347,9 +352,8 @@ internal fun checkInvariants(
 }
 
 internal fun extractTlbInfo(typesPath: String, callerClass: KClass<*>): Map<MethodId, TvmInputInfo> {
-    val path = callerClass.java.getResource(typesPath)?.path
-        ?: error("Cannot find resource bytecode $typesPath")
-    val struct = readFromJson(Path(path), "InternalMsgBody") as? TlbCompositeLabel
+    val path = getResourcePath(callerClass::class.java, typesPath)
+    val struct = readFromJson(path, "InternalMsgBody") as? TlbCompositeLabel
         ?: error("Couldn't parse TL-B structure")
     val info = TvmParameterInfo.SliceInfo(
         TvmParameterInfo.DataCellInfo(
@@ -360,8 +364,7 @@ internal fun extractTlbInfo(typesPath: String, callerClass: KClass<*>): Map<Meth
 }
 
 internal fun compareSymbolicAndConcreteFromResource(testPath: String, lastMethodIndex: Int) {
-    val fiftResourcePath = object {}::class.java.getResource(testPath)?.path?.let { Path(it) }
-        ?: error("Cannot find resource fift $testPath")
+    val fiftResourcePath = extractResource(testPath)
 
     val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

@@ -11,8 +11,10 @@ import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.runHardTestsRegex
 import org.ton.runHardTestsVar
 import org.ton.test.gen.dsl.render.TsRenderer
+import org.ton.test.utils.funcAnalyzer
 import org.usvm.machine.BocAnalyzer
 import org.usvm.machine.FiftAnalyzer
+import org.usvm.machine.FuncAnalyzer
 import org.usvm.machine.getResourcePath
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
@@ -269,7 +271,17 @@ class ContractsTest {
         checkAtLeastOneStateForAllMethods(methodsNumber = methodsNumber, methodStates)
 
         if (enableTestGeneration) {
-            TvmTestExecutor.executeGeneratedTests(methodStates, funcResourcePath, TsRenderer.ContractType.Func)
+            // on Windows, we must pass all FunC files for rendering tests, which is problematic, when we use stdlib.
+            // If this is not done, then imports are searched from the root of the sandbox project.
+            // This behavior is different on Windows and Linux.
+            // To avoid this problem, we just generate tests for BoC.
+            val tmpBocFile = createTempFile(suffix = ".boc")
+            try {
+                funcAnalyzer.compileFuncSourceToBoc(funcResourcePath, tmpBocFile)
+                TvmTestExecutor.executeGeneratedTests(methodStates, tmpBocFile, TsRenderer.ContractType.Boc)
+            } finally {
+                tmpBocFile.deleteIfExists()
+            }
         }
     }
 

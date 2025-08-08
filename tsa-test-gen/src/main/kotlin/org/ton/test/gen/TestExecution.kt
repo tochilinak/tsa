@@ -5,25 +5,25 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import org.ton.test.gen.dsl.render.TsRenderer
 import org.usvm.utils.executeCommandWithTimeout
 import org.usvm.utils.toText
 import java.nio.file.Path
-import java.nio.file.Paths
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 private val TESTS_EXECUTION_DEFAULT_TIMEOUT = 40.seconds
+
+// on Windows, this might be "yarn.cmd" instead of "yarn"
+private val yarnCommand = System.getenv("YARN_COMMAND") ?: "yarn"
 
 @OptIn(ExperimentalSerializationApi::class)
 fun executeTests(
     projectPath: Path,
     testFileName: String,
     testsExecutionTimeout: Duration = TESTS_EXECUTION_DEFAULT_TIMEOUT,
-    testCommand: String = "yarn jest", // Could be also "jest" or "npm test"
+    testCommand: String = "$yarnCommand jest", // Could be also "jest" or "npm test"
 ): TestExecutionResult {
-    val relativePath = Paths.get(TsRenderer.TESTS_DIR_NAME).resolve(testFileName)
-    val command = "$testCommand --json $relativePath"
+    val command = "$testCommand --json $testFileName"
 
     val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
         command,

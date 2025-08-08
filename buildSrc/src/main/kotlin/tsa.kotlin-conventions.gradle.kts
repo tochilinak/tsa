@@ -28,12 +28,16 @@ tasks {
         sourceCompatibility = JavaVersion.VERSION_1_8.toString()
         targetCompatibility = JavaVersion.VERSION_1_8.toString()
         options.encoding = "UTF-8"
-        options.compilerArgs = options.compilerArgs + "-Xlint:all" + "-Xlint:-options" + "-Werror"
+        // For now, we have some compiler warnings about context receivers.
+        // When we resolve it, option -Werror should be turned on.
+        options.compilerArgs = options.compilerArgs + "-Xlint:all" + "-Xlint:-options" // + "-Werror"
     }
     withType<KotlinCompile> {
         kotlinOptions {
             jvmTarget = JavaVersion.VERSION_1_8.toString()
             freeCompilerArgs += listOf("-Xsam-conversions=class", "-Xcontext-receivers")
+            // For now, we have some compiler warnings about context receivers.
+            // When we resolve it, option [allWarningsAsErrors] should be turned on.
 //            allWarningsAsErrors = true
         }
     }

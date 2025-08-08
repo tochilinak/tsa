@@ -1,6 +1,7 @@
 package org.ton.examples.types
 
 import org.ton.Endian
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.test.utils.propertiesFound
 import org.ton.test.utils.testOptionsToAnalyzeSpecificMethod
@@ -10,7 +11,6 @@ import org.usvm.test.resolver.TvmTestCellDataBitArrayRead
 import org.usvm.test.resolver.TvmTestCellDataIntegerRead
 import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
 import org.usvm.test.resolver.TvmTestSliceValue
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -19,8 +19,7 @@ class TypeVariantsExample {
 
     @Test
     fun testVariants() {
-        val resourcePath = this::class.java.getResource(path)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $path")
+        val resourcePath = extractResource(path)
 
         val result = funcCompileAndAnalyzeAllMethods(
             resourcePath,

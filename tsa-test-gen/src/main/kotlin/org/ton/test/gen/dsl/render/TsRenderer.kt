@@ -431,7 +431,7 @@ class TsRenderer(
     }
 
     override fun visit(element: TsStringValue) {
-        printer.print("\"${element.value}\"")
+        printer.print("String.raw`${element.value}`")
     }
 
     override fun visit(element: TsDataCellValue) {

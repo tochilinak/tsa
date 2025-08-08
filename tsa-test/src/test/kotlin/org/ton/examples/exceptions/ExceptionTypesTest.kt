@@ -1,6 +1,7 @@
 package org.ton.examples.exceptions
 
 import org.ton.test.utils.checkInvariants
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.test.utils.propertiesFound
 import org.ton.test.utils.testOptionsToAnalyzeSpecificMethod
@@ -8,7 +9,6 @@ import org.usvm.machine.state.TvmFailureType
 import org.usvm.test.resolver.TvmMethodFailure
 import org.usvm.test.resolver.TvmSuccessfulExecution
 import org.usvm.test.resolver.TvmTestSliceValue
-import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -23,8 +23,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testCellSizeConflict() {
-        val resourcePath = this::class.java.getResource(cellSizeConflictPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $cellSizeConflictPath")
+        val resourcePath = extractResource(cellSizeConflictPath)
 
         val results = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertEquals(1, results.testSuites.size)
@@ -48,8 +47,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testCellSizeConflict2() {
-        val resourcePath = this::class.java.getResource(cellSizeConflict2Path)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $cellSizeConflict2Path")
+        val resourcePath = extractResource(cellSizeConflict2Path)
 
         val results = funcCompileAndAnalyzeAllMethods(
             resourcePath,
@@ -82,8 +80,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testSimpleStructural() {
-        val resourcePath = this::class.java.getResource(simpleStructuralPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleStructuralPath")
+        val resourcePath = extractResource(simpleStructuralPath)
 
         val results = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertEquals(1, results.testSuites.size)
@@ -108,8 +105,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testSimpleSymbolicStructural() {
-        val resourcePath = this::class.java.getResource(simpleSymbolicStructuralPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleSymbolicStructuralPath")
+        val resourcePath = extractResource(simpleSymbolicStructuralPath)
 
         val results = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertEquals(1, results.testSuites.size)
@@ -135,8 +131,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testSimpleStructuralRef() {
-        val resourcePath = this::class.java.getResource(simpleStructuralRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleStructuralRefPath")
+        val resourcePath = extractResource(simpleStructuralRefPath)
 
         val results = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertEquals(1, results.testSuites.size)
@@ -161,8 +156,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testAllocatedSample() {
-        val resourcePath = this::class.java.getResource(allocatedSamplePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $allocatedSamplePath")
+        val resourcePath = extractResource(allocatedSamplePath)
 
         val results = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertEquals(1, results.testSuites.size)
@@ -188,8 +182,7 @@ class ExceptionTypesTest {
 
     @Test
     fun testMixedIte() {
-        val resourcePath = this::class.java.getResource(mixedItePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $mixedItePath")
+        val resourcePath = extractResource(mixedItePath)
 
         val results = funcCompileAndAnalyzeAllMethods(resourcePath)
         assertEquals(1, results.testSuites.size)

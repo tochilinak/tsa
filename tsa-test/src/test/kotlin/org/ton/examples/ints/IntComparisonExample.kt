@@ -3,11 +3,11 @@ package org.ton.examples.ints
 import org.junit.jupiter.api.Test
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
 import org.usvm.test.resolver.TvmTestIntegerValue
-import kotlin.io.path.Path
 import kotlin.test.assertEquals
 
 class IntComparisonExample {
@@ -16,8 +16,7 @@ class IntComparisonExample {
 
     @Test
     fun testIntComparisonExamples() {
-        val sourceResourcePath = this::class.java.getResource(sourcesPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource source $sourcesPath")
+        val sourceResourcePath = extractResource(sourcesPath)
 
         val symbolicResult = funcCompileAndAnalyzeAllMethods(sourceResourcePath)
         assertEquals(13, symbolicResult.testSuites.size)
@@ -33,8 +32,7 @@ class IntComparisonExample {
 
     @Test
     fun testIntComparisonFift() {
-        val fiftResourcePath = this::class.java.getResource(fiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $sourcesPath")
+        val fiftResourcePath = extractResource(fiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

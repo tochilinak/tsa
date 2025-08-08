@@ -2,9 +2,9 @@ package org.ton.examples.tuple
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.runFiftMethod
 import org.ton.test.utils.testConcreteOptions
-import kotlin.io.path.Path
 import kotlin.test.Test
 
 class TupleTest {
@@ -13,8 +13,7 @@ class TupleTest {
 
     @Test
     fun testTupleSuccess() {
-        val fiftResourcePath = this::class.java.getResource(tupleSuccessFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $tupleSuccessFiftPath")
+        val fiftResourcePath = extractResource(tupleSuccessFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 
@@ -26,8 +25,7 @@ class TupleTest {
 
     @Test
     fun testTupleFailure() {
-        val fiftResourcePath = this::class.java.getResource(tupleFailureFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $tupleFailureFiftPath")
+        val fiftResourcePath = extractResource(tupleFailureFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
 

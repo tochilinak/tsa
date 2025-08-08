@@ -15,6 +15,7 @@ import org.ton.TvmParameterInfo.DataCellInfo
 import org.ton.TvmParameterInfo.SliceInfo
 import org.ton.bytecode.MethodId
 import org.ton.test.utils.checkInvariants
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.funcCompileAndAnalyzeAllMethods
 import org.ton.test.utils.propertiesFound
 import org.usvm.machine.TlbOptions
@@ -34,12 +35,10 @@ import org.usvm.test.resolver.TvmTestCellDataMaybeConstructorBitRead
 import org.usvm.test.resolver.TvmTestDataCellValue
 import org.usvm.test.resolver.TvmTestInput.RecvInternalInput
 import java.math.BigInteger
-import kotlin.io.path.Path
 import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-
 
 class InputParameterInfoTests {
     private val maybePath = "/types/maybe.fc"
@@ -89,8 +88,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testCorrectMaybe() {
-        val resourcePath = this::class.java.getResource(maybePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $maybePath")
+        val resourcePath = extractResource(maybePath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(maybeStructure))))
@@ -111,8 +109,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testMaybeInsteadOfInt() {
-        val resourcePath = this::class.java.getResource(maybePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $maybePath")
+        val resourcePath = extractResource(maybePath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(int64Structure))))
@@ -135,8 +132,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testUnexpectedRead() {
-        val resourcePath = this::class.java.getResource(maybePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $maybePath")
+        val resourcePath = extractResource(maybePath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(TlbEmptyLabel))))
@@ -158,8 +154,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testTurnOff() {
-        val resourcePath = this::class.java.getResource(maybePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $maybePath")
+        val resourcePath = extractResource(maybePath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(TlbCoinsLabel))))
@@ -178,8 +173,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testExpectedEndOfCell() {
-        val resourcePath = this::class.java.getResource(endOfCellPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $endOfCellPath")
+        val resourcePath = extractResource(endOfCellPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(TlbEmptyLabel))))
@@ -193,8 +187,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testUnexpectedEndOfCell() {
-        val resourcePath = this::class.java.getResource(endOfCellPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $endOfCellPath")
+        val resourcePath = extractResource(endOfCellPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(int64Structure))))
@@ -215,8 +208,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testUnexpectedEndOfCell2() {
-        val resourcePath = this::class.java.getResource(endOfCellPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $endOfCellPath")
+        val resourcePath = extractResource(endOfCellPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(someRefStructure))))
@@ -237,8 +229,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testExpectedLoadRef() {
-        val resourcePath = this::class.java.getResource(simpleLoadRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleLoadRefPath")
+        val resourcePath = extractResource(simpleLoadRefPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(someRefStructure))))
@@ -252,8 +243,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testPossibleLoadRef() {
-        val resourcePath = this::class.java.getResource(simpleLoadRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleLoadRefPath")
+        val resourcePath = extractResource(simpleLoadRefPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(prefixInt64Structure))))
@@ -267,8 +257,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testUnexpectedLoadRef() {
-        val resourcePath = this::class.java.getResource(simpleLoadRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleLoadRefPath")
+        val resourcePath = extractResource(simpleLoadRefPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(int64Structure))))
@@ -288,8 +277,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testMaybeInsteadOfCoins() {
-        val resourcePath = this::class.java.getResource(maybePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $maybePath")
+        val resourcePath = extractResource(maybePath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(coinsStructure))))
@@ -312,8 +300,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testCorrectCoins() {
-        val resourcePath = this::class.java.getResource(coinsPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $coinsPath")
+        val resourcePath = extractResource(coinsPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(coinsStructure))))
@@ -334,8 +321,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testCoinsInsteadOfMsgAddr() {
-        val resourcePath = this::class.java.getResource(coinsPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $coinsPath")
+        val resourcePath = extractResource(coinsPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(wrappedMsgStructure))))
@@ -365,8 +351,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testCorrectMsgAddr() {
-        val resourcePath = this::class.java.getResource(msgAddrPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $msgAddrPath")
+        val resourcePath = extractResource(msgAddrPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(wrappedMsgStructure))))
@@ -387,8 +372,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testCorrectDict() {
-        val resourcePath = this::class.java.getResource(dictPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $dictPath")
+        val resourcePath = extractResource(dictPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(dict256Structure))))
@@ -409,8 +393,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testCoinsInsteadOfDict() {
-        val resourcePath = this::class.java.getResource(coinsPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $coinsPath")
+        val resourcePath = extractResource(coinsPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(dict256Structure))))
@@ -433,8 +416,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testIntSwitchError() {
-        val resourcePath = this::class.java.getResource(seqLoadIntPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $seqLoadIntPath")
+        val resourcePath = extractResource(seqLoadIntPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(intSwitchStructure))))
@@ -460,8 +442,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testIntSwitchCorrect() {
-        val resourcePath = this::class.java.getResource(intSwitchPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $intSwitchPath")
+        val resourcePath = extractResource(intSwitchPath)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(intSwitchStructure))))
@@ -481,8 +462,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testIntSwitch2Correct() {
-        val resourcePath = this::class.java.getResource(intSwitch2Path)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $intSwitch2Path")
+        val resourcePath = extractResource(intSwitch2Path)
 
         val inputInfo =
             TvmInputInfo(mapOf(0 to SliceInfo(DataCellInfo(intSwitchStructure))))
@@ -502,8 +482,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testYStructureError() {
-        val resourcePath = this::class.java.getResource(seqLoadInt2Path)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $seqLoadInt2Path")
+        val resourcePath = extractResource(seqLoadInt2Path)
 
         val inputInfo =
             TvmInputInfo(
@@ -536,8 +515,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testYStructureCorrect() {
-        val resourcePath = this::class.java.getResource(seqLoadInt3Path)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $seqLoadInt3Path")
+        val resourcePath = extractResource(seqLoadInt3Path)
 
         val inputInfo =
             TvmInputInfo(
@@ -567,8 +545,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testIterateRefsRecursiveChain() {
-        val resourcePath = this::class.java.getResource(iterateRefsPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $iterateRefsPath")
+        val resourcePath = extractResource(iterateRefsPath)
 
         val inputInfo =
             TvmInputInfo(
@@ -591,8 +568,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testIterateRefsNonRecursiveChain() {
-        val resourcePath = this::class.java.getResource(iterateRefsPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $iterateRefsPath")
+        val resourcePath = extractResource(iterateRefsPath)
 
         val inputInfo =
             TvmInputInfo(
@@ -636,8 +612,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testLoadRefOnNonRecursiveChain() {
-        val resourcePath = this::class.java.getResource(simpleLoadRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $simpleLoadRefPath")
+        val resourcePath = extractResource(simpleLoadRefPath)
 
         val inputInfo =
             TvmInputInfo(
@@ -681,8 +656,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testEOPInsteadOfInt() {
-        val resourcePath = this::class.java.getResource(endOfCellPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $endOfCellPath")
+        val resourcePath = extractResource(endOfCellPath)
 
         val label = TlbCompositeLabel(
             name = "X",
@@ -714,8 +688,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testUnexpectedLoadAfterRef() {
-        val resourcePath = this::class.java.getResource(loadRefThenLoadIntPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $loadRefThenLoadIntPath")
+        val resourcePath = extractResource(loadRefThenLoadIntPath)
 
         val inputInfo =
             TvmInputInfo(
@@ -745,8 +718,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testLoadWrongIntFromRef() {
-        val resourcePath = this::class.java.getResource(int32FromRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $int32FromRefPath")
+        val resourcePath = extractResource(int32FromRefPath)
 
         val inputInfo =
             TvmInputInfo(
@@ -776,8 +748,7 @@ class InputParameterInfoTests {
 
     @Test
     fun testLoadCorrectIntFromRef() {
-        val resourcePath = this::class.java.getResource(int64FromRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $int64FromRefPath")
+        val resourcePath = extractResource(int64FromRefPath)
 
         val inputInfo =
             TvmInputInfo(
@@ -800,8 +771,7 @@ class InputParameterInfoTests {
     @Ignore
     @Test
     fun testLoadWrongIntFromRefWithUnknown() {
-        val resourcePath = this::class.java.getResource(int32FromRefPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource $int32FromRefPath")
+        val resourcePath = extractResource(int32FromRefPath)
 
         val inputInfo =
             TvmInputInfo(

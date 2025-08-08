@@ -2,6 +2,7 @@ package org.ton.examples.cell
 
 import org.ton.test.utils.compareSymbolicAndConcreteResults
 import org.ton.test.utils.compileAndAnalyzeFift
+import org.ton.test.utils.extractResource
 import org.ton.test.utils.testConcreteOptions
 import org.ton.test.utils.runFiftMethod
 import kotlin.io.path.Path
@@ -15,8 +16,7 @@ class CellParseTest {
 
     @Test
     fun cellParseTest() {
-        val fiftResourcePath = this::class.java.getResource(cellParseFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $cellParseFiftPath")
+        val fiftResourcePath = extractResource(cellParseFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(
             fiftResourcePath,
@@ -31,8 +31,7 @@ class CellParseTest {
 
     @Test
     fun cellLoadIntFailureTest() {
-        val fiftResourcePath = this::class.java.getResource(cellParseFiftFailurePath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $cellParseFiftFailurePath")
+        val fiftResourcePath = extractResource(cellParseFiftFailurePath)
 
         val symbolicResult = compileAndAnalyzeFift(
             fiftResourcePath,
@@ -47,8 +46,7 @@ class CellParseTest {
 
     @Test
     fun slicePushTest() {
-        val fiftResourcePath = this::class.java.getResource(slicePushFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $slicePushFiftPath")
+        val fiftResourcePath = extractResource(slicePushFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(fiftResourcePath, tvmOptions = testConcreteOptions)
         val methodIds = (0..1).toSet()
@@ -60,8 +58,7 @@ class CellParseTest {
 
     @Test
     fun loadGramsTest() {
-        val fiftResourcePath = this::class.java.getResource(loadGramsFiftPath)?.path?.let { Path(it) }
-            ?: error("Cannot find resource fift $loadGramsFiftPath")
+        val fiftResourcePath = extractResource(loadGramsFiftPath)
 
         val symbolicResult = compileAndAnalyzeFift(
             fiftResourcePath,
