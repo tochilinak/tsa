@@ -72,5 +72,5 @@ fun UExpr<UBoolSort>.asIntValue(): UExpr<TvmInt257Sort> = with(ctx.tctx()) {
 
 fun maxUnsignedValue(bits: UInt): BigInteger = powerOfTwo(bits).minus(BigInteger.ONE)
 
-fun Path.getParentNonNull(): Path =
-    parent ?: Paths.get("")
+fun Path.getParentNonNullAbsolutePath(): Path =
+    (parent ?: Paths.get("")).toAbsolutePath()

@@ -81,7 +81,7 @@ class TactAnalyzer(
         val project = config.projects.firstOrNull {
             it.name == sources.projectName
         } ?: error("Project with name ${sources.projectName} not found.")
-        val curDirectory = sources.configPath.getParentNonNull().toAbsolutePath()
+        val curDirectory = sources.configPath.getParentNonNullAbsolutePath()
         val outputDir = curDirectory / project.output
         val bocFileName = "${sources.projectName}_${sources.contractName}.code.boc"
 
@@ -101,7 +101,7 @@ class TactAnalyzer(
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
             tactCommand,
             COMPILER_TIMEOUT,
-            processWorkingDirectory = configFile.getParentNonNull().toAbsolutePath().toFile(),
+            processWorkingDirectory = configFile.getParentNonNullAbsolutePath().toFile(),
         )
 
         check(completedInTime) {
@@ -150,7 +150,7 @@ class FuncAnalyzer(
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
             funcCommand,
             COMPILER_TIMEOUT,
-            processWorkingDirectory = funcSourcesPath.getParentNonNull().toFile()
+            processWorkingDirectory = funcSourcesPath.getParentNonNullAbsolutePath().toFile()
         )
 
         check(completedInTime) {
@@ -172,7 +172,7 @@ class FuncAnalyzer(
         val (exitValue, completedInTime, output, errors) = executeCommandWithTimeout(
             funcCommand,
             COMPILER_TIMEOUT,
-            processWorkingDirectory = funcSourcesPath.getParentNonNull().toFile(),
+            processWorkingDirectory = funcSourcesPath.getParentNonNullAbsolutePath().toFile(),
         )
 
         check(completedInTime) {
