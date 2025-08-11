@@ -26,8 +26,6 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import io.ksmt.utils.uncheckedCast
 import org.ton.boc.BagOfCells
-import java.math.BigInteger
-import java.nio.file.Path
 import org.ton.bytecode.TsaContractCode
 import org.ton.sarif.toSarifReport
 import org.ton.test.gen.dsl.render.TsRenderer
@@ -49,6 +47,9 @@ import org.usvm.machine.hexToCell
 import org.usvm.machine.state.ContractId
 import org.usvm.machine.toMethodId
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
+import org.usvm.test.resolver.TvmSymbolicTestSuite
+import java.math.BigInteger
+import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
@@ -179,6 +180,43 @@ private fun <SourcesDescription> performAnalysis(
     }
 }
 
+private fun performAnalysisInterContract(
+    contracts: List<TsaContractCode>,
+    concreteContractData: List<TvmConcreteContractData>,
+    interContractSchemePath: Path?,
+    startContractId: ContractId,
+    methodId: BigInteger,
+    inputInfo: TvmInputInfo,
+    analysisOptions: AnalysisOptions,
+    turnOnTLBParsingChecks: Boolean,
+): TvmSymbolicTestSuite {
+    val options = if (interContractSchemePath != null) {
+        TvmOptions(
+            turnOnTLBParsingChecks = turnOnTLBParsingChecks,
+            quietMode = true,
+            analyzeBouncedMessaged = analysisOptions.analyzeBouncedMessages,
+            timeout = analysisOptions.timeout?.seconds ?: INFINITE,
+            intercontractOptions = IntercontractOptions(communicationScheme = interContractSchemePath.extractIntercontractScheme()),
+            enableOutMessageAnalysis = true,
+        )
+    } else {
+        TvmOptions(
+            turnOnTLBParsingChecks = turnOnTLBParsingChecks,
+            quietMode = true,
+            analyzeBouncedMessaged = analysisOptions.analyzeBouncedMessages,
+            timeout = analysisOptions.timeout?.seconds ?: INFINITE,
+        )
+    }
+
+    return analyzeInterContract(
+        contracts,
+        startContractId = startContractId,
+        methodId = methodId,
+        options = options,
+        inputInfo = inputInfo,
+        concreteContractData = concreteContractData,
+    )
+}
 
 class TestGeneration : CliktCommand(name = "test-gen", help = "Options for test generation for FunC projects") {
     private val projectPath by option("-p", "--project")
@@ -426,6 +464,8 @@ class CheckerAnalysis : CliktCommand(
         )
     }
 
+    private val analysisOptions by AnalysisOptions()
+
     override fun run() {
         val checkerContract = getFuncContract(
             checkerContractPath,
@@ -444,16 +484,6 @@ class CheckerAnalysis : CliktCommand(
             .getOrElse { TvmInputInfo() } // In case TL-B scheme is incorrect (not json format, for example), use empty scheme
             ?: TvmInputInfo() // In case TL-B scheme is not provided, use empty scheme
 
-        val options = if (interContractSchemePath != null) {
-            TvmOptions(
-                intercontractOptions = IntercontractOptions(communicationScheme = interContractSchemePath?.extractIntercontractScheme()),
-                turnOnTLBParsingChecks = false,
-                enableOutMessageAnalysis = true,
-            )
-        } else {
-            TvmOptions(turnOnTLBParsingChecks = false)
-        }
-
         val concreteContractData = listOf(TvmConcreteContractData()) + concreteData.map { path ->
             path.path ?: return@map TvmConcreteContractData()
             val bytes = path.path.toFile().readBytes()
@@ -464,13 +494,15 @@ class CheckerAnalysis : CliktCommand(
         }
 
         val contracts = listOf(checkerContract) + contractsToAnalyze
-        val result = analyzeInterContract(
+        val result = performAnalysisInterContract(
             contracts,
+            concreteContractData,
+            interContractSchemePath,
             startContractId = 0, // Checker contract is the first to analyze
             methodId = TvmContext.RECEIVE_INTERNAL_ID,
-            options = options,
             inputInfo = inputInfo,
-            concreteContractData = concreteContractData,
+            analysisOptions = analysisOptions,
+            turnOnTLBParsingChecks = false,
         )
 
         val sarifReport = result.toSarifReport(
@@ -538,19 +570,22 @@ class InterContractAnalysis : CliktCommand(
         .default(0)
         .help("Id of the starting method in the root contract.")
 
+    private val analysisOptions by AnalysisOptions()
+
     override fun run() {
         val contracts = contractSources.map {
             it.convertToTsaContractCode(fiftAnalyzer, funcAnalyzer, tactAnalyzer)
         }
 
-        val communicationScheme = interContractSchemePath.extractIntercontractScheme()
-        val options = TvmOptions(intercontractOptions = IntercontractOptions(communicationScheme))
-
-        val result = analyzeInterContract(
-            contracts = contracts,
-            startContractId = startContractId,
+        val result = performAnalysisInterContract(
+            contracts,
+            concreteContractData = contracts.map { TvmConcreteContractData() },  // TODO: support conrete data
+            interContractSchemePath,
+            startContractId,
             methodId = methodId.toMethodId(),
-            options = options,
+            inputInfo = TvmInputInfo(), // TODO: support TL-B
+            analysisOptions = analysisOptions,
+            turnOnTLBParsingChecks = false,
         )
 
         val sarifReport = result.toSarifReport(
