@@ -6,6 +6,7 @@ import io.ksmt.utils.BvUtils.bvMinValueSigned
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentMap
 import mu.KLogging
+import org.ton.TlbBasicMsgAddrLabel
 import org.ton.TlbFullMsgAddrLabel
 import org.ton.TvmInputInfo
 import org.ton.TvmParameterInfo.CellInfo
@@ -349,7 +350,7 @@ class TvmInterpreter(
     private val contStackInterpreter = TvmContinuationStackInterpreter(ctx)
     private val transactionInterpreter = TvmTransactionInterpreter(ctx)
     private val tsaCheckerFunctionsInterpreter = TsaCheckerFunctionsInterpreter(contractsCode)
-    private val artificialInstInterpreter = TvmArtificialInstInterpreter(ctx, contractsCode, transactionInterpreter)
+    private val artificialInstInterpreter = TvmArtificialInstInterpreter(ctx, contractsCode, transactionInterpreter, tsaCheckerFunctionsInterpreter)
     private val postProcessor = TvmPostProcessor(ctx)
 
     fun getInitialState(
@@ -397,7 +398,7 @@ class TvmInterpreter(
 
         val useRecvInternalInput = methodId == RECEIVE_INTERNAL_ID && ctx.tvmOptions.useRecvInternalInput
         if (useRecvInternalInput) {
-            val input = RecvInternalInput(state, concreteGeneralData)
+            val input = RecvInternalInput(state, concreteGeneralData, startContractId)
             state.input = input
         } else {
             state.input = TvmStateStackInput
@@ -405,13 +406,9 @@ class TvmInterpreter(
                 "Cannot take into account concrete initialOpcode or sender if not using RecvInternal input"
             }
         }
-        val msgValue = when (val input = state.input) {
-            is RecvInternalInput -> input.msgValue
-            is TvmStateStackInput -> null
-        }
 
         state.contractIdToFirstElementOfC7 = contractsCode.mapIndexed { index, code ->
-            index to state.initContractInfo(code, concreteContractData[index], msgValue)
+            index to state.initContractInfo(code, concreteContractData[index])
         }.toMap().toPersistentMap()
         state.contractIdToInitialData = contractsCode.indices.associateWith {
             val c4 = state.contractIdToC4Register[it]
@@ -420,6 +417,7 @@ class TvmInterpreter(
                 ?: error("First element of c7 for contract $it not found")
             TvmInitialStateData(c4.value.value, c7)
         }
+
         prepareMemoryForInitialState(state, startContractId)
 
         state.callStack.push(contractCode.mainMethod, returnSite = null)
@@ -433,11 +431,17 @@ class TvmInterpreter(
         state: TvmState,
         startContractId: ContractId,
     ) {
+        val msgValue = when (val input = state.input) {
+            is RecvInternalInput -> input.msgValue
+            is TvmStateStackInput -> null
+        }
+
         val allowInputStackValues = ctx.tvmOptions.enableInputValues && (state.input is TvmStateStackInput)
         val executionMemory = initializeContractExecutionMemory(
             contractsCode,
             state,
             startContractId,
+            msgValue,
             allowInputStackValues,
         )
 
@@ -498,7 +502,8 @@ class TvmInterpreter(
             is TvmStateStackInput -> {
                 val dataCellInfoStorage = TvmDataCellInfoStorage.build(
                     state,
-                    inputInfo
+                    inputInfo,
+                    additionalLabels = setOf(TlbFullMsgAddrLabel, TlbBasicMsgAddrLabel),
                 )
                 setDataCellInfoStorageAndSetModel(state, dataCellInfoStorage)
             }

@@ -1,6 +1,5 @@
 package org.usvm.machine.types
 
-import org.ton.TlbAtomicLabel
 import org.ton.TlbCompositeLabel
 import org.ton.TlbStructure
 import org.ton.TvmInputInfo
@@ -14,7 +13,6 @@ import org.usvm.machine.types.dp.CalculatedTlbLabelInfo
 import org.usvm.mkSizeGeExpr
 import org.usvm.mkSizeLeExpr
 import org.usvm.utils.extractAddresses
-
 
 class TvmDataCellInfoStorage private constructor(
     private val ctx: TvmContext,
@@ -116,6 +114,7 @@ class TvmDataCellInfoStorage private constructor(
             info: TvmInputInfo,
             additionalCellLabels: Map<UConcreteHeapRef, TvmParameterInfo.CellInfo> = emptyMap(),
             additionalSliceToCell: Map<UConcreteHeapRef, UConcreteHeapRef> = emptyMap(),
+            additionalLabels: Set<TlbCompositeLabel> = emptySet(),
         ): TvmDataCellInfoStorage {
             val inputAddresses = extractInputParametersAddresses(state, info)
             val addressesWithCellInfo = InputParametersStructure(
@@ -123,8 +122,8 @@ class TvmDataCellInfoStorage private constructor(
                 sliceToCell = additionalSliceToCell + inputAddresses.sliceToCell,
             )
             val labels = addressesWithCellInfo.cellToInfo.values.mapNotNull {
-                (it as? TvmParameterInfo.DataCellInfo)?.dataCellStructure as? TlbCompositeLabel
-            }
+                (it as? TvmParameterInfo.DataCellInfo)?.dataCellStructure
+            } + additionalLabels
             val calculatedTlbLabelInfo = CalculatedTlbLabelInfo(state.ctx, labels)
             val mapper = TvmAddressToLabelMapper(state, addressesWithCellInfo, calculatedTlbLabelInfo)
             val sliceMapper = TvmSliceToTlbStackMapper.constructInitialSliceMapper(state.ctx, addressesWithCellInfo)

@@ -28,22 +28,20 @@ data object TvmTestResolver {
         val fetchedValues = stateResolver.resolveFetchedValues()
         val config = stateResolver.resolveConfig()
         val contractAddress = stateResolver.resolveContractAddress()
-        val contractBalance = stateResolver.resolveInitialContractBalance()
         val time = stateResolver.resolveTime()
         val initialData = stateResolver.resolveInitialData()
-        val rootInitialData = stateResolver.resolveRootData()
         val result = stateResolver.resolveResultStack()
         val gasUsage = stateResolver.resolveGasUsage()
         val outMessages = stateResolver.resolveOutMessages()
+        val additionalInputs = stateResolver.resolveAdditionalInputs()
         val externalMessageWasAccepted = state.pathNode.allStatements.any { it is TvmAppGasAcceptInst }
+        val contractStatesBefore = state.contractIds.associateWith { stateResolver.resolveInitialContractState(it) }
 
         return TvmSymbolicTest(
             methodId = methodId,
             config = config,
             contractAddress = contractAddress,
             initialData = initialData,
-            rootInitialData = rootInitialData,
-            initialContractBalance = contractBalance,
             time = time,
             input = input,
             fetchedValues = fetchedValues,
@@ -56,6 +54,9 @@ data object TvmTestResolver {
             coveredInstructions = collectVisitedInstructions(state),
             externalMessageWasAccepted = externalMessageWasAccepted,
             outMessages = outMessages,
+            rootContract = state.rootContractId,
+            contractStatesBefore = contractStatesBefore,
+            additionalInputs = additionalInputs,
         )
     }
 
@@ -78,7 +79,7 @@ data object TvmTestResolver {
                 condition = state.ctx.tvmOptions.quietMode,
                 body = { resolve(methodId, state) },
                 exceptionHandler = { exception ->
-                    logger.debug(exception) { "Exception is thrown during the resolve of state $state" }
+                    logger.warn(exception) { "Exception is thrown during the resolve of state $state" }
                     null
                 }
             )
@@ -116,11 +117,13 @@ data class TvmSymbolicTest(
     val methodId: MethodId,
     val config: TvmTestDictCellValue,
     val contractAddress: TvmTestDataCellValue,
-    val initialContractBalance: TvmTestIntegerValue,
     val time: TvmTestIntegerValue,
-    val rootInitialData: TvmTestCellValue,
+    val rootContract: ContractId,
+    val contractStatesBefore: Map<ContractId, TvmContractState>,
+//    val contractStatesAfter: Map<ContractId, TvmContractState>,
     val initialData: Map<ContractId, TvmTestCellValue>,
     val input: TvmTestInput,
+    val additionalInputs: Map<Int, TvmTestInput.RecvInternalInput>,
     val fetchedValues: Map<Int, TvmTestValue>,
     val result: TvmMethodSymbolicResult,
     val externalMessageWasAccepted: Boolean,
@@ -132,6 +135,21 @@ data class TvmSymbolicTest(
     // a list of the covered instructions in the order they are visited
     val coveredInstructions: List<TvmInst>,
     val numberOfAddressesWithAssertedDataConstraints: Int,  // for testing
+) {
+    val initialRootContractState: TvmContractState
+        get() = contractStatesBefore[rootContract]
+            ?: error("Contract state for root contract not found")
+
+    val rootInitialData: TvmTestCellValue
+        get() = initialRootContractState.data
+
+    val initialRootContractBalance: TvmTestIntegerValue
+        get() = initialRootContractState.balance
+}
+
+data class TvmContractState(
+    val data: TvmTestCellValue,
+    val balance: TvmTestIntegerValue,
 )
 
 data class TvmTestOutMessage(

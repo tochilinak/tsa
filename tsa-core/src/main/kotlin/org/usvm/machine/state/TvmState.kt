@@ -30,6 +30,7 @@ import org.usvm.machine.interpreter.OutMessage
 import org.usvm.machine.state.TvmPhase.COMPUTE_PHASE
 import org.usvm.machine.state.TvmPhase.TERMINATED
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
+import org.usvm.machine.state.input.RecvInternalInput
 import org.usvm.machine.state.input.TvmStateInput
 import org.usvm.machine.types.GlobalStructuralConstraintsHolder
 import org.usvm.machine.types.TvmDataCellInfoStorage
@@ -82,6 +83,7 @@ class TvmState(
     var addressToHash: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
     var addressToDepth: PersistentMap<UHeapRef, UExpr<TvmContext.TvmInt257Sort>> = persistentMapOf(),
     var signatureChecks: PersistentList<TvmSignatureCheck> = persistentListOf(),
+    var additionalInputs: PersistentMap<Int, RecvInternalInput> = persistentMapOf(),
 ) : UState<TvmType, TvmCodeBlock, TvmInst, TvmContext, TvmTarget, TvmState>(
     ctx,
     ownership,
@@ -110,14 +112,19 @@ class TvmState(
     lateinit var stack: TvmStack
     lateinit var input: TvmStateInput
 
+    val contractIds: Set<ContractId>
+        get() = contractIdToInitialData.keys
+
     val rootStack: TvmStack
         get() = if (contractStack.isEmpty()) stack else contractStack.first().executionMemory.stack
 
+    val rootContractId: ContractId
+        get() = if (contractStack.isEmpty()) currentContract else contractStack.first().contractId
+
     val rootInitialData: TvmInitialStateData
         get() {
-            val contractId = if (contractStack.isEmpty()) currentContract else contractStack.first().contractId
-            return contractIdToInitialData[contractId]
-                ?: error("Initial data of contract $contractId not found")
+            return contractIdToInitialData[rootContractId]
+                ?: error("Initial data of contract $rootContractId not found")
         }
 
     val lastRealStmt: TvmRealInst
@@ -173,6 +180,7 @@ class TvmState(
             phase = phase,
             analysisOfGetMethod = analysisOfGetMethod,
             unprocessedMessages = unprocessedMessages,
+            additionalInputs = additionalInputs,
         ).also { newState ->
             newState.dataCellInfoStorage = dataCellInfoStorage.clone()
             newState.contractIdToInitialData = contractIdToInitialData

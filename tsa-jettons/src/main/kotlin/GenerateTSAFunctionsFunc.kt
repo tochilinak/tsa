@@ -3,10 +3,13 @@ import kotlin.io.path.bufferedWriter
 import kotlin.math.max
 
 private const val pathInJettonsResources = "tsa-jettons/src/main/resources/imports/tsa_functions.fc"
+private const val pathInTestResources = "tsa-test/src/test/resources/imports/tsa_functions.fc"
 private const val pathInSafetyPropertiesExamplesTestResources = "tsa-safety-properties-examples/src/test/resources/imports/tsa_functions.fc"
 private val pathsForTsaFunctions = listOf(
     pathInJettonsResources,
-    pathInSafetyPropertiesExamplesTestResources
+    pathInSafetyPropertiesExamplesTestResources,
+    pathInTestResources,
+    pathInSafetyPropertiesExamplesTestResources,
 ).map(::Path)
 
 private const val MAX_PARAMETERS = 10
@@ -45,6 +48,10 @@ fun main() {
         }
 
         forall A -> () tsa_fetch_value(A value, int value_id) impure method_id(5) {
+            ;; do nothing
+        }
+
+        () tsa_send_internal_message(int contract_id, int input_id) impure method_id(6) {
             ;; do nothing
         }
     """.trimIndent()

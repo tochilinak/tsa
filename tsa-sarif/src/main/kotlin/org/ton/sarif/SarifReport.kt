@@ -1,6 +1,5 @@
 package org.ton.sarif
 
-import io.github.detekt.sarif4k.CodeFlow
 import io.github.detekt.sarif4k.Location
 import io.github.detekt.sarif4k.LogicalLocation
 import io.github.detekt.sarif4k.Message
@@ -8,14 +7,10 @@ import io.github.detekt.sarif4k.PropertyBag
 import io.github.detekt.sarif4k.Result
 import io.github.detekt.sarif4k.Run
 import io.github.detekt.sarif4k.SarifSchema210
-import io.github.detekt.sarif4k.ThreadFlow
-import io.github.detekt.sarif4k.ThreadFlowLocation
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.encodeToJsonElement
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TvmContractCode
-import org.ton.bytecode.TvmInst
-import org.ton.bytecode.TvmMethod
 import org.usvm.machine.state.TvmMethodResult.TvmFailure
 import org.usvm.machine.state.TvmUserDefinedFailure
 import org.usvm.test.resolver.TvmContractSymbolicTestResult
@@ -106,6 +101,7 @@ private fun List<TvmSymbolicTest>.toSarifResult(
             },
             "rootContractInitialC4" to TvmContractCode.json.encodeToJsonElement(it.rootInitialData),
             "resultStack" to TvmContractCode.json.encodeToJsonElement(it.result.stack),
+            "additionalInputs" to TvmContractCode.json.encodeToJsonElement(it.additionalInputs),
         ).toMap()
     )
 

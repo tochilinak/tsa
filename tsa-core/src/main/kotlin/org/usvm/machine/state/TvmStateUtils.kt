@@ -4,7 +4,9 @@ import io.ksmt.expr.KBitVecValue
 import io.ksmt.expr.KInterpretedValue
 import io.ksmt.sort.KBvSort
 import io.ksmt.utils.powerOfTwo
+import kotlinx.collections.immutable.toPersistentList
 import org.ton.bitstring.BitString
+import org.ton.bytecode.BALANCE_PARAMETER_IDX
 import org.ton.bytecode.MethodId
 import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TvmCellValue
@@ -418,16 +420,42 @@ fun initializeContractExecutionMemory(
     contractsCode: List<TsaContractCode>,
     state: TvmState,
     contractId: ContractId,
+    newMsgValue: UExpr<TvmInt257Sort>?,
     allowInputStackValues: Boolean,
 ): TvmContractExecutionMemory {
     val contractCode = contractsCode[contractId]
     val ctx = state.ctx
     val c4 = state.contractIdToC4Register[contractId]
         ?: error("c4 for contract $contractId is not found")
-    val firstElementOfC7 = state.contractIdToFirstElementOfC7[contractId]
-        ?: error("First element of c7 for contract $contractId not found")
+
+    val stack = TvmStack(ctx, allowInputValues = allowInputStackValues)
+
+    val firstElementOfC7 = with(ctx) {
+        val oldFirstElementOfC7 = state.contractIdToFirstElementOfC7[contractId]
+            ?: error("First element of c7 for contract $contractId not found")
+
+        if (newMsgValue != null) {
+            val oldBalance = oldFirstElementOfC7[BALANCE_PARAMETER_IDX, stack].cell(stack)?.tupleValue
+                ?.get(0, stack)?.cell(stack)?.intValue
+                ?: error("Cannot extract old balance from oldFirstElementOfC7")
+            val newBalance = mkBvAddExpr(oldBalance, newMsgValue)
+            val newEntries = oldFirstElementOfC7.entries.mapIndexed { index, entry ->
+                if (index == BALANCE_PARAMETER_IDX) {
+                    TvmStack.TvmConcreteStackEntry(makeBalanceEntry(ctx, newBalance))
+                } else {
+                    entry
+                }
+            }
+            val newFirstElementOfC7 = TvmStackTupleValueConcreteNew(ctx, newEntries.toPersistentList())
+            state.contractIdToFirstElementOfC7 = state.contractIdToFirstElementOfC7.put(contractId, newFirstElementOfC7)
+            newFirstElementOfC7
+        } else {
+            oldFirstElementOfC7
+        }
+    }
+
     return TvmContractExecutionMemory(
-        TvmStack(ctx, allowInputValues = allowInputStackValues),
+        stack,
         TvmRegisters(
             ctx,
             C0Register(ctx.quit0Cont),

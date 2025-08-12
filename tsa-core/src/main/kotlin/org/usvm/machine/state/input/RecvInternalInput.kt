@@ -15,6 +15,7 @@ import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.asIntValue
+import org.usvm.machine.state.ContractId
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.allocEmptyBuilder
 import org.usvm.machine.state.allocSliceFromCell
@@ -26,8 +27,8 @@ import org.usvm.machine.state.builderStoreSliceTlb
 import org.usvm.machine.state.builderToCell
 import org.usvm.machine.state.doWithCtx
 import org.usvm.machine.state.generateSymbolicSlice
-import org.usvm.machine.state.getBalance
-import org.usvm.machine.state.getContractInfoParam
+import org.usvm.machine.state.getBalanceOf
+import org.usvm.machine.state.getContractInfoParamOf
 import org.usvm.machine.state.slicePreloadDataBits
 import org.usvm.machine.state.unsignedIntegerFitsBits
 import org.usvm.mkSizeExpr
@@ -36,10 +37,11 @@ import org.usvm.sizeSort
 class RecvInternalInput(
     initialState: TvmState,
     private val concreteGeneralData: TvmConcreteGeneralData,
+    private val contractId: ContractId,
 ) : TvmStateInput {
     val msgBodySliceNonBounced = initialState.generateSymbolicSlice()  // used only in non-bounced messages
     val msgValue = initialState.makeSymbolicPrimitive(initialState.ctx.int257sort)
-    val srcAddress = if (concreteGeneralData.initialSenderBits == null) {
+    val srcAddressSlice = if (concreteGeneralData.initialSenderBits == null) {
         initialState.generateSymbolicSlice()
     } else {
         initialState.allocSliceFromData(initialState.ctx.mkBv(concreteGeneralData.initialSenderBits, TvmContext.stdMsgAddrSize.toUInt()))
@@ -52,7 +54,7 @@ class RecvInternalInput(
         initialState.ctx.falseExpr
     }
 
-    val msgBodyCellBounced: UConcreteHeapRef by lazy {
+    private val msgBodyCellBounced: UConcreteHeapRef by lazy {
         with(initialState.ctx) {
             // hack for using builder operations
             val scope = TvmStepScopeManager(initialState, UForkBlackList.createDefault(), allowFailuresOnCurrentStep = false)
@@ -82,7 +84,7 @@ class RecvInternalInput(
         }
     }
 
-    val msgBodySliceBounced: UHeapRef by lazy {
+    private val msgBodySliceBounced: UHeapRef by lazy {
         initialState.allocSliceFromCell(msgBodyCellBounced)
     }
 
@@ -107,7 +109,7 @@ class RecvInternalInput(
     val createdAt = initialState.makeSymbolicPrimitive(initialState.ctx.int257sort) // created_at:uint32
 
     val addrCell: UConcreteHeapRef by lazy {
-        initialState.getContractInfoParam(ADDRESS_PARAMETER_IDX).cellValue as? UConcreteHeapRef
+        initialState.getContractInfoParamOf(ADDRESS_PARAMETER_IDX, contractId).cellValue as? UConcreteHeapRef
             ?: error("Cannot extract contract address")
     }
     val addrSlice: UConcreteHeapRef by lazy {
@@ -116,13 +118,13 @@ class RecvInternalInput(
 
     fun getSrcAddressCell(state: TvmState): UConcreteHeapRef {
         val srcAddressCell =
-            state.memory.readField(srcAddress, TvmContext.sliceCellField, state.ctx.addressSort) as UConcreteHeapRef
+            state.memory.readField(srcAddressSlice, TvmContext.sliceCellField, state.ctx.addressSort) as UConcreteHeapRef
 
         return srcAddressCell
     }
 
     fun getAddressSlices(): List<UConcreteHeapRef> {
-        return listOf(srcAddress, addrSlice)
+        return listOf(srcAddressSlice, addrSlice)
     }
 
     private fun assertArgConstraints(scope: TvmStepScopeManager): Unit? {
@@ -176,7 +178,7 @@ class RecvInternalInput(
     }
 
     private fun TvmContext.mkBalanceConstraints(scope: TvmStepScopeManager): UBoolExpr {
-        val balance = scope.calcOnState { getBalance() }
+        val balance = scope.calcOnState { getBalanceOf(contractId) }
             ?: error("Unexpected incorrect config balance value")
 
         val balanceConstraints = mkAnd(
@@ -201,7 +203,7 @@ class RecvInternalInput(
             ?: error("Cannot store flags")
 
         // src:MsgAddressInt
-        builderStoreSliceTlb(scope, resultBuilder, resultBuilder, srcAddress)
+        builderStoreSliceTlb(scope, resultBuilder, resultBuilder, srcAddressSlice)
             ?: error("Cannot store src address")
 
         // dest:MsgAddressInt

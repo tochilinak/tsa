@@ -11,14 +11,23 @@ import org.ton.bytecode.TsaContractCode
 import org.ton.bytecode.TvmCell
 import org.ton.bytecode.TvmCellData
 import org.usvm.UBoolExpr
+import org.usvm.UBvSort
+import org.usvm.UConcreteHeapRef
 import org.usvm.UExpr
 import org.usvm.UHeapRef
 import org.usvm.api.makeSymbolicPrimitive
+import org.usvm.api.writeField
+import org.usvm.machine.TvmConcreteContractData
+import org.usvm.machine.TvmContext
 import org.usvm.machine.TvmContext.Companion.ADDRESS_BITS
 import org.usvm.machine.TvmContext.Companion.CONFIG_KEY_LENGTH
+import org.usvm.machine.TvmContext.Companion.GRAMS_LENGTH_BITS
+import org.usvm.machine.TvmContext.Companion.HASH_BITS
 import org.usvm.machine.TvmContext.Companion.INT_BITS
+import org.usvm.machine.TvmContext.Companion.dictKeyLengthField
 import org.usvm.machine.TvmContext.TvmInt257Sort
 import org.usvm.machine.TvmStepScopeManager
+import org.usvm.machine.maxUnsignedValue
 import org.usvm.machine.state.TvmStack.TvmStackCellValue
 import org.usvm.machine.state.TvmStack.TvmStackEntry
 import org.usvm.machine.state.TvmStack.TvmStackIntValue
@@ -28,15 +37,6 @@ import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.machine.state.TvmStack.TvmStackValue
 import org.usvm.machine.types.TvmDictCellType
 import java.math.BigInteger
-import org.usvm.UBvSort
-import org.usvm.UConcreteHeapRef
-import org.usvm.api.writeField
-import org.usvm.machine.TvmConcreteContractData
-import org.usvm.machine.TvmContext
-import org.usvm.machine.TvmContext.Companion.GRAMS_LENGTH_BITS
-import org.usvm.machine.TvmContext.Companion.HASH_BITS
-import org.usvm.machine.TvmContext.Companion.dictKeyLengthField
-import org.usvm.machine.maxUnsignedValue
 
 
 fun TvmState.getContractInfoParam(idx: Int): TvmStackValue {
@@ -45,6 +45,15 @@ fun TvmState.getContractInfoParam(idx: Int): TvmStackValue {
     }
 
     return getContractInfo()[idx, stack].cell(stack)
+        ?: error("Unexpected param value")
+}
+
+fun TvmState.getContractInfoParamOf(idx: Int, contractId: ContractId): TvmStackValue {
+    require(idx in 0..17) {
+        "Unexpected param index $idx"
+    }
+
+    return getContractInfoOf(contractId)[idx, stack].cell(stack)
         ?: error("Unexpected param value")
 }
 
@@ -74,6 +83,10 @@ fun TvmStepScopeManager.getIntContractInfoParam(idx: Int): UExpr<TvmInt257Sort>?
 
 fun TvmState.getBalance(): UExpr<TvmInt257Sort>? =
     getContractInfoParam(BALANCE_PARAMETER_IDX).tupleValue
+        ?.get(0, stack)?.cell(stack)?.intValue
+
+fun TvmState.getBalanceOf(contractId: ContractId): UExpr<TvmInt257Sort>? =
+    getContractInfoParamOf(BALANCE_PARAMETER_IDX, contractId).tupleValue
         ?.get(0, stack)?.cell(stack)?.intValue
 
 fun TvmState.setContractInfoParam(idx: Int, value: TvmStackEntry) {
@@ -163,10 +176,18 @@ const val flatGasLimit = 100
 const val flatGasPrice = 40000
 const val gasPrice = 26214400
 
+fun makeBalanceEntry(ctx: TvmContext, balance: UExpr<TvmInt257Sort>): TvmStackTupleValueConcreteNew =
+    TvmStackTupleValueConcreteNew(
+        ctx,
+        persistentListOf(
+            TvmStackIntValue(balance).toStackEntry(),
+            TvmStackNullValue.toStackEntry(),
+        )
+    )
+
 fun TvmState.initContractInfo(
     contractCode: TsaContractCode,
     concreteData: TvmConcreteContractData,
-    msgValue: UExpr<TvmInt257Sort>?,
 ): TvmStackTupleValueConcreteNew = with(ctx) {
     val tag = TvmStackIntValue(mkBvHex("076ef1ea", sizeBits = INT_BITS).uncheckedCast())
 
@@ -195,18 +216,8 @@ fun TvmState.initContractInfo(
     } else {
         concreteData.initialBalance.toBv257()
     }
-    val grams = if (msgValue == null) {
-        initialBalance
-    } else {
-        mkBvAddExpr(initialBalance, msgValue)
-    }
-    val balance = TvmStackTupleValueConcreteNew(
-        ctx,
-        persistentListOf(
-            TvmStackIntValue(grams).toStackEntry(),
-            TvmStackNullValue.toStackEntry(),
-        )
-    )
+
+    val balance = makeBalanceEntry(ctx, initialBalance)
 
     val (addrValue, workchain) = if (concreteData.addressBits == null) {
         val workchain = makeSymbolicPrimitive(mkBv8Sort())
@@ -590,6 +601,9 @@ private fun TvmState.addDictEntry(
 }
 
 private fun TvmState.getContractInfo() = registersOfCurrentContract.c7.value[0, stack].cell(stack)?.tupleValue
+    ?: error("Unexpected contract info value")
+
+private fun TvmState.getContractInfoOf(contractId: ContractId) = contractIdToFirstElementOfC7[contractId]?.tupleValue
     ?: error("Unexpected contract info value")
 
 private fun TvmState.getConfig() = getContractInfo()[9, stack].cell(stack)?.cellValue

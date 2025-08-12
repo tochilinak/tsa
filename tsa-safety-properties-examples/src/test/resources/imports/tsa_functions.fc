@@ -35,6 +35,10 @@ forall A -> () tsa_fetch_value(A value, int value_id) impure method_id(5) {
     ;; do nothing
 }
 
+() tsa_send_internal_message(int contract_id, int input_id) impure method_id(6) {
+    ;; do nothing
+}
+
 ;; making symbolic values API functions
 
 int tsa_mk_int(int bits, int signed) impure method_id(100) {

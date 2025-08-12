@@ -189,6 +189,7 @@ private fun performAnalysisInterContract(
     inputInfo: TvmInputInfo,
     analysisOptions: AnalysisOptions,
     turnOnTLBParsingChecks: Boolean,
+    useRecvInternalInput: Boolean,
 ): TvmSymbolicTestSuite {
     val options = if (interContractSchemePath != null) {
         TvmOptions(
@@ -196,6 +197,7 @@ private fun performAnalysisInterContract(
             quietMode = true,
             analyzeBouncedMessaged = analysisOptions.analyzeBouncedMessages,
             timeout = analysisOptions.timeout?.seconds ?: INFINITE,
+            useRecvInternalInput = useRecvInternalInput,
             intercontractOptions = IntercontractOptions(communicationScheme = interContractSchemePath.extractIntercontractScheme()),
             enableOutMessageAnalysis = true,
         )
@@ -205,6 +207,7 @@ private fun performAnalysisInterContract(
             quietMode = true,
             analyzeBouncedMessaged = analysisOptions.analyzeBouncedMessages,
             timeout = analysisOptions.timeout?.seconds ?: INFINITE,
+            useRecvInternalInput = useRecvInternalInput,
         )
     }
 
@@ -503,6 +506,7 @@ class CheckerAnalysis : CliktCommand(
             inputInfo = inputInfo,
             analysisOptions = analysisOptions,
             turnOnTLBParsingChecks = false,
+            useRecvInternalInput = false,
         )
 
         val sarifReport = result.toSarifReport(
@@ -586,6 +590,7 @@ class InterContractAnalysis : CliktCommand(
             inputInfo = TvmInputInfo(), // TODO: support TL-B
             analysisOptions = analysisOptions,
             turnOnTLBParsingChecks = false,
+            useRecvInternalInput = true,
         )
 
         val sarifReport = result.toSarifReport(

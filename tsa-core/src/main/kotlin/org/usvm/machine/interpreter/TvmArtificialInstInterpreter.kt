@@ -1,6 +1,7 @@
 package org.usvm.machine.interpreter
 
 import org.ton.bytecode.TsaArtificialActionPhaseInst
+import org.ton.bytecode.TsaArtificialCheckerReturn
 import org.ton.bytecode.TsaArtificialExecuteContInst
 import org.ton.bytecode.TsaArtificialExitInst
 import org.ton.bytecode.TsaArtificialImplicitRetInst
@@ -40,6 +41,7 @@ class TvmArtificialInstInterpreter(
     val ctx: TvmContext,
     private val contractsCode: List<TsaContractCode>,
     private val transactionInterpreter: TvmTransactionInterpreter,
+    private val checkerFunctionsInterpreter: TsaCheckerFunctionsInterpreter,
 ) {
     fun visit(scope: TvmStepScopeManager, stmt: TvmArtificialInst) {
         check(stmt is TsaArtificialInst) {
@@ -74,6 +76,11 @@ class TvmArtificialInstInterpreter(
                 scope.consumeDefaultGas(stmt)
 
                 visitExitInst(scope, stmt)
+            }
+            is TsaArtificialCheckerReturn -> {
+                scope.consumeDefaultGas(stmt)
+
+                checkerFunctionsInterpreter.checkerReturn(scope, stmt)
             }
         }
     }
@@ -136,7 +143,13 @@ class TvmArtificialInstInterpreter(
             val prevStack = stack
             // Update current contract to the next contract
             currentContract = nextContract
-            val newMemory = initializeContractExecutionMemory(contractsCode, this, currentContract, allowInputStackValues = false)
+            val newMemory = initializeContractExecutionMemory(
+                contractsCode,
+                this,
+                currentContract,
+                allowInputStackValues = false,
+                newMsgValue = message.msgValue,
+            )
             stack = newMemory.stack
             stack.copyInputValues(prevStack)
             registersOfCurrentContract = newMemory.registers

@@ -106,24 +106,23 @@ class TvmTestStateResolver(
         state.pathConstraints.constraints(constraintVisitor).toList()
     }
 
+    private fun resolveRecvInternalInput(input: RecvInternalInput): TvmTestInput.RecvInternalInput =
+        TvmTestInput.RecvInternalInput(
+            srcAddress = resolveSlice(input.srcAddressSlice),
+            msgValue = resolveInt257(input.msgValue),
+            msgBody = resolveSlice(input.msgBodySliceMaybeBounced),
+            bounce = resolveBool(input.bounce),
+            bounced = resolveBool(input.bounced),
+            ihrDisabled = resolveBool(input.ihrDisabled),
+            ihrFee = resolveInt257(input.ihrFee),
+            fwdFee = resolveInt257(input.fwdFee),
+            createdLt = resolveInt257(input.createdLt),
+            createdAt = resolveInt257(input.createdAt),
+        )
+
     fun resolveInput(): TvmTestInput = when (val input = state.input) {
-        is TvmStateStackInput -> {
-            TvmTestInput.StackInput(resolveStackInput())
-        }
-        is RecvInternalInput -> {
-            TvmTestInput.RecvInternalInput(
-                srcAddress = resolveSlice(input.srcAddress),
-                msgValue = resolveInt257(input.msgValue),
-                msgBody = resolveSlice(input.msgBodySliceMaybeBounced),
-                bounce = resolveBool(input.bounce),
-                bounced = resolveBool(input.bounced),
-                ihrDisabled = resolveBool(input.ihrDisabled),
-                ihrFee = resolveInt257(input.ihrFee),
-                fwdFee = resolveInt257(input.fwdFee),
-                createdLt = resolveInt257(input.createdLt),
-                createdAt = resolveInt257(input.createdAt),
-            )
-        }
+        is TvmStateStackInput -> TvmTestInput.StackInput(resolveStackInput())
+        is RecvInternalInput -> resolveRecvInternalInput(input)
     }
 
     private fun resolveBool(boolExpr: UBoolExpr): Boolean = model.eval(boolExpr).isTrue
@@ -141,45 +140,54 @@ class TvmTestStateResolver(
         key to resolveCell(value.persistentData)
     }
 
-    fun resolveRootData(): TvmTestCellValue = resolveCell(state.rootInitialData.persistentData)
-
     fun resolveConfig(): TvmTestDictCellValue {
-        val config = getContractParam(CONFIG_PARAMETER_IDX)
+        val config = getInitialRootContractParam(CONFIG_PARAMETER_IDX)
 
         return (resolveStackValue(config) as? TvmTestDictCellValue)
             ?: error("Unexpected config type")
     }
 
     fun resolveContractAddress(): TvmTestDataCellValue {
-        val address = getContractParam(ADDRESS_PARAMETER_IDX)
+        val address = getInitialRootContractParam(ADDRESS_PARAMETER_IDX)
 
         return (resolveStackValue(address) as? TvmTestDataCellValue)
             ?: error("Unexpected address type")
     }
 
-    fun resolveInitialContractBalance(): TvmTestIntegerValue {
-        val balance = getContractParam(BALANCE_PARAMETER_IDX).tupleValue
+    fun resolveInitialContractState(contract: ContractId): TvmContractState {
+        val balance = getInitialContractParam(contract, BALANCE_PARAMETER_IDX).tupleValue
             ?.get(0, stack)?.cell(stack)
             ?: error("Unexpected contract balance")
 
         val c7Balance = (resolveStackValue(balance) as? TvmTestIntegerValue)
             ?: error("Unexpected balance type")
 
-        return when (val input = resolveInput()) {
-            is TvmTestInput.RecvInternalInput -> TvmTestIntegerValue(c7Balance.value - input.msgValue.value)
-            is TvmTestInput.StackInput -> c7Balance
-        }
+        val symbolicData = state.contractIdToInitialData[contract]
+            ?: error("Contract $contract initial data not found")
+
+        val data = resolveCell(symbolicData.persistentData)
+
+        return TvmContractState(data, c7Balance)
     }
 
     fun resolveTime(): TvmTestIntegerValue {
-        val now = getContractParam(TIME_PARAMETER_IDX)
+        val now = getInitialRootContractParam(TIME_PARAMETER_IDX)
 
         return (resolveStackValue(now) as? TvmTestIntegerValue)
             ?: error("Unexpected address type")
     }
 
-    private fun getContractParam(idx: Int): TvmStackValue {
+    private fun getInitialRootContractParam(idx: Int): TvmStackValue {
         val value = state.rootInitialData.firstElementOfC7[idx, stack]
+
+        return value.cell(stack)
+            ?: error("Unexpected $idx parameter value: $value")
+    }
+
+    private fun getInitialContractParam(contract: ContractId, idx: Int): TvmStackValue {
+        val initialData = state.contractIdToInitialData[contract]
+            ?: error("Contract $contract not found")
+        val value = initialData.firstElementOfC7[idx, stack]
 
         return value.cell(stack)
             ?: error("Unexpected $idx parameter value: $value")
@@ -216,6 +224,11 @@ class TvmTestStateResolver(
                 fullMessage = resolveCell(message.fullMsgCell),
                 bodySlice = resolveSlice(message.msgBodySlice),
             )
+        }
+
+    fun resolveAdditionalInputs(): Map<Int, TvmTestInput.RecvInternalInput> =
+        state.additionalInputs.entries.associate { (inputId, symbolicInput) ->
+            inputId to resolveRecvInternalInput(symbolicInput)
         }
 
     private fun resolveTvmStructuralError(

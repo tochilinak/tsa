@@ -1,6 +1,7 @@
 package org.ton.bytecode
 
 import kotlinx.serialization.Serializable
+import org.usvm.machine.interpreter.TsaCheckerFunctionsInterpreter
 import org.usvm.machine.state.TvmMethodResult
 
 sealed interface TsaArtificialInst : TvmArtificialInst
@@ -81,4 +82,11 @@ class TsaArtificialExecuteContInst(
     init {
         checkLocationInitialized()
     }
+}
+
+class TsaArtificialCheckerReturn(
+    override val location: TvmInstLocation,
+    val checkerMemorySavelist: TsaCheckerFunctionsInterpreter.CheckerMemorySavelist,
+) : TsaArtificialInst {
+    override val mnemonic: String get() = "artificial_checker_return"
 }

@@ -1,11 +1,14 @@
 package org.usvm.machine.state
 
+import org.ton.bytecode.TsaArtificialCheckerReturn
 import org.ton.bytecode.TvmAgainContinuation
 import org.ton.bytecode.TsaArtificialJmpToContInst
 import org.ton.bytecode.TvmCellValue
 import org.ton.bytecode.TvmContinuation
 import org.ton.bytecode.TvmExceptionContinuation
 import org.ton.bytecode.TvmInst
+import org.ton.bytecode.TvmInstLambdaLocation
+import org.ton.bytecode.TvmLambda
 import org.ton.bytecode.TvmLoopEntranceContinuation
 import org.ton.bytecode.TvmMethod
 import org.ton.bytecode.TvmMethodReturnContinuation
@@ -18,6 +21,7 @@ import org.ton.bytecode.TvmWhileContinuation
 import org.usvm.UHeapRef
 import org.usvm.machine.TvmStepScopeManager
 import org.usvm.machine.extractMethodIdOrNull
+import org.usvm.machine.interpreter.TsaCheckerFunctionsInterpreter
 import org.usvm.machine.state.TvmStack.TvmStackTupleValue
 import org.usvm.machine.state.TvmStack.TvmStackTupleValueConcreteNew
 import org.usvm.utils.intValueOrNull
@@ -59,6 +63,7 @@ fun TvmState.extractCurrentContinuation(
 fun TvmStepScopeManager.callMethod(
     stmt: TvmInst,
     methodToCall: TvmMethod,
+    checkerMemorySavelist: TsaCheckerFunctionsInterpreter.CheckerMemorySavelist? = null,
 ) {
     val nextContinuation = TvmOrdContinuation(methodToCall, sourceCell = null)
 
@@ -68,7 +73,19 @@ fun TvmStepScopeManager.callMethod(
             savelist = TvmRegisterSavelist(registersOfCurrentContract.c0),
             sourceCell = null,
         )
-        val wrappedRet = TvmMethodReturnContinuation(methodToCall.id, retCont)
+        val wrappedRet = if (checkerMemorySavelist != null) {
+            val location = TvmInstLambdaLocation(0)
+            location.parent = stmt.location
+            val lambda = TvmLambda(mutableListOf(TsaArtificialCheckerReturn(location, checkerMemorySavelist)))
+            val wrappedCont = TvmOrdContinuation(
+                stmt = lambda.instList.first(),
+                savelist = TvmRegisterSavelist(C0Register(retCont)),
+                sourceCell = null,
+            )
+            TvmMethodReturnContinuation(methodToCall.id, wrappedCont)
+        } else {
+            TvmMethodReturnContinuation(methodToCall.id, retCont)
+        }
         registersOfCurrentContract.c0 = C0Register(wrappedRet)
 
         callStack.push(methodToCall, returnSite = stmt)

@@ -1,11 +1,15 @@
 package org.usvm.machine.types
 
 import org.ton.TlbCompositeLabel
+import org.ton.TlbFullMsgAddrLabel
 import org.ton.TvmParameterInfo
 import org.usvm.UBoolExpr
 import org.usvm.UConcreteHeapRef
+import org.usvm.api.readField
 import org.usvm.isAllocated
+import org.usvm.isStatic
 import org.usvm.isTrue
+import org.usvm.machine.TvmContext
 import org.usvm.machine.state.TvmState
 import org.usvm.machine.state.readCellRef
 import org.usvm.machine.types.dp.CalculatedTlbLabelInfo
@@ -20,7 +24,7 @@ class TvmAddressToLabelMapper(
 ) {
     private val inputAddressToLabels = hashMapOf<UConcreteHeapRef, LabelInfo>()
     private val grandchildrenOfAddressInitialized = hashSetOf<UConcreteHeapRef>()
-    private val initialAddresses = hashSetOf<UConcreteHeapRef>()  // will be set during init
+    private val initialRefs = hashSetOf<UConcreteHeapRef>()  // will be set during init
     private val proactiveConstraintsCalculatedFor = hashSetOf<UConcreteHeapRef>()
     private val builderLabels = hashMapOf<UConcreteHeapRef, TlbStructureBuilder>()
     private val allocatedAddressToCellInfo = hashMapOf<UConcreteHeapRef, TvmParameterInfo.CellInfo>()
@@ -146,9 +150,12 @@ class TvmAddressToLabelMapper(
     private fun generateProactiveStructuralConstraints(
         state: TvmState,
         ref: UConcreteHeapRef,
+        checkThatConstraintWasCalculatedOnce: Boolean = true,
     ): UBoolExpr {
-        check(ref !in proactiveConstraintsCalculatedFor) {
-            "Proactive structural constraints must be calculated for each address only once"
+        if (checkThatConstraintWasCalculatedOnce) {
+            check(ref !in proactiveConstraintsCalculatedFor) {
+                "Proactive structural constraints must be calculated for each address only once"
+            }
         }
         proactiveConstraintsCalculatedFor.add(ref)
 
@@ -212,7 +219,7 @@ class TvmAddressToLabelMapper(
     }
 
     fun getInitialStructuralConstraints(initialState: TvmState): UBoolExpr =
-        initialAddresses.fold(initialState.ctx.trueExpr as UBoolExpr) { acc, ref ->
+        initialRefs.fold(initialState.ctx.trueExpr as UBoolExpr) { acc, ref ->
             val constraint = generateProactiveStructuralConstraints(initialState, ref)
             initialState.ctx.mkAnd(acc, constraint)
         }
@@ -243,11 +250,27 @@ class TvmAddressToLabelMapper(
 
     fun sliceIsAddress(slice: UConcreteHeapRef): Boolean = slice in addressSlices
 
+    fun addAddressSliceAndGenerateConstraint(state: TvmState, slice: UConcreteHeapRef): UBoolExpr = with(state.ctx) {
+        addAddressSlice(slice)
+
+        val cellRef = state.memory.readField(slice, TvmContext.sliceCellField, addressSort) as UConcreteHeapRef
+        check(cellRef.isStatic) {
+            "Unexpected cell ref: $cellRef"
+        }
+
+        inputAddressToLabels[cellRef] =
+            LabelInfo(mapOf(TvmParameterInfo.DataCellInfo(TlbFullMsgAddrLabel) to ctx.trueExpr))
+
+        // no need to generate label info for children because addresses have no children
+
+        generateProactiveStructuralConstraints(state, cellRef, checkThatConstraintWasCalculatedOnce = false)
+    }
+
     init {
-        inputInfo.cellToInfo.forEach { (address, cellInfo) ->
-            inputAddressToLabels[address] = LabelInfo(mapOf(cellInfo to ctx.trueExpr))
-            initialAddresses.add(address)
-            generateLabelInfoForChildren(state, address)
+        inputInfo.cellToInfo.forEach { (ref, cellInfo) ->
+            inputAddressToLabels[ref] = LabelInfo(mapOf(cellInfo to ctx.trueExpr))
+            initialRefs.add(ref)
+            generateLabelInfoForChildren(state, ref)
         }
         val emptyBuilder = state.emptyRefValue.emptyBuilder
         addTlbBuilder(emptyBuilder, TlbStructureBuilder.empty)
