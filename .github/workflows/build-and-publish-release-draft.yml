@@ -19,9 +19,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: "Verify tag doesn't exist"
         run: |
+          git fetch --tags
+
           if git rev-parse ${{ inputs.version }} >/dev/null 2>&1; then
             echo "::error::Tag ${{ inputs.version }} already exists in repository!"
             exit 1
