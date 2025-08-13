@@ -23,8 +23,6 @@ jobs:
 
       - name: "Verify tag doesn't exist"
         run: |
-          git fetch --tags
-
           if git rev-parse ${{ inputs.version }} >/dev/null 2>&1; then
             echo "::error::Tag ${{ inputs.version }} already exists in repository!"
             exit 1
@@ -45,9 +43,10 @@ jobs:
           file: tsa-cli/build/libs/tsa-cli.jar
 
       - name: 'Make release draft'
-        uses: svenstaro/upload-release-action@v2
+        uses: softprops/action-gh-release@v1
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ inputs.version }}
           draft: true
           prerelease: true
+          tag_name: ${{ inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
