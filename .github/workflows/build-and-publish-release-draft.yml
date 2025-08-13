@@ -40,5 +40,6 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ inputs.version }}
-          file: |
-            **/build/libs/tsa-cli.jar
+          draft: true
+          prerelease: true
+          file: tsa-cli/build/libs/tsa-cli.jar
