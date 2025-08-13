@@ -20,6 +20,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: "Verify tag doesn't exist"
+        run: |
+          if git rev-parse ${{ inputs.version }} >/dev/null 2>&1; then
+            echo "::error::Tag ${{ inputs.version }} already exists in repository!"
+            exit 1
+          fi
+
       - name: 'Assemble'
         run: ./gradlew clean assemble
 
@@ -28,7 +35,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ inputs.version }}
-          draft: true
+          # draft: true
           # prerelease: true
           release_name: ${{ inputs.version }}
           body: Automated draft release
