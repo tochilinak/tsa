@@ -22,7 +22,8 @@ jobs:
       - name: Set SHA output
         id: sha
         run: |
-          echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "sha_full=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: 'Assemble'
         run: ./gradlew clean assemble
@@ -33,6 +34,6 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
           prerelease: true
-          release_name: Build for ${{ steps.sha.outputs.SHA }}
-          body: Automated draft release
+          release_name: Build for ${{ steps.sha.outputs.sha_short }}
+          body: Automated draft release for commit sha_full
           file: tsa-cli/build/libs/tsa-cli.jar
