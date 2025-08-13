@@ -40,5 +40,5 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ inputs.version }}
-          files: |
+          file: |
             **/build/libs/tsa-cli.jar
