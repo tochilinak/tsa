@@ -27,11 +27,17 @@ jobs:
       - name: 'Assemble'
         run: ./gradlew clean assemble
 
+      - name: Get commit hash
+        id: get-commit
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: 'Create draft release'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          name: Release ${{ github.ref_name }}
+          name: "Build ${{ steps.get-commit.outputs.sha_short }}"
+          body: "Automated release for commit ${{ steps.get-commit.outputs.sha_short }}"
           files: |
             **/build/libs/tsa-cli.jar
 
