@@ -20,30 +20,25 @@ jobs:
         with:
           submodules: recursive
 
-#        We don't need to setup Java because it is manually installed in the Docker image
-#      - uses: actions/setup-java@v4
-#        with:
-#          distribution: 'temurin'
-#          java-version: '17'
-#          cache: 'gradle'
-
-      - name: 'Create Git tag'
-        run: |
-          git tag ${{ inputs.version }}
-          git push origin ${{ inputs.version }}
+      - name: 'Create draft release'
+        id: create_release
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ inputs.version }}
+          release_name: ${{ inputs.version }}
+          body: "Automated draft release"
+          draft: true
+          prerelease: true
 
       - name: 'Assemble'
         run: ./gradlew clean assemble
 
-      - name: 'Create draft release'
-        uses: softprops/action-gh-release@v1
+      - name: 'Upload artifacts to release'
+        uses: svenstaro/upload-release-action@v2
         with:
-          draft: true
-          tag_name: ${{ inputs.version }}
-          name: "${{ inputs.version }}"
-          body: "Automated draft release"
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ inputs.version }}
           files: |
             **/build/libs/tsa-cli.jar
-
