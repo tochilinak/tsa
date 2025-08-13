@@ -1,10 +1,10 @@
-name: Build and Run Tests
+name: Build and draft release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version
+        description: Release tag
         type: string
         required: true
 
@@ -26,6 +26,13 @@ jobs:
 #          distribution: 'temurin'
 #          java-version: '17'
 #          cache: 'gradle'
+
+      - name: 'Create Git tag'
+        run: |
+          git tag ${{ inputs.version }}
+          git push origin ${{ inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Assemble'
         run: ./gradlew clean assemble
