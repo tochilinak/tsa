@@ -1,13 +1,16 @@
 name: Build and Run Tests
 
 on:
-  push:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release version
+        type: string
+        required: true
 
 jobs:
-  run-tests:
-    name: 'Build'
+  build:
+    name: 'Build and draft release'
     runs-on: ubuntu-22.04
     container: explyt/tsa-env:v1.1.3
 
@@ -31,8 +34,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          name: "Build ${{ github.sha }}"
-          body: "Automated release for commit ${{ github.sha }}"
+          tag_name: ${{ inputs.version }}
+          name: "${{ inputs.version }}"
+          body: "Automated draft release"
           files: |
             **/build/libs/tsa-cli.jar
 
