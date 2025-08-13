@@ -32,6 +32,6 @@ jobs:
         with:
           draft: true
           name: Release ${{ github.ref_name }}
-          files:
+          files: |
             **/build/libs/tsa-cli.jar
 
