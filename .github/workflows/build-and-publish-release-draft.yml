@@ -29,7 +29,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ inputs.version }}
           draft: true
-          prerelease: true
+          # prerelease: true
           release_name: ${{ inputs.version }}
           body: Automated draft release
           file: tsa-cli/build/libs/tsa-cli.jar
