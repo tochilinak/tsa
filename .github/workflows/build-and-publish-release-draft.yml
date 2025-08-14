@@ -16,8 +16,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Fix Git ownership
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: 'Add git path to trusted'
+        run: |
+          git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Set SHA output
         id: sha
