@@ -29,12 +29,12 @@ jobs:
       - name: 'Assemble'
         run: ./gradlew clean assemble
 
-       - name: 'Create draft release'
+      - name: 'Create draft release'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           prerelese: true
           name: Build for ${{ steps.sha.outputs.sha_short }}
           body: Automated draft release for commit ${{ steps.sha.outputs.sha_full }}
-          files:
+          files: |
             **/build/libs/tsa-cli.jar
