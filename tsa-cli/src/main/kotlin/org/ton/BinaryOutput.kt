@@ -30,7 +30,7 @@ fun TvmTestCellValue.toCellAsFileContent(): CellAsFileContent {
     val bocBinary = BagOfCells(cell).toByteArray()
     val bocHex = bocBinary.toHexString()
     val bocBase64 = bocBinary.encodeBase64()
-    val cellReads = toPrettyYaml()
+    val cellReads = "" // toPrettyYaml()
     return CellAsFileContent(
         cellText,
         bocBinary,
